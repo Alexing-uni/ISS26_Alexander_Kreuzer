@@ -23,6 +23,7 @@ dependencies {
     implementation name: '2p301'
     implementation name: 'unibo.basicomm23-1.0'
     testImplementation 'junit:junit:4.13.2'
+    implementation 'com.googlecode.json-simple:json-simple:1.1.1'
 
 }
 
