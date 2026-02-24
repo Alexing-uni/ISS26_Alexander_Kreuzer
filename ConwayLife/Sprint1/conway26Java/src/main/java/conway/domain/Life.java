@@ -152,4 +152,13 @@ public class Life implements LifeInterface{
 	        })
 	        .collect(Collectors.joining("\n")); // Uniamo le righe con un a capo
 	}
+	
+	@Override
+    public void clear() {
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                currentGrid[r][c] = false;
+            }
+        }
+    }
 }

@@ -16,4 +16,7 @@ public interface LifeInterface {
     
     /** Restituisce una rappresentazione grafica testuale della grglia*/
     public String gridRep( );
+    
+    //new
+    void clear();
 }
