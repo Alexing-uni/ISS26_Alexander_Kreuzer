@@ -52,6 +52,37 @@
 consideriamo questo progetto come lo <em>Sprint1</em>
 per la costruzione incrementale ed evolutiva di un prodotto software.</p>
 <p>Si veda <a class="reference external" href="_static/docs/Protobook.pdf#chapter.6">GAME OF LIFE DI CONWAY</a></p>
+<p><strong>Premessa</strong></p>
+<p>Si suppone di avere definito un sito GIT che contiene solo <a class="reference internal" href="#il-file-readme-md"><span class="std std-ref">Il file README.md</span></a>
+e di avere clonato questo sito entro una directory di lavoro (es. <strong>iss2026</strong>)
+sul nostro PC.</p>
+<section id="il-file-readme-md">
+<h2>Il file README.md<a class="headerlink" href="#il-file-readme-md" title="Permalink to this heading">¶</a></h2>
+<p>Il file <strong>README.md</strong> di un sito GIT è molto più di un semplice file di testo:
+è il biglietto da visita e lo strumento di marketing delle nostre attività.</p>
+<p>Inoltre potrebbe fornire indicazioni utili come manuale d’uso delle applicazioni.</p>
+<p>Il file deve essere scritto usando il <a class="reference external" href="https://it.wikipedia.org/wiki/Markdown">Linguaggio Markdown</a>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span># issLab2026
+ Laboratorio di &lt;b&gt;Ingegneria dei Sistemi Software&lt;/b&gt; a.a. 2025/2026 di Cognome Nome Matricola
+
+ [Testo di riferimento:](https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf)
+ &lt;!-- comment: [ancora personalizzata] --&gt;
+
+ &lt;h2 id=&quot;ParteA&quot;&gt;Parte A: Dai programmi ai Sistemi a Microservizi&lt;/h2&gt;
+
+ ### Sistema ConwayLife in locale
+ [Riferimento: conway26Java Dai requisiti al deployment](https://anatali.github.io/issLab2026/Project%20conway26Java.html#conway26java-dai-requisiti-al-deployment)
+ * [ConwayLife Sprint1](ConwayLife/Sprint1/conway26Java): impostazione di un primo prototipo
+   in Java con dispositivi Mock di I/O. &lt;i&gt;Distribuzione&lt;/i&gt;: file jar.
+ * [ConwayLife Sprint2](ConwayLife/Sprint2/conway26Java): &lt;b&gt;evoluzione&lt;/b&gt; del primo prototipo
+   con un dispositivo di output realizzato in Swing. &lt;i&gt;Distribuzione&lt;/i&gt;: file jar
+ ### Sistemi come servizi
+ * ...
+ ### Sistema ConwayLife con pagine HTML
+ * [ConwayLife Sprint3(ConwayLife/Sprint3/conway26Java): evoluzione del sistema in locale
+   usando una pagina HTML come dispositivo di I/O. &lt;i&gt;Distribuzione&lt;/i&gt;: Docker yaml.
+</pre></div>
+</div>
 <p><strong>Creiamo il progetto e impostiamo in Eclipse</strong></p>
 <table class="docutils align-default" style="width: 100%">
 <colgroup>
@@ -64,7 +95,7 @@ per la costruzione incrementale ed evolutiva di un prodotto software.</p>
 </td>
 <td><p>Inizializzazione</p>
 <ul class="simple">
-<li><p>definiamo una directory di lavoro (es. <strong>iss2026</strong>)</p></li>
+<li><p>operiamo nella directory di lavoro <strong>iss2026</strong></p></li>
 <li><p>copiamo in questa la directory <strong>unibolibs</strong> (dal sito del corso)</p></li>
 <li><p>creiamo la subdirectory <strong>iss2026/conway26Java</strong></p></li>
 <li><p>nella directory <strong>iss2026/conway26Java</strong> eseguire: <code class="docutils literal notranslate"><span class="pre">gradle</span> <span class="pre">init</span> <span class="pre">1</span> <span class="pre">2</span> <span class="pre">-</span> <span class="pre">-</span></code></p></li>
@@ -120,6 +151,7 @@ specificate in <a class="reference internal" href="#build-gradle-e-main-di-conwa
 <li><p>aggiungiamo procedure di testing</p></li>
 </ul>
 </div></blockquote>
+</section>
 <section id="build-gradle-e-main-di-conway26java">
 <h2>build.gradle e Main di conway26Java<a class="headerlink" href="#build-gradle-e-main-di-conway26java" title="Permalink to this heading">¶</a></h2>
 <table class="docutils align-default" style="width: 100%">
@@ -195,41 +227,13 @@ fare testing.</p>
 </tbody>
 </table>
 </section>
-<section id="il-file-readme-md">
-<h2>Il file README.md<a class="headerlink" href="#il-file-readme-md" title="Permalink to this heading">¶</a></h2>
-<p>Il file <strong>README.md</strong> di un sito GIT è molto più di un semplice file di testo:
-è il biglietto da visita e lo strumento di marketing delle nostre attività.</p>
-<p>Inoltre potrebbe fornire indicazioni utili come manuale d’uso delle applicazioni.</p>
-<p>Il file deve essere scritto usando il <a class="reference external" href="https://it.wikipedia.org/wiki/Markdown">Linguaggio Markdown</a>.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span># issLab2026
- Laboratorio di &lt;b&gt;Ingegneria dei Sistemi Software&lt;/b&gt; a.a. 2025/2026 di Cognome Nome Matricola
-
- [Testo di riferimento:](https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf)
- &lt;!-- comment: [ancora personalizzata] --&gt;
-
- &lt;h2 id=&quot;ParteA&quot;&gt;Parte A: Dai programmi ai Sistemi a Microservizi&lt;/h2&gt;
-
- ### Sistema ConwayLife in locale
- [Riferimento: conway26Java Dai requisiti al deployment](https://anatali.github.io/issLab2026/Project%20conway26Java.html#conway26java-dai-requisiti-al-deployment)
- * [ConwayLife Sprint1](ConwayLife/Sprint1/conway26Java): impostazione di un primo prototipo
-   in Java con dispositivi Mock di I/O. &lt;i&gt;Distribuzione&lt;/i&gt;: file jar.
- * [ConwayLife Sprint2](ConwayLife/Sprint2/conway26Java): &lt;b&gt;evoluzione&lt;/b&gt; del primo prototipo
-   con un dispositivo di output realizzato in Swing. &lt;i&gt;Distribuzione&lt;/i&gt;: file jar
- ### Sistemi come servizi
- * ...
- ### Sistema ConwayLife con pagine HTML
- * [ConwayLife Sprint3(ConwayLife/Sprint3/conway26Java): evoluzione del sistema in locale
-   usando una pagina HTML come dispositivo di I/O. &lt;i&gt;Distribuzione&lt;/i&gt;: Docker yaml.
-</pre></div>
-</div>
-</section>
 </section>
 <section id="conway26java-dai-requisiti-al-deployment">
 <h1>conway26Java Dai requisiti al deployment<a class="headerlink" href="#conway26java-dai-requisiti-al-deployment" title="Permalink to this heading">¶</a></h1>
 <p><a class="reference external" href="_static/docs/Protobook.pdf#subsection.5.10.1">Il nostro metodo di lavoro</a> impone che si debba partire dai requisiti,
 che il committente ha specificato come segue:</p>
 <section id="conway26java-requirements">
-<span id="id2"></span><h2>conway26Java-Requirements<a class="headerlink" href="#conway26java-requirements" title="Permalink to this heading">¶</a></h2>
+<h2>conway26Java-Requirements<a class="headerlink" href="#conway26java-requirements" title="Permalink to this heading">¶</a></h2>
 <ol class="arabic simple">
 <li><p>Realizzare una versione in Java del gioco <strong>Life</strong> di Conway, come gioco zero-player.
 Il gioco consiste nell’introdurre una <strong>Griglia</strong> di <strong>Celle</strong>
@@ -263,7 +267,7 @@ Lo riportiamo qui sotto, come <strong>prodotto della analisi del problema</stron
 ritenendo adeguato che questi enti siano realizzati in software come <a class="reference external" href="_static/docs/Protobook.pdf#subsection.5.2.1">POJO</a>.</p></li>
 <li><p>Le <a class="reference external" href="_static/docs/Protobook.pdf#chapter.6">regole di Conway</a> sono il ‘core business’ applicativo e
 fanno riferimento a Grid. La specifica di queste regole è affidata a un altro  POJO, istanza di una classe <strong>Life</strong>.</p></li>
-<li><p>Il gico è zero-player, ma deve essere controllato dall’utente attraverso dispostivi di I/O. Come analisit, non
+<li><p>Il gico è zero-player, ma deve essere controllato dall’utente attraverso dispostivi di I/O. Come analisti, non
 riteniamo che questo compito sia responsabilità di nessuna delle classi precedenti, per cui si ritiene necessario
 introdurre un nuovo POJO, di classe <strong>LifeController</strong></p></li>
 <li><p>I dispositivi di I/O potrebbero essere i più diversi. Occorre rendere <em>LifeController</em> indipendente dai
@@ -271,7 +275,7 @@ dettagli tecnologici dell’I/O definiìendo opportuni <strong>contratti</strong
 che i dispostivi dovrenno rispettare.</p></li>
 </ol>
 <section id="conway26java-architetturalogica">
-<span id="id3"></span><h3>conway26Java-ArchitetturaLogica<a class="headerlink" href="#conway26java-architetturalogica" title="Permalink to this heading">¶</a></h3>
+<h3>conway26Java-ArchitetturaLogica<a class="headerlink" href="#conway26java-architetturalogica" title="Permalink to this heading">¶</a></h3>
 <blockquote>
 <div><a class="reference internal image-reference" href="_images/LifeGameJava+.jpg"><img alt="_images/LifeGameJava+.jpg" class="align-center" src="_images/LifeGameJava+.jpg" style="width: 55%;" /></a>
 </div></blockquote>
@@ -286,7 +290,7 @@ in modo tale che la <em>parte proattiva</em> del gioco sia indipendente dalle pa
 che realizzano l’input-output di interazione con l’utente umano
 e dai dettagli tecnologici di realizzazione dei dispositivi di I/O.</p></li>
 <li><p>imposta il sistema software in modo molto diverso (e <strong>migliore</strong>) da come si presenta nel codice
-(iispirato al  <a class="reference external" href="_static/docs/Protobook.pdf#subsection.4.6.3">Paradigma Funzionale</a> )
+(ispirato al  <a class="reference external" href="_static/docs/Protobook.pdf#subsection.4.6.3">Paradigma Funzionale</a> )
 <a class="reference external" href="_static/ConwayLife.py">ConwayLife.py</a>
 proposto dalla AI, come detto nel <a class="reference external" href="_static/docs/Protobook.pdf#chapter.1">preludio</a></p>
 <div class="admonition-perche-migliore admonition">
@@ -458,7 +462,7 @@ booolean o di integer.</p>
 <p>La procedura di testing <a class="reference internal" href="#conway26java-testoscilla"><span class="std std-ref">conway26Java-testOscilla</span></a> è più aderente a questa impostazione
 in quanto passa al costruttore di <em>Life</em> il numero
 di righe e colonne, lasciando alla classe la responsabilità
-(e l’ooportunità) di definire la griglia come crede.</p>
+(e l’opportunità) di definire la griglia come crede.</p>
 <p>Si potrebbe anche pensare (con riferimento ai
 <a class="reference external" href="_static/docs/Protobook.pdf#subsection.5.6.1">design patterns</a>) di introdurre
 un <a class="reference external" href="https://it.wikipedia.org/wiki/Factory_method">Factory method</a> in cui le dimensioni della griglia possono essere:</p>
@@ -467,14 +471,34 @@ un <a class="reference external" href="https://it.wikipedia.org/wiki/Factory_met
 <li><p>lette da un file di configurazione</p></li>
 <li><p>passate come parametri al metodo</p></li>
 </ul>
+<section id="conway26java-coding">
+<h3>conway26Java-Coding<a class="headerlink" href="#conway26java-coding" title="Permalink to this heading">¶</a></h3>
 <p>Il <strong>passaggio dal modello al codice</strong> richiede che quanto definito dall’analista sia
 ben compreso dal progettista e che questi lo traduca in codice in modo confacente alla specifica.</p>
 <p>Anche in questa fase, la AI può aiutare: si veda <a class="reference internal" href="conway26Java-Chiesto%20a%20Gemini.html#id1"><span class="std std-ref">conway26Java-Chiesto a Gemini</span></a>.
 In pratica, utilizziamo la AI come un ‘generatore di codice’ <strong>guidato dal nostro modello</strong> di sistema
 e non semplicemente da quanto la AI trova in rete.</p>
+<div class="admonition-un-prompt-per-gemini admonition">
+<p class="admonition-title">Un prompt per Gemini</p>
+<p>La figura allegata vuole definire l’architettura logica di un sistema software che realizza
+il gioco Life di Conway. Vorrei che tu ricavassi i concetti importanti che si possono desumere
+da questo daigramma (in stile UML)</p>
+</div>
 <p><span class="slide3">— Uno schema per partire —</span></p>
+</section>
+<section id="uno-schema-per-partire">
+<h3>Uno schema per partire<a class="headerlink" href="#uno-schema-per-partire" title="Permalink to this heading">¶</a></h3>
 <p>Per agevolare questa transizione, è disponibile un workspace di riferimento nella cartella
-<a class="reference external" href="https://github.com/anatali/issLab2026/tree/main/ConwayLife">ConwayLifeProject</a> (in <a class="reference external" href="https://github.com/anatali/issLab2026/tree/main/ConwayLife/Sprint1/conway26Java">ConwayLifeSprint1</a>).</p>
+<a class="reference external" href="https://github.com/anatali/issLab2026/tree/main/ConwayLife">ConwayLifeProject</a> (in <a class="reference external" href="https://github.com/anatali/issLab2026/tree/main/ConwayLife/Sprint1/conway26Java">ConwayLifeSprint1</a>).
+Si noti che:</p>
+<ul class="simple">
+<li><p>sono definiti due package (<code class="docutils literal notranslate"><span class="pre">domain</span></code> e <code class="docutils literal notranslate"><span class="pre">devices</span></code>) per non mescolare il
+codice relativo al dominio e il codice relativo ai dispositivi di I/O.</p></li>
+<li><p>le interfacce <code class="docutils literal notranslate"><span class="pre">IOutDev.java</span></code> e <code class="docutils literal notranslate"><span class="pre">GameController.java</span></code> sono definite nel package
+<strong>domain</strong> per ribadire che sono i dispositivi che dovranno adattarsi alle esigenze
+del dominioe non viceversa</p></li>
+</ul>
+</section>
 <section id="conway26java-testreports">
 <h3>conway26Java-TestReports<a class="headerlink" href="#conway26java-testreports" title="Permalink to this heading">¶</a></h3>
 <p>Una volta definito il codice, le specifiche di testing possono essere eseguite come
@@ -487,15 +511,15 @@ per vedere il risultato del test</p></li>
 <section id="conway26java-javacodecoverage">
 <h3>conway26Java-JavaCodeCoverage<a class="headerlink" href="#conway26java-javacodecoverage" title="Permalink to this heading">¶</a></h3>
 <p>Aggingiamo nel file <em>build.gradle</em> il <strong>plugin JaCoCo</strong> e la configurazione del task <em>jacocoTestReport</em>:</p>
-<div class="highlight-java notranslate"><div class="highlight"><pre><span></span>jacocoTestReport {
-  dependsOn test // Il report viene generato solo dopo l&#39;esecuzione dei test
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">jacocoTestReport</span> <span class="p">{</span>
+  <span class="n">dependsOn</span> <span class="n">test</span> <span class="o">//</span> <span class="n">Il</span> <span class="n">report</span> <span class="n">viene</span> <span class="n">generato</span> <span class="n">solo</span> <span class="n">dopo</span> <span class="n">l</span><span class="s1">&#39;esecuzione dei test</span>
 
-  reports {
-      xml.required = false
-      csv.required = false
-      html.outputLocation = layout.buildDirectory.dir(&#39;reports/jacoco&#39;)
-  }
-}
+  <span class="n">reports</span> <span class="p">{</span>
+      <span class="n">xml</span><span class="o">.</span><span class="n">required</span> <span class="o">=</span> <span class="n">false</span>
+      <span class="n">csv</span><span class="o">.</span><span class="n">required</span> <span class="o">=</span> <span class="n">false</span>
+      <span class="n">html</span><span class="o">.</span><span class="n">outputLocation</span> <span class="o">=</span> <span class="n">layout</span><span class="o">.</span><span class="n">buildDirectory</span><span class="o">.</span><span class="n">dir</span><span class="p">(</span><span class="s1">&#39;reports/jacoco&#39;</span><span class="p">)</span>
+  <span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>Ora possiamo generare report che mostrano quali righe di codice sono state “visitate” dai test JUnit:</p>
@@ -547,8 +571,8 @@ un file “manifest” per definire la classe principale eseguibile.</p>
     <h3><a href="index.html">Table of Contents</a></h3>
     <ul>
 <li><a class="reference internal" href="#">Project conway26Java</a><ul>
-<li><a class="reference internal" href="#build-gradle-e-main-di-conway26java">build.gradle e Main di conway26Java</a></li>
 <li><a class="reference internal" href="#il-file-readme-md">Il file README.md</a></li>
+<li><a class="reference internal" href="#build-gradle-e-main-di-conway26java">build.gradle e Main di conway26Java</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#conway26java-dai-requisiti-al-deployment">conway26Java Dai requisiti al deployment</a><ul>
@@ -565,6 +589,8 @@ un file “manifest” per definire la classe principale eseguibile.</p>
 </li>
 <li><a class="reference internal" href="#conway26java-costruttori">conway26Java-Costruttori</a></li>
 <li><a class="reference internal" href="#conway26java-progettazione-realizzazione">conway26Java-Progettazione&amp;realizzazione</a><ul>
+<li><a class="reference internal" href="#conway26java-coding">conway26Java-Coding</a></li>
+<li><a class="reference internal" href="#uno-schema-per-partire">Uno schema per partire</a></li>
 <li><a class="reference internal" href="#conway26java-testreports">conway26Java-TestReports</a></li>
 <li><a class="reference internal" href="#conway26java-javacodecoverage">conway26Java-JavaCodeCoverage</a></li>
 <li><a class="reference internal" href="#conway26java-esecuzione">conway26Java-Esecuzione</a></li>
