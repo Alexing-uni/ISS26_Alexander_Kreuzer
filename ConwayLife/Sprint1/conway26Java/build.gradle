@@ -22,6 +22,7 @@ dependencies {
     implementation name: 'uniboInterfaces'
     implementation name: '2p301'
     implementation name: 'unibo.basicomm23-1.0'
+    testImplementation 'junit:junit:4.13.2'
 
 }
 
@@ -43,7 +44,7 @@ eclipse {
 application {
     //Define the main class for the application.
     //mainClassName    = 'conway26Java.HelloWorld'
-    mainClassName    = 'conway26Java.MainConwayLifeJava'
+    mainClassName    = 'main.java.conway.MainConwayLifeJava'
 }
 
 jar {
