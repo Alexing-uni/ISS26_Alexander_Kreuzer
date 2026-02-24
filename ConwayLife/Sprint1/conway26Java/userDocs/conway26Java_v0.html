@@ -1,17 +1,10 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 <head>
-
 <link rel="stylesheet" type="text/css" href="css/mystyle.css">
-<!--
-    <script type="text/javascript" src="../css/issStyle.js"></script>
--->
-    
+<title>conway26Java_v0</title>
 </head>
-   
-<title>conway26Java_v0</title></head>
     
-
 <body>
 <div id="top">
 <h1>ConwayLife Sprint1</h1>
@@ -20,13 +13,11 @@
 <div class="body">  
 
 <h2>Introduction</h2>
-Realizzazione del  in Java del
+Realizzazione in Java del
 <a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.6'>GAME OF LIFE DI CONWAY</a>
  
 <h2>Requirements</h2>
 
- 
-<!-- <div class="remark"> -->
 <pre>
     Realizzare una versione in Java del gioco Life di Conway, come gioco zero-player. 
     Il gioco consiste nell’introdurre una Griglia di Celle il cui stato (cella ‘viva’ o cella ‘morta’) 
@@ -38,51 +29,88 @@ Realizzazione del  in Java del
         (si veda <a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#section.6.3'>Problema della vista del gioco</a> )
      - fermare e far ripartire l’evoluzione del gioco
      - pulire (a gioco fermo) la configurazione della griglia del gioco
-
 </pre>
- 
-
- 
 
 <h2>Requirement analysis</h2>
- 
+<p>
+    Dal testo dei requisiti si evincono le seguenti entità e concetti fondamentali del dominio applicativo:
+</p>
+<ul>
+    <li><b>Zero-player game</b>: Il gioco, una volta avviato, evolve autonomamente. L'utente interviene solo per configurare lo stato iniziale, avviare, mettere in pausa o pulire il sistema, ma non partecipa attivamente durante le transizioni di stato.</li>
+    <li><b>Cella (Cell)</b>: Un'entità base che possiede un singolo stato logico: può essere solo <i>viva</i> (true) o <i>morta</i> (false).</li>
+    <li><b>Griglia (Grid)</b>: Un contenitore spaziale bidimensionale e finito composto da Celle.</li>
+    <li><b>Regole di Conway</b>: La logica matematica di business che determina lo stato futuro di ogni singola Cella basandosi sul numero di vicini vivi nella generazione corrente.</li>
+</ul>
 
 <h2>Problem analysis</h2>
- 
+<p>
+    Per la realizzazione del sistema, impostiamo un'architettura logica basata sui <b>Principi SOLID</b>, puntando a una netta separazione delle responsabilità tra il nucleo logico del gioco (core business) e l'interazione con l'utente (dispositivi di I/O).
+</p>
+
+<img src="LifeGameJava+.jpg" alt="UML ConwayLife Architecture" width="60%">
+
+<p>Come si deduce dal diagramma UML architetturale:</p>
+<ul>
+    <li><b>Dignità Ontologica (POJOs)</b>: Introduciamo classi esplicite per <code>Grid</code> e <code>Cell</code>, evitando di "ridurre" il dominio a semplici matrici di interi o booleani. Questo rende il codice coerente con i requisiti.</li>
+    <li><b>Separazione della Business Logic</b>: La classe <code>Life</code> ha l'unica responsabilità di applicare le regole del gioco sulla <code>Grid</code>. Non gestisce né grafica né interazioni esterne.</li>
+    <li><b>Inversione delle Dipendenze (Plug & Play)</b>: Il controllo del flusso è affidato al <code>LifeController</code>, il quale interagisce con l'esterno <b>esclusivamente tramite interfacce</b> (<code>IOutDev</code> e <code>GameController</code>). Questo rende il motore del gioco totalmente indipendente dai dettagli tecnologici; i dispositivi fisici (Console, Swing, Web) dovranno adattarsi al dominio, e non viceversa.</li>
+</ul>
 
 <h2>Test plans</h2> 
-
+<p>
+    Prima di scrivere il codice di produzione, definiamo un piano di testing basato sul <b>comportamento atteso (WHAT)</b> del sistema. Utilizzeremo <b>JUnit</b> per collaudare il motore logico esposto tramite una <code>LifeInterface</code>.
+</p>
+<p>
+    Il test principale (<b>testOscilla</b>) verificherà il comportamento di un pattern noto come <i>Blinker</i> (oscillatore di periodo 2). 
+    Configurando tre celle vive orizzontali adiacenti, ci aspettiamo che:
+    <ol>
+        <li>Dopo una chiamata a <code>nextGeneration()</code>, le celle formino una linea verticale.</li>
+        <li>Dopo una seconda chiamata a <code>nextGeneration()</code>, le celle tornino alla configurazione orizzontale di partenza.</li>
+    </ol>
+</p>
 
 <h2>Project</h2> 
- 
- 
+<p>
+    Il progetto è strutturato utilizzando <b>Gradle</b> per la gestione delle dipendenze e del processo di build. 
+    Il codice sorgente è diviso in package per rispettare l'architettura logica:
+    <ul>
+        <li><code>main.java.conway.domain</code>: Contiene il core logico (<code>Life</code>, <code>Cell</code>, <code>Grid</code>, interfacce).</li>
+        <li><code>main.java.conway.devices</code>: Contiene le implementazioni concrete di input e output (es. <code>MockOutdev</code>).</li>
+        <li>La classe principale <code>MainConwayLifeJava</code> agisce da entry-point per configurare le dipendenze (Dependency Injection).</li>
+    </ul>
+</p>
 
 <h2>Testing</h2> 
- 
+<p>
+    La suite di test JUnit può essere eseguita tramite Eclipse o con il comando <code>gradlew test</code>. 
+    Inoltre, per garantire la qualità del codice, è stato integrato il plugin <b>JaCoCo</b> nel file <code>build.gradle</code>.
+    Eseguendo <code>gradlew test jacocoTestReport</code> viene generato un report HTML che mostra la percentuale di <i>Code Coverage</i> delle classi del dominio.
+</p>
 
 <h2>Deployment</h2> 
-
+<p>
+    La distribuzione del sistema in questa fase (Sprint 1) avviene tramite un file archivio <b>.jar</b> eseguibile, che raggruppa le classi e le dipendenze in un unico pacchetto portabile.
+</p>
+<p>
+    I passi operativi sono:
+    <ul>
+        <li>Generazione: comando <code>gradlew jar</code></li>
+        <li>Esecuzione autonoma: <code>java -jar build/libs/conway26Java-1.0.jar</code></li>
+    </ul>
+</p>
  
 <h2>Maintenance</h2> 
- 
-<!-- USEFUL
-<table style="width:100%" border="1">
-<tr>
-<td style="width:50%">
-</td>
-<td></td>
-</tr>
-</table>
--->
+<p>
+    Grazie all'architettura basata su interfacce, le future implementazioni (Sprint 2: Java Swing, Sprint 3: Pagine HTML/WebSockets) richiederanno la sola aggiunta di nuovi dispositivi (package <code>devices</code>), lasciando completamente inalterato il package <code>domain</code> e la classe <code>Life</code>.
+</p>
 	      	
 <br/><br/> 	
 </div>  
 
 <div style="background-color:rgba(86, 56, 253, 0.9); width:60%;text-align:left;color:white">
-By studentName email: student@studio.unibo.it, 
-<!-- <img src="./img/mbot-S.jpg" alt="mbot" width="15%" height="15%"> -->
+By Alexander Kreuzer email: Alexander.kreuzer@studio.unibo.it, 
 <img src="./img/emiglio.png" alt="emiglio" width="15%" height="15%">
-GIT repo: https://github.com/... 
+GIT repo: https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer
 </div> 
 </body>
 </html>
