@@ -33,84 +33,89 @@ Realizzazione in Java del
 
 <h2>Requirement analysis</h2>
 <p>
-    Dal testo dei requisiti si evincono le seguenti entità e concetti fondamentali del dominio applicativo:
+    Dal testo dei requisiti si evincono le seguenti astrazioni e concetti fondamentali del dominio applicativo:
 </p>
 <ul>
-    <li><b>Zero-player game</b>: Il gioco, una volta avviato, evolve autonomamente. L'utente interviene solo per configurare lo stato iniziale, avviare, mettere in pausa o pulire il sistema, ma non partecipa attivamente durante le transizioni di stato.</li>
-    <li><b>Cella (Cell)</b>: Un'entità base che possiede un singolo stato logico: può essere solo <i>viva</i> (true) o <i>morta</i> (false).</li>
-    <li><b>Griglia (Grid)</b>: Un contenitore spaziale bidimensionale e finito composto da Celle.</li>
-    <li><b>Regole di Conway</b>: La logica matematica di business che determina lo stato futuro di ogni singola Cella basandosi sul numero di vicini vivi nella generazione corrente.</li>
+    <li><b>Zero-player game</b>: Il sistema, una volta inizializzato il suo stato interno, procede l'esecuzione in un thread autonomo. L'interazione dell'utente è limitata all'invocazione di metodi di controllo del ciclo di vita (es. start, stop, clear).</li>
+    <li><b>Cella (Cell)</b>: Astrazione del dominio modellata tramite un'interfaccia (<code>ICell</code>) e una classe concreta (<code>Cell</code>). Incapsula una singola variabile di istanza primitiva (booleana) per rappresentarne lo stato logico (viva/morta).</li>
+    <li><b>Griglia (Grid)</b>: Struttura dati aggregatrice, modellata tramite l'interfaccia <code>IGrid</code>. Incapsula una matrice bidimensionale di oggetti <code>ICell</code>, mantenendo la responsabilità della mappatura spaziale (le coordinate appartengono alla Griglia, non alla Cella).</li>
+    <li><b>Regole di Conway</b>: La <i>Business Logic</i> del sistema, implementata in una classe dedicata (es. <code>Life</code>), che manipola le interfacce del dominio per computare la generazione successiva.</li>
 </ul>
 
 <h2>Problem analysis</h2>
 <p>
-    Per la realizzazione del sistema, impostiamo un'architettura logica basata sui <b>Principi SOLID</b>, puntando a una netta separazione delle responsabilità tra il nucleo logico del gioco (core business) e l'interazione con l'utente (dispositivi di I/O).
+    Per la realizzazione del sistema, definiamo un'architettura software basata sui <b>Principi SOLID</b>, garantendo un forte disaccoppiamento tra il core domain e i dettagli implementativi (I/O).
 </p>
 
 <img src="LifeGameJava+.jpg" alt="UML ConwayLife Architecture" width="60%">
 
 <p>Come si deduce dal diagramma UML architetturale:</p>
 <ul>
-    <li><b>Dignità Ontologica (POJOs)</b>: Introduciamo classi esplicite per <code>Grid</code> e <code>Cell</code>, evitando di "ridurre" il dominio a semplici matrici di interi o booleani. Questo rende il codice coerente con i requisiti.</li>
-    <li><b>Separazione della Business Logic</b>: La classe <code>Life</code> ha l'unica responsabilità di applicare le regole del gioco sulla <code>Grid</code>. Non gestisce né grafica né interazioni esterne.</li>
-    <li><b>Inversione delle Dipendenze (Plug & Play)</b>: Il controllo del flusso è affidato al <code>LifeController</code>, il quale interagisce con l'esterno <b>esclusivamente tramite interfacce</b> (<code>IOutDev</code> e <code>GameController</code>). Questo rende il motore del gioco totalmente indipendente dai dettagli tecnologici; i dispositivi fisici (Console, Swing, Web) dovranno adattarsi al dominio, e non viceversa.</li>
+    <li><b>Design orientato alle interfacce (POJOs)</b>: Definizione esplicita di tipi di dato astratti (<code>ICell</code>, <code>IGrid</code>) per garantire la "Dignità Ontologica" del dominio. Evitiamo anti-pattern come l'uso di matrici di primitivi (<code>boolean[][]</code>), garantendo estensibilità per futuri sviluppi.</li>
+    <li><b>Single Responsibility Principle (SRP)</b>: La classe <code>Life</code> incapsula esclusivamente il motore algoritmico operando su istanze di <code>IGrid</code>. Non espone alcun metodo relativo alla renderizzazione grafica o all'input.</li>
+    <li><b>Dependency Inversion Principle (DIP)</b>: L'orchestrazione è delegata alla classe <code>LifeController</code>. Le sue dipendenze (Input/Output) vengono iniettate nel costruttore sotto forma di interfacce (<code>IOutDev</code>, <code>LifeInterface</code>). I dispositivi fisici dovranno implementare questi contratti, proteggendo il dominio da cambiamenti tecnologici.</li>
 </ul>
 
 <h2>Test plans</h2> 
 <p>
-    Prima di scrivere il codice di produzione, definiamo un piano di testing basato sul <b>comportamento atteso (WHAT)</b> del sistema. Utilizzeremo <b>JUnit</b> per collaudare il motore logico esposto tramite una <code>LifeInterface</code>.
+    Seguendo le logiche del testing comportamentale, utilizzeremo il framework <b>JUnit</b> per collaudare i metodi pubblici del dominio.
 </p>
 <p>
-    Il test principale (<b>testOscilla</b>) verificherà il comportamento di un pattern noto come <i>Blinker</i> (oscillatore di periodo 2). 
-    Configurando tre celle vive orizzontali adiacenti, ci aspettiamo che:
+    Il metodo di test principale (<b>testOscilla</b>) istanzia il motore logico e configura una dipendenza <code>IGrid</code> creando un pattern noto come <i>Blinker</i> (oscillatore di periodo 2). 
+    Tramite asserzioni (<code>assertTrue</code>, <code>assertFalse</code>), verificheremo che:
     <ol>
-        <li>Dopo una chiamata a <code>nextGeneration()</code>, le celle formino una linea verticale.</li>
-        <li>Dopo una seconda chiamata a <code>nextGeneration()</code>, le celle tornino alla configurazione orizzontale di partenza.</li>
+        <li>A seguito di un'invocazione del metodo <code>nextGeneration()</code>, lo stato degli oggetti <code>ICell</code> interni muti formando una linea verticale.</li>
+        <li>A seguito di una seconda invocazione, il sistema torni all'identico stato istanziato inizialmente (orizzontale).</li>
     </ol>
 </p>
 
 <h2>Project</h2> 
 <p>
-    Il progetto è strutturato utilizzando <b>Gradle</b> per la gestione delle dipendenze e del processo di build. 
-    Il codice sorgente è diviso in package per rispettare l'architettura logica:
+    Il progetto è configurato mediante <b>Gradle</b>. L'alberatura dei package riflette rigorosamente la <i>Separation of Concerns</i>:
     <ul>
-        <li><code>main.java.conway.domain</code>: Contiene il core logico (<code>Life</code>, <code>Cell</code>, <code>Grid</code>, interfacce).</li>
-        <li><code>main.java.conway.devices</code>: Contiene le implementazioni concrete di input e output (es. <code>MockOutdev</code>).</li>
-        <li>La classe principale <code>MainConwayLifeJava</code> agisce da entry-point per configurare le dipendenze (Dependency Injection).</li>
+        <li><code>main.java.conway.domain</code>: Contiene esclusivamente POJO e astrazioni (<code>Life</code>, <code>ICell</code>, <code>IGrid</code>). È un modulo totalmente agnostico rispetto all'esterno.</li>
+        <li><code>main.java.conway.devices</code>: Contiene le classi concrete che implementano i contratti di I/O (es. <code>MockOutdev</code> implementa <code>IOutDev</code>).</li>
+        <li>La classe <code>MainConwayLifeJava</code> funge da <b>Composition Root</b>. È l'unico punto del sistema autorizzato a istanziare oggetti concreti (<code>new</code>) e a cablarli tramite <i>Dependency Injection</i>.</li>
     </ul>
 </p>
 
 <h2>Testing</h2> 
 <p>
-    La suite di test JUnit può essere eseguita tramite Eclipse o con il comando <code>gradlew test</code>. 
-    Inoltre, per garantire la qualità del codice, è stato integrato il plugin <b>JaCoCo</b> nel file <code>build.gradle</code>.
-    Eseguendo <code>gradlew test jacocoTestReport</code> viene generato un report HTML che mostra la percentuale di <i>Code Coverage</i> delle classi del dominio.
+    La suite di test JUnit può essere eseguita tramite IDE o con il comando CLI <code>gradlew test</code>. 
+    Per certificare la robustezza delle classi del dominio, è stato integrato il plugin <b>JaCoCo</b> nel <code>build.gradle</code>.
+    Il task <code>gradlew test jacocoTestReport</code> genera un report HTML per la validazione della <i>Code Coverage</i>.
 </p>
 
 <h2>Deployment</h2> 
 <p>
-    La distribuzione del sistema in questa fase (Sprint 1) avviene tramite un file archivio <b>.jar</b> eseguibile, che raggruppa le classi e le dipendenze in un unico pacchetto portabile.
+    Il build finale per questo Sprint si concretizza in un file archivio eseguibile (<b>.jar</b>), contenente il bytecode compilato e il file manifest.
 </p>
 <p>
-    I passi operativi sono:
+    I task Gradle associati sono:
     <ul>
-        <li>Generazione: comando <code>gradlew jar</code></li>
-        <li>Esecuzione autonoma: <code>java -jar build/libs/conway26Java-1.0.jar</code></li>
+        <li>Compilazione e pacchettizzazione: <code>gradlew jar</code></li>
+        <li>Esecuzione su JVM: <code>java -jar build/libs/conway26Java-1.0.jar</code></li>
     </ul>
 </p>
  
 <h2>Maintenance</h2> 
 <p>
-    Grazie all'architettura basata su interfacce, le future implementazioni (Sprint 2: Java Swing, Sprint 3: Pagine HTML/WebSockets) richiederanno la sola aggiunta di nuovi dispositivi (package <code>devices</code>), lasciando completamente inalterato il package <code>domain</code> e la classe <code>Life</code>.
+    L'architettura basata su interfacce garantisce che i futuri aggiornamenti tecnologici (Sprint 2: Java Swing, Sprint 3: WebSocket/HTML) avverranno per mera estensione. Basterà iniettare nuove classi implementative nel package <code>devices</code> senza alterare in alcun modo il codice sorgente del package <code>domain</code>.
 </p>
 	      	
 <br/><br/> 	
 </div>  
 
-<div style="background-color:rgba(86, 56, 253, 0.9); width:60%;text-align:left;color:white">
-By Alexander Kreuzer email: Alexander.kreuzer@studio.unibo.it, 
-<img src="./img/emiglio.png" alt="emiglio" width="15%" height="15%">
-GIT repo: https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer
-</div> 
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+    
+    <img src="./img/imageServlet.jpg" alt="emiglio" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+    
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
 </body>
 </html>

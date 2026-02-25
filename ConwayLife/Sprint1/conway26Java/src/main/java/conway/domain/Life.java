@@ -108,16 +108,21 @@ public class Life implements LifeInterface{
 	public boolean isAlive(int row, int col) {
 		return currentGrid[row][col];
 	}
-
+//--------------------------------------------------------------------------------------------------------------
 	@Override
 	public int getRows() {
- 		return 0;
+		return this.rows; // Cambia el 0 por this.rows	
 	}
 
 	@Override
 	public int getCols() {
- 		return 0;
+		return this.cols; // Cambia el 0 por this.cols
 	}
+	
+	
+//--------------------------------------------------------------------------------------------------------------
+	
+
 	
 	//Versione NAIVE
 //	private boolean[][] deepCopy(boolean[][] original) {
