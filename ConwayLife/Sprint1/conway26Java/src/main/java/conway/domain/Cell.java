@@ -1,16 +1,9 @@
 package main.java.conway.domain;
 
-import main.java.conway.domain.ICell;
-
-@SuppressWarnings("unused")
 public class Cell implements ICell {
-    private boolean state;	
-    private final int x;
-    private final int y;
+    private boolean state;
 
-    public Cell(int x, int y, boolean state) {
-        this.x = x;
-        this.y = y;
+    public Cell(boolean state) {
         this.state = state;
     }
 
@@ -22,15 +15,5 @@ public class Cell implements ICell {
     @Override
     public void setState(boolean state) {
         this.state = state;
-    }
-
-    @Override
-    public int getX() {
-        return x;
-    }
-
-    @Override
-    public int getY() {
-        return y;
     }
 }
