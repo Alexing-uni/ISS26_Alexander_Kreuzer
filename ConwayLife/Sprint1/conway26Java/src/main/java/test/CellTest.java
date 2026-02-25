@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 import main.java.conway.domain.Cell;
+import main.java.conway.domain.ICell;
 
 public class CellTest {
 
@@ -15,7 +16,7 @@ public class CellTest {
         System.out.println("CellTest | testCellInitializationAlive");
         
         // 1. Create an alive cell at position (2, 3)
-        Cell cell = new Cell(2, 3, true);
+        ICell cell = new Cell(2, 3, true);
 
         // 2. Check that coordinates and state were saved correctly
         assertEquals("The X coordinate should be 2", 2, cell.getX());
@@ -28,7 +29,7 @@ public class CellTest {
         System.out.println("CellTest | testCellInitializationDead");
         
         // 1. Create a dead cell at position (0, 0)
-        Cell cell = new Cell(0, 0, false);
+        ICell cell = new Cell(0, 0, false);
 
         // 2. Check that it was initialized correctly
         assertEquals("The X coordinate should be 0", 0, cell.getX());
@@ -41,7 +42,7 @@ public class CellTest {
         System.out.println("CellTest | testSetState");
         
         // 1. Initially dead cell
-        Cell cell = new Cell(1, 1, false);
+        ICell cell = new Cell(1, 1, false);
         assertFalse("Initial state should be false", cell.getState());
 
         // 2. Revive it
