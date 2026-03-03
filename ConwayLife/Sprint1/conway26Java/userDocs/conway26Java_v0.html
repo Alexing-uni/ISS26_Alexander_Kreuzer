@@ -44,7 +44,7 @@ Realizzazione in Java del
 
 <h2>Problem analysis</h2>
 <p>
-    Per la realizzazione del sistema, definiamo un'architettura software basata sui <b>Principi SOLID</b>, garantendo un forte disaccoppiamento tra il core domain e i dettagli implementativi (I/O).
+    Per la realizzazione del sistema, definiamo un'architettura software basata sui <b>Principi SOLID</b> e sui concetti della <b>Clean Architecture</b>, garantendo un forte disaccoppiamento tra il core domain e i dettagli implementativi (I/O).
 </p>
 
 <img src="LifeGameJava+.jpg" alt="UML ConwayLife Architecture" width="60%">
@@ -53,7 +53,7 @@ Realizzazione in Java del
 <ul>
     <li><b>Design orientato alle interfacce (POJOs)</b>: Definizione esplicita di tipi di dato astratti (<code>ICell</code>, <code>IGrid</code>) per garantire la "Dignità Ontologica" del dominio. Evitiamo anti-pattern come l'uso di matrici di primitivi (<code>boolean[][]</code>), garantendo estensibilità per futuri sviluppi.</li>
     <li><b>Single Responsibility Principle (SRP)</b>: La classe <code>Life</code> incapsula esclusivamente il motore algoritmico operando su istanze di <code>IGrid</code>. Non espone alcun metodo relativo alla renderizzazione grafica o all'input.</li>
-    <li><b>Dependency Inversion Principle (DIP)</b>: L'orchestrazione è delegata alla classe <code>LifeController</code>. Le sue dipendenze (Input/Output) vengono iniettate nel costruttore sotto forma di interfacce (<code>IOutDev</code>, <code>LifeInterface</code>). I dispositivi fisici dovranno implementare questi contratti, proteggendo il dominio da cambiamenti tecnologici.</li>
+    <li><b>Dependency Inversion Principle (DIP)</b>: L'orchestrazione è delegata alla classe <code>LifeController</code>. Le sue dipendenze (Input/Output) vengono iniettate nel costruttore sotto forma di interfacce (<code>IOutDev</code>, <code>LifeInterface</code>). I dispositivi fisici dovranno implementare questi contratti (<b>Pattern Adapter</b>), proteggendo il dominio da cambiamenti tecnologici.</li>
 </ul>
 
 <h2>Test plans</h2> 
@@ -71,11 +71,11 @@ Realizzazione in Java del
 
 <h2>Project</h2> 
 <p>
-    Il progetto è configurato mediante <b>Gradle</b>. L'alberatura dei package riflette rigorosamente la <i>Separation of Concerns</i>:
+    Il progetto è configurato mediante <b>Gradle</b>. L'alberatura dei package riflette rigorosamente la <i>Separation of Concerns</i> e i dettami della <b>Clean Architecture</b>:
     <ul>
         <li><code>main.java.conway.domain</code>: Contiene esclusivamente POJO e astrazioni (<code>Life</code>, <code>ICell</code>, <code>IGrid</code>). È un modulo totalmente agnostico rispetto all'esterno.</li>
-        <li><code>main.java.conway.devices</code>: Contiene le classi concrete che implementano i contratti di I/O (es. <code>MockOutdev</code> implementa <code>IOutDev</code>).</li>
-        <li>La classe <code>MainConwayLifeJava</code> funge da <b>Composition Root</b>. È l'unico punto del sistema autorizzato a istanziare oggetti concreti (<code>new</code>) e a cablarli tramite <i>Dependency Injection</i>.</li>
+        <li><code>main.java.conway.devices</code>: Contiene le classi concrete che implementano i contratti di I/O (es. <code>MockOutdev</code> implementa <code>IOutDev</code>). Rappresenta il livello dei "dettagli" (I/O).</li>
+        <li>La classe <code>MainConwayLifeJava</code> funge da <b>Composition Root</b>. È l'unico punto del sistema autorizzato a istanziare oggetti concreti (<code>new</code>) e a cablarli tramite il pattern di <b>Dependency Injection</b>.</li>
     </ul>
 </p>
 
@@ -85,15 +85,26 @@ Realizzazione in Java del
     Per certificare la robustezza delle classi del dominio, è stato integrato il plugin <b>JaCoCo</b> nel <code>build.gradle</code>.
     Il task <code>gradlew test jacocoTestReport</code> genera un report HTML per la validazione della <i>Code Coverage</i>.
 </p>
+<h3>Analisi della Code Coverage (JaCoCo)</h3>
+<p>
+    Il report generato tramite il plugin JaCoCo mostra i seguenti risultati architetturali:
+</p>
+<ul>
+    <li><b>Package Domain (Business Logic):</b> Ha una buona copertura (circa 64%). Questo dimostra che il test JUnit (<code>testOscilla</code>) sta validando correttamente le regole matematiche di Conway isolate dal resto del sistema.</li>
+    <li><b>Package Devices e Main:</b> Hanno una copertura dello 0%. Questo risultato è <b>voluto e corretto</b> in base ai principi di Clean Architecture e SOLID. I test unitari verificano la logica pura, non i dispositivi di I/O (Console, GUI) o l'entry-point dell'applicazione. La netta separazione delle interfacce ci permette di testare il dominio senza dover avviare i dispositivi.</li>
+</ul>
 
 <h2>Deployment</h2> 
 <p>
-    Il build finale per questo Sprint si concretizza in un file archivio eseguibile (<b>.jar</b>), contenente il bytecode compilato e il file manifest.
+    Il deployment del prototipo relativo allo Sprint 1 avviene tramite la generazione di un file archivio eseguibile <b>.jar</b>. 
+</p>
+<p>
+    Per garantire che l'applicazione sia completamente standalone e non dipenda dall'ambiente di sviluppo (Eclipse/Gradle), abbiamo configurato il task <code>jar</code> nel file <code>build.gradle</code> per generare un <b>"Fat JAR"</b>. Questo approccio impacchetta all'interno dell'archivio non solo le classi del nostro dominio (Core), ma anche tutte le librerie esterne necessarie a runtime (come <code>unibolibs</code> e le dipendenze per l'I/O).
 </p>
 <p>
     I task Gradle associati sono:
     <ul>
-        <li>Compilazione e pacchettizzazione: <code>gradlew jar</code></li>
+        <li>Compilazione e pacchettizzazione (Fat JAR): <code>gradlew jar</code></li>
         <li>Esecuzione su JVM: <code>java -jar build/libs/conway26Java-1.0.jar</code></li>
     </ul>
 </p>
