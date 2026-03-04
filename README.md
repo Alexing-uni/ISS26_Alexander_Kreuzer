@@ -1,144 +1,38 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html>
-<head>
-<link rel="stylesheet" type="text/css" href="css/mystyle.css">
-<title>conway26Java_v0</title>
-</head>
-    
-<body>
-<div id="top">
-<h1>ConwayLife Sprint 1</h1>
-</div>  
+# issLab2026
+Laboratorio di **Ingegneria dei Sistemi Software** a.a. 2025/2026 
+**Studente:** Alexander Kreuzer  
+**Repo:** [ISS26_Alexander_Kreuzer](https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer)
 
-<div class="body">  
+[Testo di riferimento: Protobook](https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf)
 
-<h2>Introduction</h2>
-Realizzazione in Java del
-<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.6'>GAME OF LIFE DI CONWAY</a>
- 
-<h2>Requirements</h2>
+---
 
-<pre>
-    Realizzare una versione in Java del gioco Life di Conway, come gioco zero-player. 
-    Il gioco consiste nell’introdurre una Griglia di Celle il cui stato (cella ‘viva’ o cella ‘morta’) 
-    evolve come stabilito dallle regole di ConwayLife
+<h2 id="ParteA">Parte A: Dai programmi ai Sistemi a Microservizi</h2>
 
-    L’utente umano deve poter:
-     - specificare la configurazione iniziale della griglia del gioco	
-     - vedere l’evoluzione del gioco in forma opportuna 
-        (si veda <a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#section.6.3'>Problema della vista del gioco</a> )
-     - fermare e far ripartire l’evoluzione del gioco
-     - pulire (a gioco fermo) la configurazione della griglia del gioco
-</pre>
+### Sistema ConwayLife in locale
+[Riferimento: conway26Java Dai requisiti al deployment](https://anatali.github.io/issLab2026/Project%20conway26Java.html#conway26java-dai-requisiti-al-deployment)
 
-<h2>Requirement analysis</h2>
-<p>
-    Dal testo dei requisiti si evincono le seguenti astrazioni e concetti fondamentali del dominio applicativo:
-</p>
-<ul>
-    <li><b>Zero-player game</b>: Il sistema, una volta inizializzato il suo stato interno, procede l'esecuzione in un thread autonomo. L'interazione dell'utente è limitata all'invocazione di metodi di controllo del ciclo di vita (es. start, stop, clear).</li>
-    <li><b>Cella (Cell)</b>: Astrazione del dominio modellata tramite un'interfaccia (<code>ICell</code>) e una classe concreta (<code>Cell</code>). Incapsula una singola variabile di istanza primitiva (booleana) per rappresentarne lo stato logico (viva/morta).</li>
-    <li><b>Griglia (Grid)</b>: Struttura dati aggregatrice, modellata tramite l'interfaccia <code>IGrid</code>. Incapsula una matrice bidimensionale di oggetti <code>ICell</code>, mantenendo la responsabilità della mappatura spaziale (le coordinate appartengono alla Griglia, non alla Cella).</li>
-    <li><b>Regole di Conway</b>: La <i>Business Logic</i> del sistema, implementata in una classe dedicata (es. <code>Life</code>), che manipola le interfacce del dominio per computare la generazione successiva.</li>
-</ul>
+* **[ConwayLife Sprint 1](https://alexing-uni.github.io/ISS26_Alexander_Kreuzer/ConwayLife/Sprint1/conway26Java/userDocs/conway26Java_v0.html)**
+    * **Descrizione:** Analisi dei requisiti e impostazione di un primo prototipo in Java con dispositivi Mock di I/O seguendo i principi della Clean Architecture.
+    * **Distribuzione:** File executable JAR.
+    * **Documentazione Online:** [Sprint 1 HTML](https://alexing-uni.github.io/ISS26_Alexander_Kreuzer/ConwayLife/Sprint1/conway26Java/userDocs/conway26Java_v0.html)
 
-<h2>Problem analysis</h2>
-<p>
-    Per la realizzazione del sistema, definiamo un'architettura software basata sui <b>Principi SOLID</b> e sui concetti della <b>Clean Architecture</b>, garantendo un forte disaccoppiamento tra il core domain e i dettagli implementativi (I/O).
-</p>
+* **[ConwayLife Sprint 2](./ConwayLife/Sprint2/conway26JavaSwing)**
+    * **Evoluzione:** Transizione fondamentale **"Da funzione a servizio"**.
+    * **Caratteristiche:** Integrazione del server web **Javalin** e di un dispositivo di output realizzato in **Java Swing**.
+    * **Comunicazione:** Lo stato della griglia è esposto tramite endpoint **HTTP/JSON** e il controllo remoto è gestito via **WebSockets**.
+    * **Distribuzione:** Creazione di un **Fat JAR** eseguibile che include tutte le dipendenze (Javalin, Jackson, Jetty).
 
 
 
-<img src="LifeGameJava+.jpg" alt="UML ConwayLife Architecture" width="60%">
+### Sistemi come servizi
+* **Separation of Concerns:** Reutilizzo della logica di business dello Sprint 1 (file JAR) come libreria esterna per il servizio del Sprint 2.
+* **Serializzazione:** Implementazione di Jackson per il mapping automatico della matrice di gioco in formato JSON.
+* **Gestione Connessioni:** Utilizzo di WebSockets per la gestione asincrona dei comandi `next` e `clear`.
 
-<p>Come si deduce dal diagramma UML architetturale:</p>
-<ul>
-    <li><b>Design orientato alle interfacce (POJOs)</b>: Definizione esplicita di tipi di dato astratti (<code>ICell</code>, <code>IGrid</code>) per garantire la "Dignità Ontologica" del dominio. Evitiamo anti-pattern come l'uso di matrici di primitivi (<code>boolean[][]</code>), garantendo estensibilità per futuri sviluppi.</li>
-    <li><b>Single Responsibility Principle (SRP)</b>: La classe <code>Life</code> incapsula esclusivamente il motore algoritmico operando su istanze di <code>IGrid</code>. Non espone alcun metodo relativo alla renderizzazione grafica o all'input.</li>
-    <li><b>Dependency Inversion Principle (DIP)</b>: L'orchestrazione è delegata alla classe <code>LifeController</code>. Le sue dipendenze (Input/Output) vengono iniettate nel costruttore sotto forma di interfacce (<code>IOutDev</code>, <code>LifeInterface</code>). I dispositivi fisici dovranno implementare questi contratti (<b>Pattern Adapter</b>), proteggendo il dominio da cambiamenti tecnologici.</li>
-</ul>
+### Sistema ConwayLife con pagine HTML (Next Steps)
+* **[ConwayLife Sprint 3](./ConwayLife/Sprint3/conway26Java):** Evoluzione del sistema usando una pagina HTML/JS come dispositivo di I/O (Client-Server completo).
+* **Distribuzione:** Containerizzazione tramite **Docker yaml**.
 
-<h2>Test plans</h2> 
-<p>
-    Seguendo le logiche del testing comportamentale, utilizzeremo il framework <b>JUnit</b> per collaudare i metodi pubblici del dominio.
-</p>
-<p>
-    Il metodo di test principale (<b>testOscilla</b>) istanzia il motore logico e configura una dipendenza <code>IGrid</code> creando un pattern noto come <i>Blinker</i> (oscillatore di periodo 2). 
-    Tramite asserzioni (<code>assertTrue</code>, <code>assertFalse</code>), verificheremo che:
-    <ol>
-        <li>A seguito di un'invocazione del metodo <code>nextGeneration()</code>, lo stato degli oggetti <code>ICell</code> interni muti formando una linea verticale.</li>
-        <li>A seguito di una seconda invocazione, il sistema torni all'identico stato istanziato inizialmente (orizzontale).</li>
-    </ol>
-</p>
-
-<h2>Project</h2> 
-<p>
-    Il progetto è configurato mediante <b>Gradle</b>. L'alberatura dei package riflette rigorosamente la <i>Separation of Concerns</i> e i dettami della <b>Clean Architecture</b>:
-    <ul>
-        <li><code>main.java.conway.domain</code>: Contiene esclusivamente POJO e astrazioni (<code>Life</code>, <code>ICell</code>, <code>IGrid</code>). È un modulo totalmente agnostico rispetto all'esterno.</li>
-        <li><code>main.java.conway.devices</code>: Contiene le classi concrete che implementano i contratti di I/O (es. <code>MockOutdev</code> implementa <code>IOutDev</code>). Rappresenta il livello dei "dettagli" (I/O).</li>
-        <li>La classe <code>MainConwayLifeJava</code> funge da <b>Composition Root</b>. È l'unico punto del sistema autorizzato a istanziare oggetti concreti (<code>new</code>) e a cablarli tramite il pattern di <b>Dependency Injection</b>.</li>
-    </ul>
-</p>
-
-<h2>Testing</h2> 
-<p>
-    La suite di test JUnit può essere eseguita tramite IDE o con il comando CLI <code>gradlew test</code>. 
-    Per certificare la robustezza delle classi del dominio, è stato integrato il plugin <b>JaCoCo</b> nel <code>build.gradle</code>.
-    Il task <code>gradlew test jacocoTestReport</code> genera un report HTML per la validazione della <i>Code Coverage</i>.
-</p>
-<h3>Analisi della Code Coverage (JaCoCo)</h3>
-<p>
-    Il report generato tramite il plugin JaCoCo mostra i seguenti risultati architetturali:
-</p>
-<ul>
-    <li><b>Package Domain (Business Logic):</b> Ha una buona copertura (circa 64%). Questo dimostra che il test JUnit (<code>testOscilla</code>) sta validando correttamente le regole matematiche di Conway isolate dal resto del sistema.</li>
-    <li><b>Package Devices e Main:</b> Hanno una copertura dello 0%. Questo risultato è <b>voluto e corretto</b> in base ai principi di Clean Architecture e SOLID. I test unitari verificano la logica pura, non i dispositivi di I/O (Console, GUI) o l'entry-point dell'applicazione. La netta separazione delle interfacce ci permette di testare il dominio senza dover avviare i dispositivi.</li>
-</ul>
-
-<h2>Deployment</h2> 
-<p>
-    Il deployment del prototipo relativo allo Sprint 1 avviene tramite la generazione di un file archivio eseguibile <b>.jar</b>. 
-</p>
-<p>
-    Per garantire che l'applicazione sia completamente standalone e non dipenda dall'ambiente di sviluppo (Eclipse/Gradle), abbiamo configurato il task <code>jar</code> nel file <code>build.gradle</code> per generare un <b>"Fat JAR"</b>. Questo approccio impacchetta all'interno dell'archivio non solo le classi del nostro dominio (Core), ma anche tutte le librerie esterne necessarie a runtime (come <code>unibolibs</code> e le dipendenze per l'I/O).
-</p>
-<p>
-    I task Gradle associati sono:
-    <ul>
-        <li>Compilazione e pacchettizzazione (Fat JAR): <code>gradlew jar</code></li>
-        <li>Esecuzione su JVM: <code>java -jar build/libs/conway26Java-1.0.jar</code></li>
-    </ul>
-</p>
- 
-<h2>Maintenance</h2> 
-<p>
-    L'architettura basata su interfacce garantisce che i futuri aggiornamenti tecnologici (Sprint 2: Java Swing, Sprint 3: WebSocket/HTML) avverranno per mera estensione. Basterà iniettare nuove classi implementative nel package <code>devices</code> senza alterare in alcun modo il codice sorgente del package <code>domain</code>.
-</p>
-
-<h2>Evolution: Towards Sprint 2</h2>
-<p>
-    Con el prototipo del Sprint 1 validado, el sistema evoluciona hacia una arquitectura de <b>Servicios</b>. Los objetivos clave para la siguiente fase son:
-</p>
-<ul>
-    <li><b>Interfaz Gráfica</b>: Implementación de un dispositivo de salida basado en <b>Java Swing</b> para una visualización dinámica.</li>
-    <li><b>Arquitectura de Servicios</b>: Transformación del núcleo lógico en un servicio accesible, utilizando el framework <b>Javalin</b> para gestionar estados mediante HTTP y JSON.</li>
-    <li><b>Reuso de Software</b>: El archivo <code>.jar</code> generado en este Sprint se integrará como una librería externa en el nuevo proyecto, demostrando la modularidad del diseño.</li>
-</ul>
-	      	
-<br/><br/> 	
-</div>  
-
-<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
-    
-    <img src="./img/imageServlet.jpg" alt="emiglio" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
-    
-    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
-        <strong>By Alexander Kreuzer</strong><br>
-        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
-        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
-    </div>
-
-</div>
-</body>
-</html>
+---
+*Ultimo aggiornamento: Marzo 2026*
