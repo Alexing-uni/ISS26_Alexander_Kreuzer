@@ -1,48 +1,149 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>conway26Java_v0</title>
+</head>
+    
+<body>
+<div id="top">
+<h1>ConwayLife Sprint1</h1>
+</div>  
+
+<div class="body">  
+
+<h2>Introduction</h2>
+Realizzazione in Java del
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.6'>GAME OF LIFE DI CONWAY</a>
+ 
+<br>
+
+<h2>Requirements</h2>
+<pre>
+    Realizzare una versione in Java del gioco Life di Conway, come gioco zero-player. 
+    Il gioco consiste nell’introdurre una Griglia di Celle il cui stato (cella ‘viva’ o cella ‘morta’) 
+    evolve come stabilito dallle regole di ConwayLife
+
+    L’utente umano deve poter:
+     - specificare la configurazione iniziale della griglia del gioco	
+     - vedere l’evoluzione del gioco in forma opportuna 
+        (si veda <a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#section.6.3'>Problema della vista del gioco</a> )
+     - fermare e far ripartire l’evoluzione del gioco
+     - pulire (a gioco fermo) la configurazione della griglia del gioco
+</pre>
+
+<br>
+
 <h2>Requirement analysis</h2>
 <p>
-    L'analisi dei requisiti ha portato alla definizione di un modello del dominio basato su interfacce e classi concrete, garantendo l'estendibilità del sistema. Di seguito vengono descritte le astrazioni principali (Business Objects e Control Logic):
+    L'analisi del dominio ha portato alla definizione dei seguenti componenti software, documentati secondo le specifiche di progetto:
 </p>
 
-<h3>Domain Interfaces</h3>
 <ul>
     <li>
-        <b><code>ICell</code></b>: Interfaccia che definisce il contratto per una singola unità della griglia.
-        <br><i>Responsabilità:</i> Fornire metodi per interrogare lo stato vitale (viva/morta) e permettere la mutazione dello stato stesso.
+        <b>ICell (Interface)</b>: Definisce il contratto per un'unità atomica della griglia. Espone i metodi per interrogare (<code>isAlive()</code>) e mutare (<code>setAlive(boolean)</code>) lo stato vitale della cella.
     </li>
     <li>
-        <b><code>IGrid</code></b>: Interfaccia che astrae la struttura dati bidimensionale del gioco.
-        <br><i>Responsabilità:</i> Gestire l'insieme delle celle, permettendo l'accesso posizionale (coordinate x, y) e garantendo l'iterazione sull'intera popolazione.
+        <b>Cell (Class)</b>: Implementazione concreta di <code>ICell</code>. Incapsula lo stato booleano e garantisce che la logica di una singola cella sia isolata da quella dei suoi vicini.
     </li>
     <li>
-        <b><code>LifeInterface</code></b>: Contratto di alto livello per il motore del gioco.
-        <br><i>Responsabilità:</i> Esporre le funzionalità core per il controllo dell'evoluzione temporale (calcolo generazione successiva) e l'accesso allo stato globale della griglia.
+        <b>IGrid (Interface)</b>: Astrae la struttura dati bidimensionale. Fornisce metodi per l'accesso posizionale alle celle (<code>getCell(row, col)</code>) e per ottenere le dimensioni della matrice (<code>getRows()</code>, <code>getCols()</code>).
+    </li>
+    <li>
+        <b>Grid (Class)</b>: Implementazione di <code>IGrid</code>. Gestisce la topologia del gioco e l'inizializzazione della matrice di oggetti <code>ICell</code>. È responsabile della coerenza spaziale del sistema.
+    </li>
+    <li>
+        <b>LifeInterface (Interface)</b>: Definisce il motore evolutivo. Il metodo principale <code>nextGeneration()</code> è responsabile del calcolo del nuovo stato della griglia basandosi sulle regole di transizione di Conway.
+    </li>
+    <li>
+        <b>Life (Class)</b>: Core della <i>Business Logic</i>. Implementa <code>LifeInterface</code> applicando le regole di sopravvivenza, nascita e morte. Opera su una <code>IGrid</code> di input per produrre la generazione successiva.
+    </li>
+    <li>
+        <b>LifeController (Class)</b>: Componente di controllo che orchestra il ciclo di vita dell'applicazione. Gestisce il thread di esecuzione, coordina l'aggiornamento della logica (Life) e la notifica ai dispositivi di output.
     </li>
 </ul>
 
-<h3>Business Logic & Core Classes</h3>
+<br>
+
+<h2>Problem analysis</h2>
+<p>
+    Per la realizzazione del sistema, definiamo un'architettura software basata sui <b>Principi SOLID</b> e sui concetti della <b>Clean Architecture</b>, garantendo un forte disaccoppiamento tra il core domain e i dettagli implementativi (I/O).
+</p>
+
+
+
+<p>Come si deduce dal diagramma UML architetturale:</p>
 <ul>
-    <li>
-        <b><code>Cell</code></b>: Implementazione concreta di <code>ICell</code>.
-        <br><i>Responsabilità:</i> Incapsulare un valore booleano che rappresenta lo stato di una cella atomica nel sistema.
-    </li>
-    <li>
-        <b><code>Grid</code></b>: Implementazione concreta di <code>IGrid</code>.
-        <br><i>Responsabilità:</i> Gestire l'allocazione e l'organizzazione spaziale di una matrice di oggetti <code>Cell</code>. Implementa la logica di gestione dei bordi e dell'adiacenza.
-    </li>
-    <li>
-        <b><code>Life</code></b>: Classe centrale che implementa <code>LifeInterface</code>.
-        <br><i>Responsabilità:</i> Contiene l'algoritmo puro di Conway. Applica le regole di sopravvivenza e nascita leggendo lo stato dalla griglia corrente e scrivendo in una griglia di supporto (tecnica del <i>Double Buffering</i> o <i>Ping-Pong</i>).
-    </li>
+    <li><b>Design orientato alle interfacce (POJOs)</b>: Definizione esplicita di tipi di dato astratti (<code>ICell</code>, <code>IGrid</code>) per garantire la "Dignità Ontologica" del dominio.</li>
+    <li><b>Single Responsibility Principle (SRP)</b>: La classe <code>Life</code> incapsula esclusivamente il motore algoritmico operando su istanze di <code>IGrid</code>.</li>
+    <li><b>Dependency Inversion Principle (DIP)</b>: L'orchestrazione è delegata alla classe <code>LifeController</code> tramite <b>Pattern Adapter</b>.</li>
 </ul>
 
-<h3>Control & Orchestration</h3>
+<br>
+
+<h2>Test plans</h2> 
+<p>
+    Utilizzeremo il framework <b>JUnit</b> per collaudare i metodi pubblici del dominio tramite il test <b>testOscilla</b> (oscillatore <i>Blinker</i>):
+</p>
+<ol>
+    <li>Verifica che lo stato degli oggetti <code>ICell</code> muti formando una linea verticale dopo <code>nextGeneration()</code>.</li>
+    <li>Verifica che il sistema torni allo stato orizzontale iniziale dopo una seconda invocazione.</li>
+</ol>
+
+<br>
+
+<h2>Project</h2> 
+<p>
+    Il progetto è configurato mediante <b>Gradle</b> seguendo la <i>Separation of Concerns</i>:
+    <ul>
+        <li><code>conway.domain</code>: Contiene esclusivamente POJO e astrazioni.</li>
+        <li><code>conway.devices</code>: Contiene le classi concrete che implementano i contratti di I/O.</li>
+        <li><code>MainConwayLifeJava</code>: Funge da <b>Composition Root</b>.</li>
+    </ul>
+</p>
+
+<br>
+
+<h2>Testing</h2> 
+<p>
+    L'analisi della <b>Code Coverage</b> con <b>JaCoCo</b> (<code>gradlew test jacocoTestReport</code>) mostra:
+</p>
 <ul>
-    <li>
-        <b><code>GameController</code></b>: Componente responsabile del flusso logico del gioco.
-        <br><i>Responsabilità:</i> Gestire le transizioni di stato del sistema (es. inizializzazione della griglia) e coordinare l'interazione tra i componenti core.
-    </li>
-    <li>
-        <b><code>LifeController</code></b>: Orchestratore di sistema che funge da ponte tra il dominio e i dispositivi.
-        <br><i>Responsabilità:</i> Implementare il ciclo di vita del gioco (start, stop, step) in un thread separato, iniettando le dipendenze di output necessarie per la visualizzazione.
-    </li>
+    <li><b>Package Domain:</b> Copertura del 64% (validazione delle regole isolate dal sistema).</li>
+    <li><b>Package Devices/Main:</b> Copertura dello 0% (risultato coerente con la Clean Architecture: i test unitari non testano i dettagli di I/O).</li>
 </ul>
+
+<br>
+
+<h2>Deployment</h2> 
+<p>
+    Il deployment avviene tramite la generazione di un <b>"Fat JAR"</b> per garantire che l'applicazione sia standalone.
+</p>
+<pre>
+    Task: gradlew jar
+    Esecuzione: java -jar build/libs/conway26Java-1.0.jar
+</pre>
+
+<br>
+
+<h2>Maintenance</h2> 
+<p>
+    L'architettura basata su interfacce garantisce che futuri aggiornamenti tecnologici avverranno per mera estensione del package <code>devices</code>.
+</p>
+	      	
+<br><br> 	
+</div>  
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+    
+    <img src="./img/imageServlet.jpg" alt="emiglio" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+    
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>
