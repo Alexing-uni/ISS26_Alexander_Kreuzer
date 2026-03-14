@@ -1,5 +1,5 @@
 # issLab2026
-Laboratorio di **Ingegneria dei Sistemi Software** a.a. 2025/2026 
+Laboratorio di **Ingegneria dei Sistemi Software** a.a. 2025/2026  
 **Studente:** Alexander Kreuzer  
 **Repo:** [ISS26_Alexander_Kreuzer](https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer)
 
@@ -23,16 +23,25 @@ Laboratorio di **Ingegneria dei Sistemi Software** a.a. 2025/2026
     * **Comunicazione:** Lo stato della griglia è esposto tramite endpoint **HTTP/JSON** e il controllo remoto è gestito via **WebSockets**.
     * **Distribuzione:** Creazione di un **Fat JAR** eseguibile che include tutte le dipendenze (Javalin, Jackson, Jetty).
 
-
+### Sistema ConwayLife con pagine HTML
+* **[ConwayLife Sprint 3 (conway26GuiHtml)](./ConwayLife/Sprint3/conway26GuiHtml)**
+    * **Evoluzione:** Architettura Client-Server completa con interfaccia basata su **HTML/JS/WebSockets**.
+    * **Deployment:** Containerizzazione tramite **Docker**.
+    * **Comandi di Build:**
+      ```bash
+      ./gradlew clean build distTar
+      docker build -t conway-web .
+      ```
+    * **Esecuzione (Port Forwarding & Volumes):**
+      ```bash
+      docker run -p 8080:8080 -v "${PWD}/src/main/resources/page:/conway26GuiHtml-1.0/bin/src/main/resources/page" conway-web
+      ```
 
 ### Sistemi come servizi
-* **Separation of Concerns:** Reutilizzo della logica di business dello Sprint 1 (file JAR) come libreria esterna per il servizio del Sprint 2.
+* **Separation of Concerns:** Reutilizzo della logica di business dello Sprint 1 come libreria esterna per il servizio del Sprint 3.
 * **Serializzazione:** Implementazione di Jackson per il mapping automatico della matrice di gioco in formato JSON.
-* **Gestione Connessioni:** Utilizzo di WebSockets per la gestione asincrona dei comandi `next` e `clear`.
-
-### Sistema ConwayLife con pagine HTML (Next Steps)
-* **[ConwayLife Sprint 3](./ConwayLife/Sprint3/conway26Java):** Evoluzione del sistema usando una pagina HTML/JS come dispositivo di I/O (Client-Server completo).
-* **Distribuzione:** Containerizzazione tramite **Docker yaml**.
+* **Gestione Connessioni:** Utilizzo di WebSockets per la gestione asincrona dei comandi `next` e `clear` e aggiornamento della GUI HTML.
+* **Dockerization:** Isolamento dell'ambiente di runtime (JRE 17) e gestione del mapping dei volumi per le risorse statiche (HTML/CSS).
 
 ---
 *Ultimo aggiornamento: Marzo 2026*
