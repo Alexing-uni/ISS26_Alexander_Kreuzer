@@ -1,7 +1,10 @@
 package main.java.conway.domain;
 
 public interface GameController {
-    void start();
-    void stop();
-    void clear();
+	 int getGenTime();
+	 void switchCellState(int x, int y);
+	 void onStart();
+	 void onStop();
+	 void onClear();
+	 int numEpoch();
 }

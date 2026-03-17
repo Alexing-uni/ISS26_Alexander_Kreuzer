@@ -11,12 +11,18 @@ public interface LifeInterface {
     void setCell(int row, int col, boolean alive);
 
     /** Restituisce il numero di righe e colonne */
-    int getRows();
-    int getCols();
+//    int getRows();
+//    int getCols();
+    
+    /** Restituisce la Cella */
+    ICell getCell(int x, int y);
+    
+    /** Restituisce la grid */
+    IGrid getGrid();
+    
+    /** pulisce */
+    void resetGrids();
     
     /** Restituisce una rappresentazione grafica testuale della grglia*/
-    public String gridRep( );
-    
-    //new
-    void clear();
+    //public String gridRep( );
 }
