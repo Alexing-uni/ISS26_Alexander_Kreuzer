@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 package main.java.conway.io;
+=======
+package conway.io;
+>>>>>>> upstream/main
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -16,6 +20,7 @@ public class IoJavalin {
 	
 	private WsMessageContext pageCtx ;
 	public IoJavalin() {
+<<<<<<< HEAD
 	    var app = Javalin.create(config -> {
 	        config.staticFiles.add(staticFiles -> {
 	            // CAMBIO: Ponemos la ruta relativa desde la raíz del proyecto, sin la barra / al principio.
@@ -23,6 +28,17 @@ public class IoJavalin {
 	            staticFiles.location = Location.EXTERNAL;
 	        });
 	    }).start(8080);
+=======
+        var app = Javalin.create(config -> {
+			config.staticFiles.add(staticFiles -> {
+				staticFiles.directory = "/page";
+				staticFiles.location = Location.CLASSPATH; // Cerca dentro il JAR/Classpath
+				/*
+				 * i file sono "impacchettati" con il codice, non cercati sul disco rigido esterno.
+				 */
+		    });
+		}).start(8080);
+>>>>>>> upstream/main
  
 /*
  * --------------------------------------------

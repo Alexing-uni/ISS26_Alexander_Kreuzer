@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 package main.java.conway26appl.caller;
+=======
+package conway26appl.caller;
+>>>>>>> upstream/main
 import unibo.basicomm23.interfaces.IApplMessage;
 import unibo.basicomm23.msg.ApplMessage;
 import unibo.basicomm23.utils.CommUtils;
@@ -12,7 +16,11 @@ import java.net.http.HttpClient;
 import java.net.http.WebSocket;
  
 /*
+<<<<<<< HEAD
  * PREMESSA: lanciare SistemaSJavalApplMsgsQueued
+=======
+ * PREMESSA: lanciare MainConwayGui
+>>>>>>> upstream/main
  *  
  * Componente che usa un WebSocketClient
  * per inviare messaggi su una WebSocket
@@ -60,7 +68,11 @@ public class CallerServerWs  {
         WebSocket webSocket = client.newWebSocketBuilder()
             .buildAsync(URI.create("ws://localhost:8080/eval"), new WebSocketListener(latch))
             .join();
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> upstream/main
         // Invio di un messaggio al server
         // webSocket.sendText(setctrl.toString(), true);
         

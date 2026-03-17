@@ -1,14 +1,22 @@
 package main.java.test;
+<<<<<<< HEAD
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+=======
+import static org.junit.Assert.assertTrue;
+
+import org.junit.After;
+import org.junit.Before;
+>>>>>>> upstream/main
 import org.junit.Test;
 
 import main.java.conway.domain.Cell;
 import main.java.conway.domain.ICell;
 
 public class CellTest {
+<<<<<<< HEAD
 
     @Test
     public void testCellInitializationAlive() {
@@ -46,3 +54,34 @@ public class CellTest {
         assertFalse("La celula ahora deberia estar muerta", cell.getState());
     }
 }
+=======
+private ICell c;
+
+	@Before
+	public void setup() {
+		System.out.println("ConwayLifeTest | setup");	
+	    c = new Cell();
+	}
+	@After
+	public void down() {
+		System.out.println("ConwayLifeTest | down");
+	}
+	
+	@Test
+	public void testCellAlive() {
+		System.out.println("ConwayLifeTest | doing alive");
+		c.setStatus(true);
+		boolean r = c.isAlive();
+		assertTrue(r);
+		
+	}
+	
+	@Test
+	public void testCellDead() {
+		System.out.println("ConwayLifeTest | doing dead");
+		c.setStatus(false);
+		boolean r = c.isAlive();
+		assertTrue( !r);
+	}	
+}
+>>>>>>> upstream/main
