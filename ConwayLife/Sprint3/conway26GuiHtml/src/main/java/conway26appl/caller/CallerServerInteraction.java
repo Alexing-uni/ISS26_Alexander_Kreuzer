@@ -37,12 +37,13 @@ public class CallerServerInteraction  implements IObserver{
     	Interaction wsconn = WsConnection.create("localhost:8080", "eval", this);
     	//((Connection) wsconn).setTrace(true);
      	IApplMessage cmdmsg = CommUtils.buildDispatch(name, "eval", "cell(5,7)", "guiserver"  );
+     	CommUtils.outblue(name + " sending " + cmdmsg);
      	wsconn.forward(cmdmsg);
      	
-      	IApplMessage reqmsg = CommUtils.buildRequest(name, "cellcolor", "cell(5,6)", "guiserver"  );
-       	CommUtils.outblue("CallerServerInteraction | send " + reqmsg);
-       	IApplMessage reply = wsconn.request(reqmsg);
-       	CommUtils.outblue("CallerServerInteraction | got reply= " + reply);
+//      	IApplMessage reqmsg = CommUtils.buildRequest(name, "cellcolor", "cell(5,6)", "guiserver"  );
+//       	CommUtils.outblue("CallerServerInteraction | send " + reqmsg);
+//       	IApplMessage reply = wsconn.request(reqmsg);
+//       	CommUtils.outblue("CallerServerInteraction | got reply= " + reply);
 
      	CommUtils.delay(2000);
      	CommUtils.outblue("CallerServerInteraction | BYE "  );
