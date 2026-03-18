@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprint 3: Dai Monoliti ai Microservizi</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0 auto;
+            max-width: 900px;
+            padding: 20px;
+            color: #333;
+        }
+        h1, h2, h3 { color: #2c3e50; }
+        h1 { border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        h2 { border-bottom: 1px solid #bdc3c7; padding-bottom: 5px; margin-top: 30px; }
+        code {
+            background-color: #f8f9fa;
+            color: #c7254e;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: Consolas, monospace;
+        }
+        pre {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            overflow-x: auto;
+            border-radius: 4px;
+        }
+        .req {
+            background-color: #e8f4f8;
+            padding: 15px;
+            border-left: 5px solid #3498db;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Sprint 3: Dai Monoliti ai Microservizi (Protoattori)</h1>
+    <p><strong>Corso:</strong> Ingegneria dei Sistemi Software a.a. 2025/2026 - DISI - University of Bologna</p>
+
+    <h2>1. Requisiti (I TODO del Professore)</h2>
+    <div class="req">
+        <ul>
+            <li><strong>TODO 1:</strong> Realizzazione (Progetto <code>SistemaSJavalin</code>) di un servizio in Java che fa il calcolo dei valori di un'espressione matematica con deployment del servizio in Docker usando il framework Javalin.</li>
+            <li><strong>La transizione:</strong> Dal bottom-up al top-down: dai sistemi monolitici ai microservizi. Verso il paradigma ad attori (Progetto <code>protoactor26</code>).</li>
+            <li><strong>TODO 2:</strong> Refactoring (Progetto <code>SistemaSProtoactor</code>) del SistemaSJavalin usando i protoattori.</li>
+        </ul>
+    </div>
+
+    <h2>2. Analisi del Problema (Il limite del Monolite)</h2>
+    <p>
+        Nella prima fase del progetto (<strong>TODO 1</strong>), il sistema è stato concepito come un <em>monolite</em>. Il server web (Javalin) riceveva una richiesta HTTP e richiamava direttamente la funzione di business <code>eval(x)</code>.
+    </p>
+    <p>
+        Il problema critico di questa architettura si manifesta quando <code>x > 4.0</code>. In questo caso, la funzione esegue un <code>CommUtils.delay(8000)</code> per simulare un calcolo oneroso. Essendo un sistema monolitico e sincrono, l'intero server web rimaneva <strong>bloccato per 8 secondi</strong>, incapace di gestire altre richieste in entrata (causando attese infinite o errori <code>ERR_CONNECTION_REFUSED</code> nel browser).
+    </p>
+
+    <h2>3. Architettura Logica e Refactoring (TODO 2)</h2>
+    <p>
+        Per risolvere il blocco del server, abbiamo effettuato una transizione verso un'architettura distribuita basata sul <strong>Paradigma ad Attori</strong>, utilizzando l'infrastruttura <code>protoactor26</code> fornita dal corso.
+    </p>
+    <ul>
+        <li><strong>MathActor:</strong> Un componente software (estende <code>AbstractProtoactor26</code>) che vive all'interno di un proprio <code>ProtoActorContext26</code>. Il suo unico scopo è ricevere messaggi di richiesta, eseguire il calcolo pesante nel proprio thread, e restituire un messaggio di risposta (Reply).</li>
+        <li><strong>SistemaSProtoactor (Javalin):</strong> Il server web è stato snellito. Ora funge solo da "ponte" asincrono. Riceve la richiesta HTTP, costruisce un <code>IApplMessage</code> e lo invia all'attore. Utilizzando una <code>CompletableFuture</code>, Javalin libera immediatamente il thread web, delegando il lavoro e attendendo la risposta in modo non bloccante.</li>
+    </ul>
+
+    <h2>4. Implementazione (Snippets di rilievo)</h2>
+    <p>La gestione asincrona lato Javalin per non bloccare il server:</p>
+    <pre><code>app.get("/eval", webCtx -> {
+    String parametro = webCtx.queryParam("x");
+    IApplMessage req = CommUtils.buildRequest("javalinWeb", "doEval", parametro, "mathActor");
+    
+    // Delega asincrona all'attore
+    CompletableFuture&lt;String&gt; promesa = CompletableFuture.supplyAsync(() -> {
+        IApplMessage reply = mathActor.elabRequest(req);
+        return "Risultato dall'attore: " + reply.msgContent();
+    });
+    
+    // Chiusura non bloccante
+    webCtx.future(() -> promesa.thenAccept(res -> webCtx.result(res)));
+});</code></pre>
+
+    <h2>5. Testing e Deployment</h2>
+    <h3>Testing</h3>
+    <p>Il sistema è stato testato con successo tramite browser:</p>
+    <ul>
+        <li><code>http://localhost:8080/eval?x=2.0</code> &rarr; Risposta immediata (nessun ritardo).</li>
+        <li><code>http://localhost:8080/eval?x=5.0</code> &rarr; L'attore esegue il delay di 8 secondi, ma la console conferma l'invio della richiesta senza blocco del thread web.</li>
+    </ul>
+
+    <h3>Deployment (Docker)</h3>
+    <p>Il sistema è stato "dockerizzato" con successo creando l'immagine <code>sistema-protoactor</code> tramite il comando Gradle <code>distTar</code> e un <code>Dockerfile</code> dedicato.</p>
+
+    <hr>
+    <p><em>Documento generato per il completamento dello Sprint 3 (Protoattori).</em></p>
+
+</body>
+</html>
