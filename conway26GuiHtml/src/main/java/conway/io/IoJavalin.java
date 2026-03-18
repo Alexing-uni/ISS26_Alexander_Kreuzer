@@ -1,158 +1,119 @@
-<<<<<<< HEAD
-package main.java.conway.io;
-=======
-package conway.io;
->>>>>>> upstream/main
+package conway.io; 
 
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.Vector;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import io.javalin.Javalin;
 import io.javalin.http.staticfiles.Location;
-import io.javalin.websocket.WsMessageContext;
-import unibo.basicomm23.utils.CommUtils;
-import unibo.basicomm23.interfaces.IApplMessage;
-import unibo.basicomm23.msg.ApplMessage;
+import io.javalin.websocket.WsContext;
 
 public class IoJavalin {
-	
-	private WsMessageContext pageCtx ;
-	public IoJavalin() {
-<<<<<<< HEAD
-	    var app = Javalin.create(config -> {
-	        config.staticFiles.add(staticFiles -> {
-	            // CAMBIO: Ponemos la ruta relativa desde la raíz del proyecto, sin la barra / al principio.
-	            staticFiles.directory = "src/main/resources/page";
-	            staticFiles.location = Location.EXTERNAL;
-	        });
-	    }).start(8080);
-=======
+    
+    protected AtomicInteger pageCounter = new AtomicInteger(0);
+    protected Vector<WsContext> allConns = new Vector<>();
+    protected String firstCaller = null;
+    
+    // NUEVO: El tablero global en memoria
+    protected boolean[][] grid = new boolean[20][20];
+    
+    public IoJavalin() {
         var app = Javalin.create(config -> {
-			config.staticFiles.add(staticFiles -> {
-				staticFiles.directory = "/page";
-				staticFiles.location = Location.CLASSPATH; // Cerca dentro il JAR/Classpath
-				/*
-				 * i file sono "impacchettati" con il codice, non cercati sul disco rigido esterno.
-				 */
-		    });
-		}).start(8080);
->>>>>>> upstream/main
- 
-/*
- * --------------------------------------------
- * Parte HTTP        
- * --------------------------------------------
- */
+            config.staticFiles.add(staticFiles -> {
+                staticFiles.directory = "src/main/resources/page";
+                staticFiles.location = Location.EXTERNAL;
+            });
+            config.jetty.modifyWebSocketServletFactory(factory -> {
+                factory.setIdleTimeout(java.time.Duration.ofMinutes(30));
+            });
+        }).start(8080);
+
         app.get("/", ctx -> {
-    		//Path path = Path.of("./src/main/resources/page/ConwayInOutPage.html");    		    
-        	/*
-        	 * Java cercherà il file all'interno del Classpath 
-        	 * (dentro il JAR o nelle cartelle dei sorgenti di Eclipse), 
-        	 * rendendo il codice universale
-         	 */
-        	var inputStream = getClass().getResourceAsStream("/page/ConwayInOutPage.html");       	
-        	if (inputStream != null) {
-        		// Trasformiamo l'inputStream in stringa (o lo mandiamo come stream)
-        	    String content = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
-        	    ctx.html(content);
-        	} else {
-		        ctx.status(404).result("File non trovato nel file system");
-		    }
-		    //ctx.result("Hello from Java!"));  //la forma più semplice di risposta
+            try {
+                // NUEVO: Apuntamos al archivo Canvas del profesor
+                java.nio.file.Path path = java.nio.file.Paths.get("src/main/resources/page/LifeIInOutCanvas.html");
+                String content = java.nio.file.Files.readString(path);
+                ctx.html(content);
+            } catch (Exception e) {
+                ctx.status(500).result("Error leyendo HTML: " + e.getMessage());
+            }
         }); 
-        
-        app.get("/greet/{name}", ctx -> {
-            String name = ctx.pathParam("name");
-            ctx.result("Hello, " + name + "!");
-        }); //http://localhost:8080/greet/Alice
-        
-        app.get("/api/users", ctx -> {
-            Map<String, Object> user = Map.of("id", 1, "name", "Bob");
-            ctx.json(user); // Auto-converts to JSON
-        });
-        
-        /*
-         * Javalin v5+: Si passa solo la "promessa" (il Supplier del Future). 
-         * Javalin è diventato più intelligente: se il Future restituisce una Stringa, 
-         * lui fa ctx.result(stringa). Se restituisce un oggetto, lui fa ctx.json(oggetto).
-         * 
-         */
-        app.get("/async", ctx -> {
-        	ctx.future(() -> {
-	        	// Creiamo il future
-	            CompletableFuture<String> future = new CompletableFuture<>();
-	            
-	            // Eseguiamo il lavoro in un altro thread
-	            new Thread(() -> { 
-	                try {
-	                    Thread.sleep(2000); // Simulazione calcolo pesante
-	                    future.complete("IoJavalin | Risultato calcolato asincronamente");
-	                } catch (Exception e) {
-	                    future.completeExceptionally(e);
-	                }
-	            });
-	            
-	            return future; // Restituiamo il future a Javalin
-        	});
-        });
-        
-        app.get("/async1", ctx -> {
-            ctx.future(() -> CompletableFuture.supplyAsync(() -> {
-                // Simuliamo l'operazione lenta
-                try {
-                    Thread.sleep(2000); 
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                return "IoJavalin | Risultato calcolato con supplyAsync";
-            }));
-        });
-/*
- * --------------------------------------------
- * Parte Websocket
- * --------------------------------------------
- */
-        
-        app.ws("/chat", ws -> {
-            ws.onConnect(ctx -> CommUtils.outgreen("Client connected chat!"));
+
+        app.ws("/eval", ws -> {
+            ws.onConnect(ctx -> {
+                ctx.session.setIdleTimeout(java.time.Duration.ofMinutes(30));
+                
+                int idAssegnato = pageCounter.incrementAndGet(); 
+                String callerName = "caller" + idAssegnato;
+                allConns.add(ctx);
+                
+                sendsafe(ctx, "ID:" + callerName);
+                if (firstCaller == null) firstCaller = callerName;
+                
+                // Le pasamos la matriz entera al nuevo usuario para que vea el tablero al instante
+                sendsafe(ctx, gridToJson());
+            });
+
             ws.onMessage(ctx -> {
                 String message = ctx.message();
-                CommUtils.outcyan("IoJavalin |  riceve:" + message);
-                ctx.send("Echo: " + message);
-            });
-        });        
-        app.ws("/eval", ws -> {
-            ws.onConnect(ctx -> CommUtils.outgreen("IoJavalin | Client connected eval"));
-            ws.onMessage(ctx -> {
-                String message = ctx.message();     
-                CommUtils.outblue("IoJavalin |  eval receives:" + message );
+                if (message.equals("PING") || message.contains("canvas-ready")) return;
+
+                System.out.println("IoJavalin | eval receives: " + message);
                 try {
-                	IApplMessage m = new ApplMessage(message);
-                    CommUtils.outblue("IoJavalin |  eval:" + m.msgContent() );
-                    if( m.msgContent().equals("ready")) { 
-                    	pageCtx = ctx;  //memorizzo connession pagina
-                    }else if( m.msgContent().contains("cell(")) { 
-                    	//Funziona se arriva da CallerServerWs es. cell(5,6,1)
-                    	pageCtx.send( m.msgContent()); 
-                    	//TODO: inviare a LifeController
-                    }else ctx.send(m.msgContent());
-                }catch(Exception e) {
-                	CommUtils.outred("IoJavalin |  error:" + e.getMessage());
+                    if (message.contains("cell(")) { 
+                        // Leer la fila y columna del click
+                        Matcher m = Pattern.compile("cell\\((\\d+),(\\d+)\\)").matcher(message);
+                        if(m.find()){
+                            int r = Integer.parseInt(m.group(1));
+                            int c = Integer.parseInt(m.group(2));
+                            if (r < 20 && c < 20) {
+                                grid[r][c] = !grid[r][c]; // Cambia la celda (viva/muerta)
+                            }
+                        }
+                        // Enviar toda la matriz actualizada a todo el mundo de golpe
+                        String jsonGrid = gridToJson();
+                        for (WsContext conn : allConns) sendsafe(conn, jsonGrid);
+                    } 
+                    else if (message.contains("clear")) {
+                        grid = new boolean[20][20]; // Resetear matriz
+                        String jsonGrid = gridToJson();
+                        for (WsContext conn : allConns) sendsafe(conn, jsonGrid);
+                    }
+                    else {
+                        for (WsContext conn : allConns) sendsafe(conn, message);
+                    }
+                } catch(Exception e) {
+                    System.err.println("IoJavalin | error: " + e.getMessage());
                 }               
             });
+            
+            ws.onClose(ctx -> allConns.remove(ctx));
         });        
-	}
-	
- 
-	
+    }
+    
+    // Función mágica: Convierte la matriz de Java en formato JSON [[false, true]...]
+    private String gridToJson() {
+        StringBuilder sb = new StringBuilder("[");
+        for (int r = 0; r < 20; r++) {
+            sb.append("[");
+            for (int c = 0; c < 20; c++) {
+                sb.append(grid[r][c] ? "true" : "false");
+                if (c < 19) sb.append(",");
+            }
+            sb.append("]");
+            if (r < 19) sb.append(",");
+        }
+        sb.append("]");
+        return sb.toString();
+    }
 
-	
-	public static void main(String[] args) {
-		var resource = IoJavalin.class.getResource("/pages");
-		CommUtils.outgreen("DEBUG: La cartella /page si trova in: " + resource);
-		new IoJavalin();
-	}
+    protected void sendsafe(WsContext ctx, String msg) {
+        synchronized (ctx.session) {
+            if (ctx.session.isOpen()) ctx.send(msg);
+        }
+    }
 
+    public static void main(String[] args) {
+        new IoJavalin();
+    }
 }

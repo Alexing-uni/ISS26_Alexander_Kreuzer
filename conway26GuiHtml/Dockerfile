@@ -1,34 +1,17 @@
-<<<<<<< HEAD
-FROM eclipse-temurin:17.0.5_8-jre-focal
-ADD build/distributions/conway26GuiHtml-1.0.tar /
-WORKDIR /conway26GuiHtml-1.0/bin
-# Forzamos el Classpath a la carpeta de librerías donde Gradle mete las clases
-CMD ["java", "-cp", "../lib/*", "conway26appl.MainConwayGui"]
-=======
-## ----------------------------------------------------------
-## Dockerfile for  SistemaSJavalin
-## ----------------------------------------------------------
+# Usamos una imagen oficial de Java 21
+FROM eclipse-temurin:21-jdk
 
-FROM eclipse-temurin:17.0.5_8-jre-focal AS builder
-## ADD extracts the tar
-ADD ../build/distributions/conway26GuiHtml-1.0.tar /
-WORKDIR /conway26GuiHtml-1.0/bin
+# Creamos la carpeta donde vivirá tu app en el contenedor
+WORKDIR /app
 
-## RUN apt-get update -y
+# Copiamos todo tu código al contenedor
+COPY . /app
 
+# Damos permisos al ejecutable de Gradle por si acaso
+RUN chmod +x ./gradlew
 
-CMD ["bash", "conway26GuiHtml"]
+# Exponemos el puerto 8080 para que el navegador pueda entrar
+EXPOSE 8080
 
-## 0) docker rmi gui26html:1.0
-## 1) gradlew distTar
-## 2) docker build -t gui26html:1.0 .   ##lowercase
- 
-## docker run -it --rm --name gui26html -p8080:8080/tcp   gui26html:1.0  /bin/bash
- 
-# docker tag gui26html:1.0 natbodocker/gui26html:1.0
-#type docker_password.txt | docker login --username natbodocker --password-stdin
-#docker login --username natbodocker --password xyz
-# docker push natbodocker/sistemasjavalin:1.0
-
-# docker-compose -f conway26Guihtml.yaml  up down
->>>>>>> upstream/main
+# Le decimos a Docker que arranque tu servidor usando Gradle
+CMD ["./gradlew", "run"]
