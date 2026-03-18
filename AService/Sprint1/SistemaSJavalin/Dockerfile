@@ -5,7 +5,7 @@
 FROM eclipse-temurin:17.0.5_8-jre-focal as builder
 ## EXPOSE 8085
 ## ADD extracts the tar
-ADD ../build/distributions/SistemaSJavalin-1.0.tar /
+ADD ./build/distributions/SistemaSJavalin-1.0.tar /
 WORKDIR /SistemaSJavalin-1.0/bin
 COPY ./*.pl ./
 COPY ./*.json ./

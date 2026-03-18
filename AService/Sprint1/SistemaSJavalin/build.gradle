@@ -27,17 +27,17 @@ dependencies {
     implementation name: '2p301'
     implementation name: 'unibo.basicomm23-1.0'
  
- 
- 	/* javalin ******************************* */
- 	implementation 'io.javalin:javalin-bundle:6.1.3'
+    /* javalin ******************************* */
+    implementation 'io.javalin:javalin-bundle:6.1.3'
 
     /* websocket ***************************** */
- 	  implementation group: 'org.java-websocket', name: 'Java-WebSocket', version: '1.6.0'
+    implementation group: 'org.java-websocket', name: 'Java-WebSocket', version: '1.6.0'
 
-	 /* HTTP  ******************************** */
+    /* HTTP  ******************************** */
     implementation 'org.apache.httpcomponents:httpclient:4.5'
     
- }
+   
+}
 
 sourceSets {
     main.java.srcDirs += 'src'
@@ -56,16 +56,15 @@ eclipse {
 
 application {
     //Define the main class for the application.
-    mainClassName    = 'main.java.SistemaSJavalinBetter'
+    mainClass = 'main.java.javalin.SistemaSJavalinBetterApplMsgs'
 }
 
 jar {
     println("building jar")
     from sourceSets.main.allSource
     manifest {
-        attributes 'Main-Class': "$mainClassName"
+        attributes 'Main-Class': application.mainClass
     }
-    //Gestisci i file duplicati (evita errori di build)
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
  
@@ -75,8 +74,7 @@ task dovesiamo {
 }
  
 jacocoTestReport {
-    dependsOn test // Il report viene generato solo dopo l'esecuzione dei test
-
+    dependsOn test
     reports {
         xml.required = false
         csv.required = false
