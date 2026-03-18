@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Conway Canvas Mode</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        /* El lienzo donde se pintarán las celdas */
+        canvas { border: 2px solid black; background-color: #f0f0f0; cursor: crosshair; margin-top: 20px;}
+        .controls { margin: 20px; }
+        button { padding: 10px 20px; margin: 5px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Conway Game of Life (Canvas Mode)</h1>
+    <h3 id="status">STATO: IN ATTESA...</h3>
+
+    <div class="controls">
+        <button id="btnStart">START</button>
+        <button id="btnStop">STOP</button>
+        <button id="btnClear">CLEAR</button>
+    </div>
+
+    <canvas id="lifeCanvas" width="400" height="400"></canvas>
+
+    <script src="wscanvascontrol.js?v=1"></script>
+</body>
+</html>

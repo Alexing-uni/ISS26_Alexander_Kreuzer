@@ -1,58 +1,66 @@
-/*
-wscontrol.js
-*/
- 	var pageId         = "unknown";
-	var cmdMsgTemplate = "msg( eval, dispatch, SENDER, lifectrl, CMD, 0 )"
-	var opened         = false
-	var socketToGui;
-	
-	function sendCmdToServer(cmd) {
-		 console.log("sendCmdToServer:" + cmd )
-		 msg = cmdMsgTemplate.replace("CMD", cmd).replace("SENDER",pageId)
-		 //addItem("sendCmdToServer: " + msg + " opened=" + opened);		 
-		 if( opened ) socketToGui.send(msg);
-	}
-				
- function  initWS(){
- /*1*/	  
-      console.log("initWS | window.location.host=" + window.location.host );
-	  if( window.location.host =="" ) socketToGui = new WebSocket("ws://localhost:8080/chat");
-	  else 	socketToGui = new WebSocket("ws://"+window.location.host+"/eval");
+var pageId = "unknown";
+var opened = false;
+var socketToGui;
 
- /*2*/socketToGui.onopen = () => {
-     console.log("initWS | Connesso a eval");
-	 addItem("initWS | Connesso a chat");
-	 opened = true;
-	 sendCmdToServer("ready" );
-     }
+window.sendCmdToServer = function(cmd) {
+    if (opened && socketToGui) {
+        var msg = "msg( eval, dispatch, " + pageId + ", lifectrl, " + cmd + ", 0 )";
+        console.log(">>> ENVIANDO AL SERVIDOR: " + msg);
+        socketToGui.send(msg);
+    }
+};
 
- /*3*/socketToGui.onmessage = (event) => {
-         console.log("initWS | onmessage:",event.data);
-		 if( event.data.startsWith("ID:")){
-			console.log("initWS | onmessage:",event.data);
-			pageId= event.data.split(":")[1];
-			addItem( "page ID="  + pageId ); 
-		 }
-		 else if( event.data.startsWith("cell(")){ //deve ricevere da caller
-			 //addItem(event.data);
-			 coords = event.data.replace("cell(", "").replace(")","").split(",");
-			 //addItem(coords);
-			 updateCellColor(coords[0],coords[1],coords[2] )  //In iomap.js
-		 }else{/*
-	         if( event.data == "PING") {
-				socketToGui.send("PONG");
-			 }*/
-			 if( event.data != "PING") addItem( event.data );
-		 }
-	 }
-	 socketToGui.onclose =  function(event){	
-		 console.log("initWS | Chiusura connessione ", event);
-         addItem("initWS | Chiusura connessione ");
-         opened = false;
-	 }
- }//initWS
+function initWS() {
+    var host = window.location.host || "localhost:8080";
+    socketToGui = new WebSocket("ws://" + host + "/eval");
 
- //addItem("Welcome to conwaygui ....");  
-  initWS()
-   
- 
+    socketToGui.addEventListener("open", function() {
+        console.log(">>> WebSocket Conectado");
+        opened = true;
+        window.sendCmdToServer("ready");
+    });
+
+    socketToGui.addEventListener("message", function(event) {
+        var data = event.data;
+
+        // 1. LÓGICA DE OWNER (Bloquear botones si eres el 2º)
+        if (data.startsWith("ID:")) {
+            pageId = data.split(":")[1];
+            console.log(">>> SOY EL JUGADOR: " + pageId);
+            
+            if (pageId !== "caller1") {
+                console.log(">>> MODO OBSERVADOR. Bloqueando controles.");
+                document.querySelectorAll("button").forEach(btn => {
+                    if (!btn.textContent.includes("Remove")) {
+                        btn.disabled = true;
+                        btn.style.opacity = "0.5";
+                    }
+                });
+            }
+        } 
+		// 2. LÓGICA DE PINTAR
+		        else if (data.includes("cell(")) {
+		            var match = data.match(/cell\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)/);
+		            if (match) {
+		                var cellId = "cell(" + match[1] + "," + match[2] + ")";
+		                var cellEl = document.getElementById(cellId);
+		                if (cellEl) {
+		                    cellEl.style.backgroundColor = (cellEl.style.backgroundColor === "black") ? "" : "black";
+		                }
+		            }
+		        }
+		        // 3. NUEVO: LÓGICA DE LIMPIAR TABLERO
+		        else if (data.includes("clear")) {
+		            console.log(">>> LIMPIANDO TABLERO PARA TODOS");
+		            document.querySelectorAll(".grid div").forEach(cell => {
+		                cell.style.backgroundColor = ""; // Borramos el color
+		            });
+		        }
+    });
+
+    socketToGui.addEventListener("close", function() {
+        opened = false;
+        setTimeout(initWS, 2000);
+    });
+}
+initWS();
