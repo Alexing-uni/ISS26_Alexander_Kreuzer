@@ -25,7 +25,7 @@ public class OutInGuiInteraction implements IOutDev, IObserver{
     public void setController(GameController controller) {
     	CommUtils.outgreen(name + " | setController: " + controller);
     	lifecontroller = controller;
-    	CommUtils.delay(60000);  //dura un minuto
+    	CommUtils.delay(300000);  //dura  
     	CommUtils.outgreen(name + " | BYE "  );
     }
     
