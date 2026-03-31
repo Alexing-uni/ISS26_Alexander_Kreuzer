@@ -2,12 +2,12 @@
 <html>
 <head>
 <link rel="stylesheet" type="text/css" href="css/mystyle.css">
-<title>Sprint3_ConwayWeb</title>
+<title>conway26GuiHtml_Sprint3</title>
 </head>
 
 <body>
 <div id="top">
-<h1>ConwayLife Sprint 3 (Web GUI & WebSocket)</h1>
+<h1>ConwayLife Sprint 3 (Web GUI & Javalin)</h1>
 </div>  
 
 <div class="body">  
@@ -15,50 +15,124 @@
 <h2>Introduction</h2>
 <a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.6'>GAME OF LIFE DI CONWAY</a>
 <br>
-<b>Goal</b>: Transizione da un'applicazione Desktop Monolitica (Swing) ad un'architettura Client-Server distribuita con interfaccia Web (HTML/JS).
+<b>Goal Sprint 3</b>: Realizzazione in Java del Game of Life di Conway, dotandolo di una GUI accessibile mediante normale pagina Web.
+<br><br>
+Il sistema parte dall'architettura consolidata nello Sprint 2 (classi <code>Cell</code>, <code>Grid</code>, <code>Life</code>, <code>IOutDev</code>, <code>LifeController</code>), utilizzandola come base solida (core business) per lo sviluppo di questo nuovo incremento architetturale.
 
 <h2>Requirements</h2>
 <pre>
-R3  L'utente deve poter interagire con il sistema Conway tramite un normale Web Browser.
-    Il sistema deve garantire l'aggiornamento in tempo reale della griglia mostrata nel browser
-    mentre il motore di gioco (Backend) calcola le generazioni.
+L’utente umano deve poter:
+ - specificare la configurazione iniziale della griglia del gioco.
+ - vedere l’evoluzione del gioco in forma opportuna aggiornata in modo automatico.
+ - fermare e far ripartire l’evoluzione del gioco.
+ - pulire (a gioco fermo) la configurazione della griglia del gioco.
+
+Requisiti specifici del committente per la Web GUI:
+ 1. La pagina HTML deve relazionarsi con l'applicazione tramite un server (es. Javalin integrato o esterno).
+ 2. <b>Owner Pattern:</b> Solo l'utente che apre per primo la pagina (owner) avrà i pulsanti START/STOP/CLEAN attivi.
+ 3. Un utente "non owner" che si collega successivamente vedrà lo stato attuale aggiornato, ma in sola lettura.
+ 4. Il deployment finale del gioco deve avvenire mediante <b>Docker</b>.
 </pre>
 
+<br>
+
 <h2>Requirement analysis</h2>
-<p>La separazione fisica tra Client (Browser) e Server (Backend Java) richiede l'uso di protocolli di rete standard. I componenti diventano:</p>
+<p>
+    Il requisito di dotare il gioco di una pagina HTML proietta il sistema nel contesto dei moderni sistemi Web Client-Server. Emergono due possibili scenari architetturali:
+</p>
 <ul>
-    <li><b>Web Server (Inbound Adapter)</b>: Fornisce la pagina HTML statica e gestisce le connessioni in ingresso.</li>
-    <li><b>Frontend (Client)</b>: Pagina HTML arricchita con JavaScript per la manipolazione del DOM (rappresentazione della griglia) e l'invio di comandi.</li>
+    <li>
+        <b>Javalin Integrato:</b> Il framework Javalin costituisce il 'cuore' di un nuovo dispositivo di I/O (<code>OutInws</code>). L'applicazione stessa ha la responsabilità di creare e servire la pagina HTML e gestire le comunicazioni Web.
+    </li>
+    <li>
+        <b>Javalin Esterno:</b> Il dispositivo di I/O utilizza un client WebSocket per interagire con un server esterno indipendente che eroga la pagina.
+    </li>
 </ul>
+<p>
+    Il requisito dell'<b>Owner</b> impone la gestione dello stato delle sessioni: la GUI mostrerà sempre i pulsanti, ma gli eventi click genereranno comandi validi solo se la sessione WebSocket corrisponde a quella del primo utente connesso.
+</p>
+
+<br>
 
 <h2>Problem analysis</h2>
-<p>Il problema fondamentale è la <b>sincronizzazione dello stato</b>. L'approccio Request-Response standard (HTTP Polling) risulta inefficiente per un gioco che si aggiorna continuamente. È necessario stabilire un canale di comunicazione bidirezionale persistente utilizzando il protocollo <b>WebSocket</b>. In questo modo, il Server può inviare proattivamente (push) gli aggiornamenti di stato (es. <code>cell(x,y,state)</code>) al Client non appena una nuova generazione viene calcolata.</p>
+<p>
+    Come suggerito dal committente, affrontiamo lo scenario <b>Javalin esterno</b>, in quanto propedeutico ai sistemi software distribuiti basati su microservizi.
+</p>
+<p>
+    Il sistema viene diviso in due macro-componenti che devono interagire scambiando messaggi strutturati (es. <code>IApplMessage</code>):
+    <ul>
+        <li><code>lifectrl</code>: L'applicazione core (il motore di gioco).</li>
+        <li><code>guiserver</code>: Il componente che include l'I/O Javalin ed eroga la pagina Web.</li>
+    </ul>
+</p>
+<p>
+    <b>Il Problema delle Connessioni (WebSocket):</b><br>
+    Per garantire l'aggiornamento real-time (push dal server al browser senza polling continuo), adottiamo il protocollo <b>WebSocket</b> sulla porta 8080. 
+    Il <code>guiserver</code> deve gestire nativamente molteplici contesti di connessione:
+    <ul>
+        <li><code>pageCtx</code>: La connessione con il browser dell'utente (owner e viewer).</li>
+        <li><code>lifeCtrlCtx</code>: La connessione back-to-back con l'applicazione core.</li>
+    </ul>
+</p>
+
+<img src="conwayWebGUI.png" alt="ConwayLife Web GUI" width="60%" style="border: 2px solid #ccc; border-radius: 5px; box-shadow: 3px 3px 10px rgba(0,0,0,0.1);">
+<p><i>Figura 1: Interfaccia Web di Conway erogata tramite Javalin. I controlli sono attivi solo per l'utente Owner.</i></p>
+
+<br>
 
 <h2>Test plans</h2> 
-<p>Verifica della connessione Client-Server aprendo la pagina Web (<code>http://localhost:8080</code>) e simulando l'invio dei comandi Start/Stop/Clear, assicurandosi che la griglia risponda senza latenze percettibili e che la console del server registri i messaggi WebSocket in ingresso.</p>
+<p>
+    Trattandosi di interazioni asincrone su pagine HTML, il collaudo automatizzato risulta complesso. Adottiamo un piano di <b>System Testing Manuale</b> mirato a verificare la concorrenza e il pattern Owner:
+</p>
+<ol>
+    <li>Avvio l'applicazione sul computer locale.</li>
+    <li>Apro un primo browser su <code>localhost:8080</code> (Questo assume il ruolo di Owner). Avvio il gioco.</li>
+    <li>Apro un secondo tab o un browser differente su <code>localhost:8080</code>.</li>
+    <li><b>Criterio di accettazione:</b> Verifico visivamente che il secondo browser riceva gli aggiornamenti della griglia, ma che i click sui suoi pulsanti Start/Stop vengano ignorati dal server (non influenzando il gioco).</li>
+</ol>
+
+<br>
 
 <h2>Project</h2> 
-<p>Utilizzo del framework <b>Javalin</b> per implementare rapidamente sia il Web Server (per il delivery delle risorse statiche <code>src/main/resources/public</code>) sia l'endpoint WebSocket. Lato client, viene utilizzata l'API nativa WebSocket di JavaScript.</p>
+<p>
+    Il progetto introduce l'utilizzo di librerie esterne mediante Gradle (<code>io.javalin:javalin</code>). La pagina Web è strutturata in file statici (HTML, CSS, JS nativo per WebSocket) allocati nella directory <code>src/main/resources/public</code>. Lato server, vengono implementati gli handler HTTP (<code>app.get</code>) e WebSocket (<code>app.ws</code>) per instradare i messaggi tra i client e il <code>LifeController</code>.
+</p>
+
+<br>
 
 <h2>Testing</h2> 
-<p>Test di concorrenza collegando più tab del browser contemporaneamente per verificare la stabilità del Web Server Javalin sotto carico di richieste asincrone.</p>
+<p>
+    I test unitari (JUnit/JaCoCo) del dominio sviluppati nello Sprint 1 rimangono il baluardo per la validazione della logica matematica, garantendo che l'introduzione della rete non abbia introdotto regressioni nel calcolo delle generazioni.
+</p>
+
+<br>
 
 <h2>Deployment</h2> 
-<p>Il backend Java viene eseguito come servizio isolato. I client possono connettersi da qualsiasi dispositivo all'interno della medesima rete.</p>
+<p>
+    Come richiesto esplicitamente dal committente (Requisito 4), il deployment avviene mediante containerizzazione. 
+    È stato creato un <code>Dockerfile</code> che espone la porta 8080 ed esegue l'artefatto compresso (generato tramite il task Gradle <code>distTar</code>), rendendo il Web Server di Conway distribuibile su qualsiasi infrastruttura cloud in modo portabile.
+</p>
+
+<br>
 
 <h2>Maintenance</h2> 
-<p>Il codice di interazione con Javalin agisce come un Adapter. La logica core di Conway (Sprint 1) rimane ancora una volta inalterata, garantendo elevata manutenibilità.</p>
+<p>
+    Questa architettura disaccoppiata (Frontend Web / Backend Java) risolve i limiti del monolite Desktop (Sprint 2) garantendo l'accesso multi-utente. La logica dei messaggi getta le basi per la successiva e naturale evoluzione del sistema verso l'uso formale dell'infrastruttura a <b>Protoattori</b> (<code>unibo.basicomm23</code>).
+</p>
 	      	
 <br><br> 	
 </div>  
 
 <div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+    
     <img src="./img/imageServlet.jpg" alt="emiglio" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+    
     <div style="font-family: Arial, sans-serif; line-height: 1.5;">
         <strong>By Alexander Kreuzer</strong><br>
         Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
         GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
     </div>
+
 </div>
 </body>
 </html>
