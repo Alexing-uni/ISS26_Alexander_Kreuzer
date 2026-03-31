@@ -1,95 +1,64 @@
-<!DOCTYPE html>
-<html lang="it">
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sprint 3: Conway Life - Web GUI</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            margin: 0 auto;
-            max-width: 900px;
-            padding: 20px;
-            color: #333;
-        }
-        h1, h2, h3 { color: #2c3e50; }
-        h1 { border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-        h2 { border-bottom: 1px solid #bdc3c7; padding-bottom: 5px; margin-top: 30px; }
-        code {
-            background-color: #f8f9fa;
-            color: #c7254e;
-            padding: 2px 4px;
-            border-radius: 4px;
-            font-family: Consolas, monospace;
-        }
-        pre {
-            background-color: #f8f9fa;
-            border-left: 4px solid #3498db;
-            padding: 15px;
-            overflow-x: auto;
-            border-radius: 4px;
-        }
-        .req {
-            background-color: #e8f4f8;
-            padding: 15px;
-            border-left: 5px solid #3498db;
-            margin-bottom: 20px;
-        }
-    </style>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>Sprint3_ConwayWeb</title>
 </head>
+
 <body>
+<div id="top">
+<h1>ConwayLife Sprint 3 (Web GUI & WebSocket)</h1>
+</div>  
 
-    <h1>Sprint 3: Conway Life - Transizione a Web GUI (HTML/JS)</h1>
-    <p><strong>Corso:</strong> Ingegneria dei Sistemi Software a.a. 2025/2026 - DISI - University of Bologna</p>
+<div class="body">  
 
-    <h2>1. Requisiti</h2>
-    <div class="req">
-        <p><strong>Obiettivo:</strong> Evolvere l'interfaccia utente del progetto <em>Conway's Game of Life</em> (Progetto <code>conway26GuiHtml</code>).</p>
-        <p>Passare da una GUI desktop locale (implementata precedentemente in Java Swing) a una <strong>Web GUI distribuita</strong> basata su tecnologie standard (HTML, CSS, JavaScript) capace di comunicare con il backend tramite rete.</p>
+<h2>Introduction</h2>
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.6'>GAME OF LIFE DI CONWAY</a>
+<br>
+<b>Goal</b>: Transizione da un'applicazione Desktop Monolitica (Swing) ad un'architettura Client-Server distribuita con interfaccia Web (HTML/JS).
+
+<h2>Requirements</h2>
+<pre>
+R3  L'utente deve poter interagire con il sistema Conway tramite un normale Web Browser.
+    Il sistema deve garantire l'aggiornamento in tempo reale della griglia mostrata nel browser
+    mentre il motore di gioco (Backend) calcola le generazioni.
+</pre>
+
+<h2>Requirement analysis</h2>
+<p>La separazione fisica tra Client (Browser) e Server (Backend Java) richiede l'uso di protocolli di rete standard. I componenti diventano:</p>
+<ul>
+    <li><b>Web Server (Inbound Adapter)</b>: Fornisce la pagina HTML statica e gestisce le connessioni in ingresso.</li>
+    <li><b>Frontend (Client)</b>: Pagina HTML arricchita con JavaScript per la manipolazione del DOM (rappresentazione della griglia) e l'invio di comandi.</li>
+</ul>
+
+<h2>Problem analysis</h2>
+<p>Il problema fondamentale è la <b>sincronizzazione dello stato</b>. L'approccio Request-Response standard (HTTP Polling) risulta inefficiente per un gioco che si aggiorna continuamente. È necessario stabilire un canale di comunicazione bidirezionale persistente utilizzando il protocollo <b>WebSocket</b>. In questo modo, il Server può inviare proattivamente (push) gli aggiornamenti di stato (es. <code>cell(x,y,state)</code>) al Client non appena una nuova generazione viene calcolata.</p>
+
+<h2>Test plans</h2> 
+<p>Verifica della connessione Client-Server aprendo la pagina Web (<code>http://localhost:8080</code>) e simulando l'invio dei comandi Start/Stop/Clear, assicurandosi che la griglia risponda senza latenze percettibili e che la console del server registri i messaggi WebSocket in ingresso.</p>
+
+<h2>Project</h2> 
+<p>Utilizzo del framework <b>Javalin</b> per implementare rapidamente sia il Web Server (per il delivery delle risorse statiche <code>src/main/resources/public</code>) sia l'endpoint WebSocket. Lato client, viene utilizzata l'API nativa WebSocket di JavaScript.</p>
+
+<h2>Testing</h2> 
+<p>Test di concorrenza collegando più tab del browser contemporaneamente per verificare la stabilità del Web Server Javalin sotto carico di richieste asincrone.</p>
+
+<h2>Deployment</h2> 
+<p>Il backend Java viene eseguito come servizio isolato. I client possono connettersi da qualsiasi dispositivo all'interno della medesima rete.</p>
+
+<h2>Maintenance</h2> 
+<p>Il codice di interazione con Javalin agisce come un Adapter. La logica core di Conway (Sprint 1) rimane ancora una volta inalterata, garantendo elevata manutenibilità.</p>
+	      	
+<br><br> 	
+</div>  
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+    <img src="./img/imageServlet.jpg" alt="emiglio" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
     </div>
-
-    <h2>2. Analisi del Problema</h2>
-    <p>
-        Nei precedenti Sprint (1 e 2), il sistema era fortemente accoppiato alla macchina locale tramite Java Swing. Questo approccio monolitico limita l'accessibilità e non rispecchia l'architettura dei moderni sistemi distribuiti.
-    </p>
-    <p>
-        Per superare questo limite, è necessario separare il <em>frontend</em> dal <em>backend</em>. La sfida principale consiste nel mantenere la sincronizzazione in tempo reale della griglia (che si aggiorna frequentemente) tra il server (che esegue la logica di Conway) e il browser del client. L'uso di semplici richieste HTTP (polling) risulterebbe inefficiente; pertanto, si rende necessaria una comunicazione bidirezionale persistente.
-    </p>
-
-    <h2>3. Architettura Logica</h2>
-    <p>L'architettura adottata trasforma il sistema in un'applicazione Client-Server moderna:</p>
-    <ul>
-        <li><strong>Backend (Server):</strong> Gestisce la logica core (matrice delle celle) e ospita un server web (es. Javalin) per fornire la pagina HTML iniziale. Inoltre, espone un endpoint <strong>WebSocket</strong> per la comunicazione real-time.</li>
-        <li><strong>Frontend (Web GUI):</strong> Una pagina HTML arricchita con JavaScript. Usa le API native WebSocket del browser per ricevere gli aggiornamenti di stato dal server (es. <code>cell(x,y,state)</code>) e renderizzare visivamente la griglia (ad esempio tramite un elemento <code>&lt;canvas&gt;</code> o manipolazione del DOM).</li>
-    </ul>
-
-    <h2>4. Implementazione</h2>
-    <p>Il componente fondamentale lato client è la gestione asincrona dei messaggi WebSocket:</p>
-    <pre><code>// Esempio logico di connessione lato client (JavaScript)
-const socketWS = new WebSocket("ws://localhost:8080/conway");
-
-socketWS.onopen = () => {
-    console.log("Connesso al server Conway");
-    socketWS.send("Richiesta stato iniziale");
-};
-
-socketWS.onmessage = (event) => {
-    // Il server invia aggiornamenti (es. in formato JSON)
-    let update = JSON.parse(event.data);
-    aggiornaGrigliaUI(update.x, update.y, update.state);
-};</code></pre>
-
-    <h2>5. Testing e Risultati</h2>
-    <p>Il collaudo ha dimostrato che l'architettura è robusta:</p>
-    <ul>
-        <li>Aprendo <code>http://localhost:8080</code> nel browser, l'interfaccia viene caricata correttamente indipendentemente dal sistema operativo.</li>
-        <li>I comandi inviati tramite bottoni HTML (Start, Stop, Clear) vengono interpretati dal server senza latenza percepibile.</li>
-        <li>Il disaccoppiamento è completo: è possibile aprire l'interfaccia su più browser contemporaneamente osservando lo stesso stato (se il server gestisce il broadcasting).</li>
-    </ul>
-
-    <hr>
-    <p><em>Documento generato per il completamento dello Sprint 3 (Conway Web GUI).</em></p>
-
+</div>
 </body>
 </html>

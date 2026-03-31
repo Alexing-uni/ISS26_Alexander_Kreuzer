@@ -1,0 +1,66 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>conway26JavaSwing_v0</title>
+</head>
+
+<body>
+<div id="top">
+<h1>ConwayLife Sprint 2 (Java Swing)</h1>
+</div>  
+
+<div class="body">  
+
+<h2>Introduction</h2>
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.6'>GAME OF LIFE DI CONWAY</a>
+<br>
+<b>Goal</b>: Evoluzione del sistema base (Sprint 1) dotandolo di una Graphical User Interface (GUI) desktop tramite le librerie standard Java Swing.
+
+<h2>Requirements</h2>
+<pre>
+R2  L’utente umano deve poter:
+     - specificare la configurazione iniziale della griglia del gioco	
+     - vedere l’evoluzione del gioco in forma opportuna (GUI Desktop)
+     - fermare e far ripartire l’evoluzione del gioco
+     - pulire (a gioco fermo) la configurazione della griglia del gioco
+</pre>
+
+<h2>Requirement analysis</h2>
+<p>L'introduzione di un'interfaccia grafica impone una separazione netta tra il <i>Core di Business</i> (la logica sviluppata nello Sprint 1) e la <i>Presentazione</i>. I nuovi componenti software sono:</p>
+<ul>
+    <li><b>GUI (View)</b>: Componente basato su <code>javax.swing</code> (JFrame, JPanel, JButton) per mappare visivamente la matrice bidimensionale.</li>
+    <li><b>Controller</b>: Entità che orchestra l'interazione tra i pulsanti dell'utente (Start, Stop, Clear) e la classe <code>Life</code> del dominio.</li>
+</ul>
+
+<h2>Problem analysis</h2>
+<p>L'architettura adotta il pattern <b>MVC (Model-View-Controller)</b>. Il problema critico in applicazioni desktop è mantenere l'interfaccia reattiva. Il ciclo infinito di calcolo delle generazioni di Conway non può essere eseguito sul thread della GUI (Event Dispatch Thread di Swing), altrimenti la finestra si bloccherebbe ("freeze"). È necessario introdurre un <b>Thread separato</b> che gestisca il loop temporale (Thread.sleep) e aggiorni la view in modo asincrono (es. tramite <code>SwingUtilities.invokeLater</code>).</p>
+
+<h2>Test plans</h2> 
+<p>La logica core è già stata validata nello Sprint 1. Il testing della GUI avviene a livello di sistema (System Testing) verificando manualmente che i comandi utente producano il corretto avvio, arresto e reset della griglia senza bloccare l'applicazione.</p>
+
+<h2>Project</h2> 
+<p>Il progetto riutilizza le classi del dominio (<code>ICell</code>, <code>Life</code>) senza alcuna modifica al codice sorgente, dimostrando il successo della Clean Architecture impostata nello Sprint 1. Il package <code>devices</code> è stato esteso con i componenti Swing.</p>
+
+<h2>Testing</h2> 
+<p>I test unitari (JUnit) della logica core mantengono la loro validità e copertura. Non sono previsti test automatizzati per i componenti grafici Swing in questa fase.</p>
+
+<h2>Deployment</h2> 
+<p>Generazione di un <b>Fat JAR</b> eseguibile in ambiente locale (Desktop) che include dipendenze e GUI.</p>
+
+<h2>Maintenance</h2> 
+<p>Il limite di questo approccio è il forte accoppiamento alla macchina locale (Monolite Desktop). Il sistema non è utilizzabile via rete, rendendo necessaria una transizione verso architetture web (Sprint 3).</p>
+	      	
+<br><br> 	
+</div>  
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+    <img src="./img/imageServlet.jpg" alt="emiglio" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+</div>
+</body>
+</html>
