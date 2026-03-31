@@ -4,63 +4,136 @@
 <link rel="stylesheet" type="text/css" href="css/mystyle.css">
 <title>conway26JavaSwing_v0</title>
 </head>
-
+    
 <body>
 <div id="top">
-<h1>ConwayLife Sprint 2 (Java Swing)</h1>
+<h1>ConwayLife Sprint 2</h1>
 </div>  
 
 <div class="body">  
 
 <h2>Introduction</h2>
+
 <a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.6'>GAME OF LIFE DI CONWAY</a>
+ 
 <br>
-<b>Goal</b>: Evoluzione del sistema base (Sprint 1) dotandolo di una Graphical User Interface (GUI) desktop tramite le librerie standard Java Swing.
+
+<b>Goal</b>: Dotare il <a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.6'>GAME OF LIFE DI CONWAY</a> di un'interfaccia grafica di interazione utente (GUI) per soddisfare pienamente il <b>requisito R2</b>.
 
 <h2>Requirements</h2>
 <pre>
+R1  Realizzare una versione in Java del gioco Life di Conway, come gioco zero-player. 
+    Il gioco consiste nell’introdurre una Griglia di Celle il cui stato (cella ‘viva’ o cella ‘morta’) 
+    evolve come stabilito dallle regole di ConwayLife
+
 R2  L’utente umano deve poter:
      - specificare la configurazione iniziale della griglia del gioco	
-     - vedere l’evoluzione del gioco in forma opportuna (GUI Desktop)
+     - vedere l’evoluzione del gioco in forma opportuna 
+        (si veda <a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#section.6.3'>Problema della vista del gioco</a> )
      - fermare e far ripartire l’evoluzione del gioco
      - pulire (a gioco fermo) la configurazione della griglia del gioco
 </pre>
 
+<br>
+
 <h2>Requirement analysis</h2>
-<p>L'introduzione di un'interfaccia grafica impone una separazione netta tra il <i>Core di Business</i> (la logica sviluppata nello Sprint 1) e la <i>Presentazione</i>. I nuovi componenti software sono:</p>
+<p>
+    L'introduzione di una GUI richiede il passaggio da un sistema di calcolo batch (Sprint 1) a un sistema <b>Event-Driven</b> e reattivo. I nuovi componenti da modellare sono:
+</p>
+
 <ul>
-    <li><b>GUI (View)</b>: Componente basato su <code>javax.swing</code> (JFrame, JPanel, JButton) per mappare visivamente la matrice bidimensionale.</li>
-    <li><b>Controller</b>: Entità che orchestra l'interazione tra i pulsanti dell'utente (Start, Stop, Clear) e la classe <code>Life</code> del dominio.</li>
+    <li>
+        <b>View (GUI)</b>: Un'interfaccia grafica basata sulle librerie standard <code>javax.swing</code>. Deve essere in grado di mappare visivamente lo stato della matrice (<code>IGrid</code>) e di fornire i controlli utente richiesti (bottoni Start, Stop, Clear).
+    </li>
+    <li>
+        <b>Controller</b>: Un'entità capace di catturare gli eventi generati dalla GUI (es. <code>ActionEvent</code>) e orchestrare la comunicazione con il Core di Business (<code>Life</code>).
+    </li>
+    <li>
+        <b>Gestione della Concorrenza</b>: La necessità di separare il thread che esegue il calcolo delle generazioni dal thread che gestisce l'aggiornamento grafico.
+    </li>
 </ul>
 
+<br>
+
 <h2>Problem analysis</h2>
-<p>L'architettura adotta il pattern <b>MVC (Model-View-Controller)</b>. Il problema critico in applicazioni desktop è mantenere l'interfaccia reattiva. Il ciclo infinito di calcolo delle generazioni di Conway non può essere eseguito sul thread della GUI (Event Dispatch Thread di Swing), altrimenti la finestra si bloccherebbe ("freeze"). È necessario introdurre un <b>Thread separato</b> che gestisca il loop temporale (Thread.sleep) e aggiorni la view in modo asincrono (es. tramite <code>SwingUtilities.invokeLater</code>).</p>
+<p>
+    L'architettura del sistema deve continuare a rispettare i dettami della <b>Clean Architecture</b>: il dominio (Model) non deve avere alcuna dipendenza dalle librerie grafiche (Swing). Utilizzeremo pertanto il pattern <b>MVC (Model-View-Controller)</b> accoppiato al pattern <b>Observer</b>.
+</p>
+
+<p>Il problema architetturale più critico riguarda il <b>Threading (EDT - Event Dispatch Thread)</b>:</p>
+<ul>
+    <li>In Java, tutti gli aggiornamenti dei componenti Swing e la cattura degli eventi devono avvenire esclusivamente sull'<i>Event Dispatch Thread</i>.</li>
+    <li>Se il motore di Conway (il loop infinito che calcola <code>nextGeneration()</code>) venisse eseguito sull'EDT, l'intera interfaccia andrebbe in "freeze" (si bloccherebbe), impedendo all'utente di premere il tasto "Stop".</li>
+</ul>
+
+<p>
+    <b>Soluzione adottata:</b> Deleghiamo il loop di calcolo delle generazioni a un <b>Thread/Worker separato</b>. Quando questo thread deve notificare un cambiamento di stato alla GUI, la richiesta viene accodata in modo sicuro sull'EDT tramite il metodo <code>SwingUtilities.invokeLater()</code>.
+</p>
+
+<br>
+<img src="conwaySwingGUI.png" alt="ConwayLife Java Swing GUI" width="40%" style="border: 2px solid #ccc; border-radius: 5px; box-shadow: 3px 3px 10px rgba(0,0,0,0.1);">
+<p><i>Figura 1: Interfaccia grafica Java Swing che soddisfa i requisiti visivi e di interazione (R2).</i></p>
+<br>
 
 <h2>Test plans</h2> 
-<p>La logica core è già stata validata nello Sprint 1. Il testing della GUI avviene a livello di sistema (System Testing) verificando manualmente che i comandi utente producano il corretto avvio, arresto e reset della griglia senza bloccare l'applicazione.</p>
+<p>
+    Il testing automatico delle interfacce grafiche (GUI Testing) risulta spesso fragile. La strategia di collaudo adottata è ibrida:
+</p>
+<ol>
+    <li><b>Unit Testing (Model):</b> Esecuzione automatizzata dei test di dominio sviluppati nello Sprint 1 (es. <code>testOscilla</code>) tramite JUnit, per garantire che l'integrazione del nuovo Controller non abbia alterato la logica matematica di base.</li>
+    <li><b>System Testing (Manuale):</b> L'operatore avvia l'applicazione, imposta un pattern iniziale noto (es. <i>Glider</i>) cliccando sulle celle grafiche, preme "Start" per verificare la fluidità dell'animazione, e successivamente preme "Stop" per accertarsi che la GUI risponda reattivamente senza subire freeze.</li>
+</ol>
+
+<br>
 
 <h2>Project</h2> 
-<p>Il progetto riutilizza le classi del dominio (<code>ICell</code>, <code>Life</code>) senza alcuna modifica al codice sorgente, dimostrando il successo della Clean Architecture impostata nello Sprint 1. Il package <code>devices</code> è stato esteso con i componenti Swing.</p>
+<p>
+    Il progetto estende l'architettura dello Sprint 1 aggiungendo nuovi package secondo il principio della <i>Separation of Concerns</i>:
+    <ul>
+        <li><code>conway.domain</code>: Rimane <b>assolutamente invariato</b>. Questo dimostra il successo della progettazione orientata alle interfacce fatta nello Sprint 1.</li>
+        <li><code>conway.gui</code>: Contiene le classi Swing (es. <code>ConwayGui</code>, <code>ControlPanel</code>).</li>
+        <li><code>conway.controller</code>: Contiene il <code>LifeController</code> aggiornato per agire da Adapter asincrono tra View e Model.</li>
+    </ul>
+</p>
+
+<br>
 
 <h2>Testing</h2> 
-<p>I test unitari (JUnit) della logica core mantengono la loro validità e copertura. Non sono previsti test automatizzati per i componenti grafici Swing in questa fase.</p>
+<p>
+    L'analisi della Code Coverage con JaCoCo conferma la totale copertura (100% dei branch logici) del package di dominio <code>conway.domain</code>. Il package <code>conway.gui</code> viene escluso dai test unitari come previsto dal Test Plan.
+</p>
+
+<br>
 
 <h2>Deployment</h2> 
-<p>Generazione di un <b>Fat JAR</b> eseguibile in ambiente locale (Desktop) che include dipendenze e GUI.</p>
+<p>
+    Il deployment avviene tramite la generazione di un <b>"Fat JAR"</b> eseguibile, che incapsula sia la logica che le librerie grafiche, rendendo l'applicazione un eseguibile Desktop standalone.
+</p>
+<pre>
+    Task: gradlew jar
+    Esecuzione: java -jar build/libs/conway26JavaSwing-1.0.jar
+</pre>
+
+<br>
 
 <h2>Maintenance</h2> 
-<p>Il limite di questo approccio è il forte accoppiamento alla macchina locale (Monolite Desktop). Il sistema non è utilizzabile via rete, rendendo necessaria una transizione verso architetture web (Sprint 3).</p>
+<p>
+    Sebbene il requisito R2 sia stato pienamente soddisfatto, il sistema soffre dei tipici limiti di un <b>Monolite Desktop</b>. L'applicazione è strettamente accoppiata alla JVM locale su cui viene eseguita, precludendo l'accessibilità da remoto o via rete. Questo collo di bottiglia architetturale costituirà la spinta propulsiva per la transizione verso i Sistemi Distribuiti a Microservizi e Web GUI (Sprint 3).
+</p>
 	      	
 <br><br> 	
 </div>  
 
 <div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+    
     <img src="./img/imageServlet.jpg" alt="emiglio" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+    
     <div style="font-family: Arial, sans-serif; line-height: 1.5;">
         <strong>By Alexander Kreuzer</strong><br>
         Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
         GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
     </div>
+
 </div>
 </body>
 </html>
