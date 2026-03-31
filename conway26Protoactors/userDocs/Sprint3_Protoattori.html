@@ -1,0 +1,62 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>Sprint3_Protoattori</title>
+</head>
+
+<body>
+<div id="top">
+<h1>SistemaS Sprint 3 (Docker & Protoattori)</h1>
+</div>  
+
+<div class="body">  
+
+<h2>Introduction</h2>
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf'>CORSO DI INGEGNERIA DEI SISTEMI SOFTWARE</a>
+<br>
+<b>Goal</b>: Transizione dal bottom-up al top-down. Dai sistemi monolitici ai microservizi, integrando deployment tramite Docker e refactoring dell'architettura verso il Paradigma ad Attori.
+
+<h2>Requirements</h2>
+<pre>
+TODO 1: Realizzazione di un servizio in Java (calcolo espressione matematica) con deployment 
+        in Docker usando il framework Javalin.
+TODO 2: Refactoring del SistemaSJavalin usando l'infrastruttura a Protoattori fornita dal corso.
+</pre>
+
+<h2>Requirement analysis</h2>
+<p>Per il TODO 1, è necessario emacchettare l'applicazione Javalin in un'immagine containerizzata. <br>
+Per il TODO 2, occorre integrare la libreria <code>unibo.basicomm23</code> e trasformare l'entità che esegue il calcolo in un <b>Attore</b> capace di gestire in modo asincrono l'invio e la ricezione di messaggi (<code>IApplMessage</code>).</p>
+
+<h2>Problem analysis</h2>
+<p>Nel <b>TODO 1</b> (approccio monolitico), il server Web Javalin invocava direttamente la funzione di business <code>eval(x)</code>. Il problema critico si manifestava con valori elevati (x > 4.0), dove un ritardo simulato (8 secondi) <b>bloccava l'intero Web Server</b>, causando errori di connessione per gli altri utenti.</p>
+<p>Nel <b>TODO 2</b>, la soluzione architetturale impone l'uso di un <b>Protoattore</b> (<code>MathActor</code>). Il server web funge ora esclusivamente da Inbound Adapter (Clean Architecture): deposita i messaggi ricevuti via rete nella coda di input dell'attore. L'attore preleva ed elabora i messaggi in sequenza sfruttando un proprio <code>Thread</code> (Executors), lasciando il server Javalin libero di gestire nuove richieste immediatamente tramite l'uso di <code>CompletableFuture</code>.</p>
+
+<h2>Test plans</h2> 
+<p>Inoltro di richieste multiple (es. <code>/eval?x=5.0</code>) tramite browser. La verifica del successo consiste nell'osservare i log della console: il server Javalin deve dichiarare di aver liberato il thread web, mentre l'attore esegue il calcolo asincrono restituendo infine la Reply (Risultato).</p>
+
+<h2>Project</h2> 
+<p>Creazione del componente <code>MathActor</code> estendendo <code>AbstractProtoactor26</code>. Implementazione dei metodi contrattuali <code>elabRequest</code> (per restituire il risultato del calcolo) ed <code>elabDispatch</code>.</p>
+
+<h2>Testing</h2> 
+<p>Verifica del formato dei messaggi costruiti tramite <code>CommUtils.buildRequest()</code> e dell'effettivo instradamento nel <code>ProtoActorContext26</code>.</p>
+
+<h2>Deployment</h2> 
+<p><b>Dockerizzazione:</b> È stato redatto un <code>Dockerfile</code> basato su <code>eclipse-temurin:21-jdk</code>. Tramite il task Gradle <code>distTar</code> è stato pacchettizzato l'applicativo, successivamente decompresso all'interno dell'immagine Docker per l'esecuzione del servizio isolato sulla porta 8080.</p>
+
+<h2>Maintenance</h2> 
+<p>Il sistema risulta ora pienamente reattivo e distribuibile. La business logic è incapsulata in un attore autonomo, aprendo la strada all'applicazione di questo pattern architetturale (Protoattori) a sistemi più complessi, come il motore del gioco di Conway.</p>
+	      	
+<br><br> 	
+</div>  
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+    <img src="./img/imageServlet.jpg" alt="emiglio" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+</div>
+</body>
+</html>
