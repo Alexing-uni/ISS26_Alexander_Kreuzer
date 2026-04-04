@@ -12,6 +12,7 @@ dependencies {
     implementation 'org.slf4j:slf4j-api:2.0.12'
     implementation 'ch.qos.logback:logback-classic:1.5.1'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.16.1'
+    implementation 'com.googlecode.json-simple:json-simple:1.1.1'
 
     // ¡AQUÍ ESTÁ LA CLAVE! Cero referencias a "../"
     implementation files('libs/unibo.basicomm23-1.0.jar')
