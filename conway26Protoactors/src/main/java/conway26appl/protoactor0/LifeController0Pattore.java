@@ -120,9 +120,11 @@ public class LifeController0Pattore extends AbstractProtoactor26 {
     protected void elabDispatch(IApplMessage m ) {
     	CommUtils.outgreen(name + " | elabDispatch " + m);
     	//Controllo del sender
-    	if( ! m.msgSender().equals("caller1")) {
-    		CommUtils.outred( name + " REJECTS " +  m.msgId() + " from " + m.msgSender());
-    		return;
+    	// Permitimos mensajes del caller1, del caller normal, y del guiserver (la página HTML)
+    	String sender = m.msgSender();
+    	if( !sender.equals("caller1") && !sender.equals("caller") && !sender.equals("guiserver") ) {
+    	    CommUtils.outred( name + " REJECTS " +  m.msgId() + " from " + sender);
+    	    return;
     	}
     	String payload = m.msgContent();
 		if (payload.startsWith("cell")) {  //arriva dalla pagina HTML

@@ -13,7 +13,7 @@ import unibo.basicomm23.msg.ApplMessage;
 import unibo.basicomm23.utils.CommUtils;
 import unibo.basicomm23.ws.WsConnection;
 
-public class OutGuiDev  {
+public class OutGuiDev implements IObserver {
 	private String name = "outguidev";  //LOW CASE
 	private Interaction connToGui ;
 	private IApplMessage endmsg = CommUtils.buildDispatch("lifectrl", "endremoteclient", "end", "guiserver"  );
@@ -39,8 +39,8 @@ public class OutGuiDev  {
 		if( connToGui == null  )
 		try {
 			CommUtils.outgreen(name + " | connectToServer ..................... :");
-			connToGui = WsConnection.create("localhost:8080", "eval",null);
-//	     	IApplMessage cmdmsg = CommUtils.buildDispatch("lifectrl", "setcontroller", "set(lifectrl,ws,'localhost:8070')", "guiserver"  );
+			connToGui = WsConnection.create("localhost:8080", "eval", this);
+			//	     	IApplMessage cmdmsg = CommUtils.buildDispatch("lifectrl", "setcontroller", "set(lifectrl,ws,'localhost:8070')", "guiserver"  );
 //	     	CommUtils.outblue("LifeGameInteraction | forward " + cmdmsg);
 //	     	conn.forward(cmdmsg);
 	     	//Poi invio grid iniziale
@@ -99,5 +99,11 @@ public class OutGuiDev  {
 	}
 
 
+	@Override
+	public void update(Observable o, Object arg) {}
+
+	@Override
+	public void update(String value) {}
+	
 }
 

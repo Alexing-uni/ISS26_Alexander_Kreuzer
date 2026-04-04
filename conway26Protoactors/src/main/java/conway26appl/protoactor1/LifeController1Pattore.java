@@ -59,11 +59,16 @@ public class LifeController1Pattore extends AbstractProtoactor26 {
 	@Override
     protected IApplMessage elabRequest(IApplMessage req ) {
     	CommUtils.outblue(name + " | elabRequest:" + req);
-    	if( ! req.msgSender().equals("caller1")) {
-    		CommUtils.outred( name + " REJECTS " +  req.msgId() + " from " + req.msgSender()); 
-    		IApplMessage reply = CommUtils.buildReply(name, "answerTo"+req.msgId(), "error(not owner)", req.msgSender());
-    		return reply;
-    	}
+    	
+    	// --- FILTRO DE SEGURIDAD CORREGIDO ---
+	    String sender = req.msgSender();
+	    if( !sender.equals("caller1") && !sender.equals("caller") && !sender.equals("guiserver") && !sender.equals("owner") ) {
+	        CommUtils.outred( name + " REJECTS " +  req.msgId() + " from " + sender); 
+	        IApplMessage reply = CommUtils.buildReply(name, "answerTo"+req.msgId(), "error(not owner)", sender);
+	        return reply;
+	    }
+	    // -------------------------------------
+
     	if( req.msgId().equals("nepoch")){            
             IApplMessage replyMsg = 
             CommUtils.buildReply(name,req.msgId(),""+ epoch,req.msgSender());
@@ -126,9 +131,11 @@ public class LifeController1Pattore extends AbstractProtoactor26 {
     protected void elabDispatch(IApplMessage m ) {
     	CommUtils.outgreen(name + " | elabDispatch " + m);
     	//Controllo del sender
-    	if( ! m.msgSender().equals("caller1")) {
-    		CommUtils.outred( name + " REJECTS " +  m.msgId() + " from " + m.msgSender());
-    		return;
+    	// Permitimos mensajes del caller1, del caller normal, y del guiserver (la página HTML)
+    	String sender = m.msgSender();
+    	if( !sender.equals("caller1") && !sender.equals("caller") && !sender.equals("guiserver") ) {
+    	    CommUtils.outred( name + " REJECTS " +  m.msgId() + " from " + sender);
+    	    return;
     	}
     	String payload = m.msgContent();
 		if (payload.startsWith("cell")) {  //arriva dalla pagina HTML
