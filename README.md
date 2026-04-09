@@ -17,7 +17,7 @@ Repository del corso Ingegneria dei Sistemi Software a.a. 2025/2026 - DISI - Uni
   * [ConwayLife Sprint 1 (Console)](conway26Java) | 📄 [conway26Java_v0.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/conway26Java/userDocs/conway26Java_v0.html)
   * [ConwayLife Sprint 2 (Swing GUI)](conway26JavaSwing) | 📄 [conway26JavaSwing_v0.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/conway26JavaSwing/userDocs/conway26JavaSwing_v0.html)
   * [ConwayLife Sprint 3 (Web GUI)](conway26GuiHtml) | 📄 [Sprint3_ConwayWeb.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/conway26GuiHtml/userDocs/Sprint3_ConwayWeb.html)
-  * [ConwayLife Sprint 3 (Protoattori)](conway26Protoactors) 
+  * [ConwayLife Sprint 3 (Protoattori)](conway26Protoactors) | 📄 [ConwayProtoactors.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/conway26Protoactors/userDocs/ConwayProtoactors.html)
 
   **SistemaS: Dai Monoliti ai Microservizi** | [Codice Sorgente](AService/Sprint1/SistemaSJavalin) | 📄 [Sprint3_Protoattori.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/AService/Sprint1/SistemaSJavalin/userDocs/Sprint3_Protoattori.html)
   **SistemaS: Dai Monoliti ai Microservizi** | [Codice Sorgente](AService/Sprint1/SistemaSJavalin) | 📄 [Sprint3_Protoattori.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/AService/Sprint1/SistemaSJavalin/userDocs/Sprint3_Protoattori.html)
