@@ -1,0 +1,61 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>Conway_Protoattori</title>
+</head>
+
+<body>
+<div id="top">
+<h1>ConwayLife Sprint 3 (Refactoring a Protoattori)</h1>
+</div>  
+
+<div class="body">  
+
+<h2>Introduction</h2>
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf'>CORSO DI INGEGNERIA DEI SISTEMI SOFTWARE</a>
+<br>
+<b>Goal</b>: Evoluzione del sistema introdotto nel Progetto ConwayLife26 da un'architettura basata sugli oggetti a un sistema distribuito basato su <b>Pattori (Protoattori)</b>.
+
+<h2>Requirements</h2>
+<pre>
+- Comprendere il funzionamento dell'infrastruttura SProtoactor.
+- Analizzare i due modelli architetturali proposti: LifeGame0Protoactors e LifeGame1Protoactor.
+- Completare i progetti garantendo la comunicazione bidirezionale tra la Web GUI (Javalin) e il LifeController (Pattore).
+</pre>
+
+<h2>Requirement analysis</h2>
+<p>In questo sprint, gli oggetti Java tradizionali (come <code>Life</code> e <code>Grid</code>) non scompaiono, ma diventano risorse incapsulate all'interno di un componente attivo (il <b>LifeController1Pattore</b>). Questo componente è:
+<ul>
+    <li><b>Reattivo</b>: elabora in modo FIFO i messaggi (<code>IApplMessage</code>) inviati dalla Web GUI (es. click sulle celle).</li>
+    <li><b>Proattivo</b>: gestisce in autonomia il thread del ciclo vitale (Epoch) tramite <code>proactiveJob()</code>.</li>
+</ul>
+</p>
+
+<h2>Problem analysis</h2>
+<p>Durante l'analisi e il completamento del codice, sono emersi e risolti tre problemi principali per garantire il funzionamento distribuito:</p>
+<ol>
+    <li><b>Aggiornamento della GUI (displayGrid):</b> Nel sistema a oggetti il controller chiamava direttamente la GUI. Nel modello ad attori, il problema di <i>"come realizzare displayGrid"</i> è stato risolto convertendo la matrice logica in formato JSON (tramite <code>ObjectMapper</code>) e inviandola come messaggio di Dispatch al <code>guiserver</code>.</li>
+    <li><b>Vincolo di Sicurezza (Sender Filter):</b> I metodi <code>elabRequest</code> ed <code>elabDispatch</code> rigettavano di default i messaggi non provenienti da <code>caller1</code>. Il filtro è stato esteso per accettare i comandi di input generati dal <code>guiserver</code> e dall'utente web.</li>
+    <li><b>Interfaccia Observer:</b> È stato necessario implementare l'interfaccia <code>IObserver</code> nella classe <code>OutGuiDev</code> per gestire correttamente le risposte asincrone sulla connessione WebSocket (evitando eccezioni di puntatore nullo in fase di update).</li>
+</ol>
+
+<h2>Test plans</h2> 
+<p>Il testing si effettua avviando prima il Web Server Javalin (porta 8080) e successivamente l'infrastruttura <code>LifeGame1Protoactor</code> (porta 8070). La verifica ha esito positivo se i click sulla pagina HTML si traducono in messaggi di rete elaborati dal Pattore senza eccezioni e se la griglia si aggiorna in tempo reale.</p>
+
+<h2>Project & Deployment</h2> 
+<p>L'architettura finale (<code>LifeGame1Protoactor</code>) elimina gli attori intermediari puri per l'I/O. Il <code>guiserver</code> invia direttamente i messaggi all'applicazione tramite la configurazione stabilita nel metodo <code>elabSetController</code> (connessione WS), garantendo un flusso di rete ottimizzato e pronto per un deployment containerizzato su due nodi Docker separati.</p>
+	      	
+<br><br> 	
+</div>  
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+    <img src="./img/imageServlet.jpg" alt="emiglio" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+</div>
+</body>
+</html>
