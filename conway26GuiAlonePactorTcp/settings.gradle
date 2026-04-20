@@ -5,6 +5,4 @@
  * For more detailed information on multi-project builds, please refer to https://docs.gradle.org/8.6/userguide/multi_project_builds.html in the Gradle documentation.
  */
 
-rootProject.name = 'conway26Protoactors'
-include ':protoactor26'
-project(':protoactor26').projectDir = new File('../protoactor26')
+rootProject.name = 'conway26GuiAlonePactorTcp'

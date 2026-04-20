@@ -1,4 +1,4 @@
-    package protoactor26;
+    package main.java.protoactor26;
     import unibo.basicomm23.interfaces.IApplMessage;
     import unibo.basicomm23.utils.CommUtils;
 
