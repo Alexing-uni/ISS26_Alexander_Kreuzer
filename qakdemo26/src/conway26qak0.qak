@@ -1,0 +1,36 @@
+System conway26qak0
+mqttBroker "localhost" : 1883 eventTopic "lifegameIn"
+
+Event start     : start(X)
+Event stop      : stop(X)
+Event clear     : clear(X)
+Event cellstate : cellstate(X,Y)
+ 
+Context ctxlifegame ip [host="localhost" port=8945]  
+ 
+QActor lifegame context ctxlifegame withobj life using "main.java.conway.domain.Life(20,20)" {
+
+	State s0 initial {
+		println("QActor lifegame | START")
+	}
+	Goto waitEvents
+
+	State waitEvents {
+		println("QActor lifegame | Esperando comandos...")
+	}
+	Transition t0 
+		whenEvent start     -> handleStart
+		whenEvent cellstate -> handleCell
+		
+	State handleStart {
+		println("QActor lifegame | Logica per START")
+	}
+	Goto waitEvents
+	
+	State handleCell {
+		onMsg( cellstate : cellstate(X,Y) ){
+			println("QActor lifegame | Click en celda: ${payloadArg(0)},${payloadArg(1)}")
+		}
+	}
+	Goto waitEvents
+}

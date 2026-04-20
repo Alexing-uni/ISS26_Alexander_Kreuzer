@@ -1,4 +1,4 @@
-package protoactor26;
+package main.java.protoactor26;
 
 import java.util.Observable;
 
