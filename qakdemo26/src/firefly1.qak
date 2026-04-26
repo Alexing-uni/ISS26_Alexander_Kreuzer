@@ -1,0 +1,12 @@
+﻿System firefly1system
+Event flash : flash(ID)
+Context ctxfirefly1 ip [host="localhost" port=8020]
+QActor firefly1 context ctxfirefly1 {
+[# var flashPeriod = 1000L #]
+State s0 initial { println("$name | Luciernaga inicializada") color yellow }
+Goto charging
+State charging { println("$name | cargando...") color yellow }
+Transition t0 whenTimeVar flashPeriod -> doFlash
+State doFlash { println("$name | *** FLASH! ***") color yellow  emit flash : flash(firefly1) }
+Goto charging
+}
