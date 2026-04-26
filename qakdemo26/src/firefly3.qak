@@ -1,0 +1,42 @@
+﻿System firefly3system
+Event flash : flash(ID)
+Context ctxfirefly3 ip [host="localhost" port=8021]
+QActor firefly1 context ctxfirefly3 {
+[# var shouldSync = false #]
+State s0 initial { println("$name | fase 0ms") color yellow }
+Goto charging
+State charging { [# shouldSync = false #]  discardMsg Off }
+Transition t0  whenTime 1000 -> doFlash  whenEvent flash -> perceiveFlash
+State perceiveFlash { onMsg(flash:flash(ID)){ [# shouldSync = payloadArg(0) != name #] } }
+Goto doFlash if [# shouldSync #] else charging
+State doFlash { println("$name | *** FLASH! ***") color yellow  emit flash : flash(firefly1)  discardMsg On }
+Goto refractory
+State refractory { delay 200  discardMsg Off }
+Goto charging
+}
+QActor firefly2 context ctxfirefly3 {
+[# var shouldSync = false #]
+State s0 initial { println("$name | fase 300ms") color cyan  delay 300 }
+Goto charging
+State charging { [# shouldSync = false #]  discardMsg Off }
+Transition t0  whenTime 1000 -> doFlash  whenEvent flash -> perceiveFlash
+State perceiveFlash { onMsg(flash:flash(ID)){ [# shouldSync = payloadArg(0) != name #] } }
+Goto doFlash if [# shouldSync #] else charging
+State doFlash { println("$name | *** FLASH! ***") color cyan  emit flash : flash(firefly2)  discardMsg On }
+Goto refractory
+State refractory { delay 200  discardMsg Off }
+Goto charging
+}
+QActor firefly3 context ctxfirefly3 {
+[# var shouldSync = false #]
+State s0 initial { println("$name | fase 600ms") color green  delay 600 }
+Goto charging
+State charging { [# shouldSync = false #]  discardMsg Off }
+Transition t0  whenTime 1000 -> doFlash  whenEvent flash -> perceiveFlash
+State perceiveFlash { onMsg(flash:flash(ID)){ [# shouldSync = payloadArg(0) != name #] } }
+Goto doFlash if [# shouldSync #] else charging
+State doFlash { println("$name | *** FLASH! ***") color green  emit flash : flash(firefly3)  discardMsg On }
+Goto refractory
+State refractory { delay 200  discardMsg Off }
+Goto charging
+}
