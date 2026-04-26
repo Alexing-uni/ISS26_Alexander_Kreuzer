@@ -1,7 +1,7 @@
-﻿System firefly100system
+System firefly100system
 Event flash : flash(ID)
 Context ctxfirefly100 ip [host="localhost" port=8022]
-QActor fireflyManager context ctxfirefly100 {
+QActor fireflymanager context ctxfirefly100 {
 State s0 initial {
 println("$name | Creando 100 luciernas...") color blue
 [# for (i in 1..100) { createActorFsmDynamic("firefly", "_$i", false) } #]
@@ -17,10 +17,18 @@ println("$name | activa, fase: ${initialDelay}ms") color yellow
 }
 Goto charging
 State charging { [# shouldSync = false #]  discardMsg Off }
-Transition t0  whenTime 1000 -> doFlash  whenEvent flash -> perceiveFlash
-State perceiveFlash { onMsg(flash:flash(ID)){ [# shouldSync = payloadArg(0) != name #] } }
+Transition t0
+whenTime 1000   -> doFlash
+whenEvent flash -> perceiveFlash
+State perceiveFlash {
+onMsg( flash : flash(ID) ){ [# shouldSync = payloadArg(0) != name #] }
+}
 Goto doFlash if [# shouldSync #] else charging
-State doFlash { println("$name | FLASH!") color yellow  emit flash : flash($name)  discardMsg On }
+State doFlash {
+println("$name | FLASH!") color yellow
+emit flash : flash(firefly)
+discardMsg On
+}
 Goto refractory
 State refractory { delay 200  discardMsg Off }
 Goto charging
