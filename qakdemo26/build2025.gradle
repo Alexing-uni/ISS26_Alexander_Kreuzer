@@ -139,7 +139,7 @@ tasks.withType(Copy).configureEach {
 
 application {
     //Define the main class for the application.
-    mainClassName    = 'it.unibo.ctxfirefly1.MainCtxfirefly1Kt'
+    mainClassName    = 'it.unibo.ctxfirefly100.MainCtxfirefly100Kt'
 }
  
  jar {
@@ -162,9 +162,9 @@ task dovesiamo {
 
 distributions {
     main {
-        distributionBaseName = 'firefly1system'
+        distributionBaseName = 'firefly100system'
         contents { 
-             from './firefly1system.pl'
+             from './firefly100system.pl'
              from './sysRules.pl'
         }
     }
@@ -174,7 +174,7 @@ task run0(type: JavaExec) {
     group = "Execution"
     description = "Run the main class with JavaExecTask"
     classpath = sourceSets.main.runtimeClasspath
-    main = 'it.unibo.ctxfirefly1.MainCtxfirefly1Kt'
+    main = 'it.unibo.ctxfirefly100.MainCtxfirefly100Kt'
 }
 
 /*
