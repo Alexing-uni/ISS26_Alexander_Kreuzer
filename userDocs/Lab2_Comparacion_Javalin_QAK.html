@@ -1,1 +1,312 @@
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Alexing-uni/ISS26_Alexander_Kreuzer/main/userDocs/Lab2_Comparacion_Javalin_QAK.html" -OutFile "userDocs\Lab2_Comparacion_Javalin_QAK.html"
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lab 2 - Análisis Comparativo: SistemaSJavalin vs Modelo de Actores QAK</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }
+    h1 { color: #2c3e50; border-bottom: 3px solid #2980b9; padding-bottom: 10px; }
+    h2 { color: #2980b9; margin-top: 40px; }
+    h3 { color: #27ae60; }
+    code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 0.9em; }
+    pre { background: #f4f4f4; padding: 15px; border-left: 4px solid #2980b9; overflow-x: auto; border-radius: 4px; }
+    table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+    th { background: #2980b9; color: white; padding: 10px 14px; text-align: left; }
+    td { padding: 9px 14px; border-bottom: 1px solid #ddd; vertical-align: top; }
+    tr:nth-child(even) { background: #f9f9f9; }
+    .pro { color: #27ae60; font-weight: bold; }
+    .con { color: #c0392b; font-weight: bold; }
+    .box { border: 1px solid #ccc; border-radius: 6px; padding: 16px 20px; margin: 20px 0; background: #fafafa; }
+    .box-blue { border-left: 5px solid #2980b9; }
+    .box-green { border-left: 5px solid #27ae60; }
+    .meta { color: #888; font-size: 0.85em; }
+  </style>
+</head>
+<body>
+
+<h1>Laboratorio 2 – Análisis Crítico Comparativo</h1>
+<p class="meta">Autor: Alexander Kreuzer | Curso ISS26 | 22 de abril de 2025</p>
+
+<h2>1. Introducción</h2>
+<p>
+  En este laboratorio se analiza y compara dos enfoques para describir y configurar un sistema software
+  que ofrece un servicio de cálculo matemático (función <code>eval</code>):
+</p>
+<ol>
+  <li><strong>Enfoque imperativo con Javalin</strong>: <code>SistemaSJavalin</code> y <code>SistemaSJavalinBetter</code></li>
+  <li><strong>Modelo declarativo de actores QAK</strong>: sistema descrito con el DSL QAK (QActors como FSMs)</li>
+</ol>
+<p>
+  La pregunta central es: <em>¿Qué gana y qué pierde el desarrollador al pasar de un sistema orientado
+  a objetos con hilos a un sistema de actores con mensajes tipados?</em>
+</p>
+
+<h2>2. Enfoque 1: SistemaSJavalin / SistemaSJavalinBetter</h2>
+
+<div class="box box-blue">
+  <h3>Descripción general</h3>
+  <p>
+    <code>SistemaSJavalin</code> es una clase Java/Kotlin que configura un servidor Javalin de forma
+    <strong>imperativa</strong>: en el método <code>doJob()</code> (o <code>configureTheSystem()</code>
+    en la versión "Better") se registran rutas HTTP y manejadores WebSocket directamente como lambdas.
+  </p>
+  <p>
+    <code>SistemaSJavalinBetter</code> refactoriza el código en métodos separados
+    (<code>setWorkHTTP()</code>, <code>setWorkWS()</code>), mejorando la separación de responsabilidades
+    pero manteniendo el mismo paradigma imperativo.
+  </p>
+</div>
+
+<h3>Fragmento representativo</h3>
+<pre>
+// SistemaSJavalinBetter – configuración WS
+app.ws("/eval", ws -&gt; {
+    ws.onConnect(ctx -&gt; { ctx.send("{\"msg\":\"welcome\"}"); });
+    ws.onMessage(ctx -&gt; {
+        String m      = ctx.message();
+        double x      = readInputWS(m);
+        double result = eval(x);       // bloquea el hilo si x &gt; 4.0
+        ctx.send("risultato WS=" + result);
+    });
+    ws.onClose(ctx -&gt; { System.out.println("connection closed"); });
+});
+</pre>
+
+<h3>Características clave</h3>
+<ul>
+  <li><strong>Configuración imperativa</strong>: el sistema se define paso a paso en código Java/Kotlin.
+      No hay descripción abstracta de la arquitectura; la topología está embebida en el flujo de ejecución.</li>
+  <li><strong>Modelo de concurrencia basado en hilos</strong>: Javalin gestiona un pool de hilos internamente.
+      Cada conexión WebSocket ocupa un hilo; si <code>eval</code> tarda mucho
+      (<code>CommUtils.delay(8000)</code>), ese hilo queda bloqueado.</li>
+  <li><strong>Estado compartido</strong>: el campo <code>app</code> (de tipo <code>Javalin</code>) es
+      estado mutable compartido. Añadir lógica concurrente más compleja requiere sincronización explícita.</li>
+  <li><strong>Mensajes sin tipado</strong>: los mensajes se intercambian como cadenas de texto o JSON crudos.
+      No hay contrato formal sobre el formato del mensaje ni sobre el protocolo de comunicación.</li>
+  <li><strong>Adaptador de entrada = lógica de negocio</strong>: el manejador WS llama directamente a
+      <code>eval()</code>, acoplando el transporte (WebSocket) con la lógica de dominio.</li>
+  <li><strong>Distribución limitada</strong>: el sistema vive en una sola JVM. Escalarlo a múltiples
+      nodos requiere añadir infraestructura externa (balanceador, broker de mensajes, etc.).</li>
+</ul>
+
+<h3>Ventajas</h3>
+<ul>
+  <li><span class="pro">+</span> Código familiar para desarrolladores Java.</li>
+  <li><span class="pro">+</span> Configuración directa y sencilla para servicios pequeños.</li>
+  <li><span class="pro">+</span> Pocas dependencias; fácil de arrancar y depurar.</li>
+  <li><span class="pro">+</span> Biblioteca Javalin bien documentada con ejemplos abundantes.</li>
+</ul>
+
+<h3>Desventajas</h3>
+<ul>
+  <li><span class="con">–</span> Difícil de razonar sobre concurrencia a medida que el sistema crece.</li>
+  <li><span class="con">–</span> Operaciones bloqueantes en handlers penalizan la escalabilidad.</li>
+  <li><span class="con">–</span> Topología y lógica de negocio acopladas: cambiar el puerto o el protocolo
+      requiere modificar el código.</li>
+  <li><span class="con">–</span> No hay soporte nativo para distribución o mensajería MQTT.</li>
+  <li><span class="con">–</span> Los mensajes son cadenas sin contrato formal; los errores de formato
+      se detectan en tiempo de ejecución.</li>
+</ul>
+
+<h2>3. Enfoque 2: Modelo de Actores QAK</h2>
+
+<div class="box box-green">
+  <h3>Descripción general</h3>
+  <p>
+    QAK (QActors) es un DSL externo (construido sobre Xtext) para describir sistemas distribuidos
+    basados en actores. Cada <strong>QActor</strong> es una Máquina de Estados de Moore (FSM):
+    tiene estados con acciones, transiciones tipadas y una cola de mensajes privada.
+    El sistema se describe de forma <strong>declarativa</strong>: qué actores existen, en qué contexto
+    (nodo = JVM + IP:puerto) viven y cómo intercambian mensajes.
+  </p>
+</div>
+
+<h3>Fragmento representativo (equivalente al sistema SistemaSJavalin en QAK)</h3>
+<pre>
+System sistemaSQak
+
+Request   evalReq  : evalReq(X)
+Reply     evalResp : evalResp(RESULT) for evalReq
+
+Context ctxSistemaSQak ip [host="localhost" port=8050]
+
+QActor evaluator context ctxSistemaSQak {
+    State s0 initial { }
+    Transition t0 whenRequest evalReq -&gt; doEval
+
+    State doEval {
+        onMsg(evalReq : evalReq(X)) {
+            [# val x      = payloadArg(0).toDouble()
+               val result = Math.sin(x) + Math.cos(Math.sqrt(3.0)*x)
+               val R      = result.toString() #]
+            replyTo evalReq with evalResp : evalResp($R)
+        }
+    }
+    Goto s0
+}
+</pre>
+
+<h3>Características clave</h3>
+<ul>
+  <li><strong>Configuración declarativa</strong>: la topología (contextos, actores, mensajes) se describe
+      en el DSL. El código generado (Kotlin) separa el "qué" del "cómo".</li>
+  <li><strong>Mensajes tipados</strong>: <code>Dispatch</code>, <code>Request/Reply</code> y <code>Event</code>
+      son tipos de mensajes de primera clase. El compilador valida los identificadores y los payloads
+      Prolog se unifican automáticamente (<code>onMsg</code>).</li>
+  <li><strong>FSM explícita</strong>: el comportamiento de cada actor es una FSM legible. Los estados y las
+      transiciones son visibles en el DSL, facilitando la comprensión y la revisión del diseño.</li>
+  <li><strong>Modelo de concurrencia sin estado compartido</strong>: cada QActor es una corrutina Kotlin
+      con su propia cola de mensajes. No hay acceso compartido entre actores; la comunicación es siempre
+      por mensaje.</li>
+  <li><strong>Transporte intercambiable</strong>: el mismo modelo QAK funciona sobre TCP o MQTT sin
+      cambiar el código del actor. La directiva <code>mqttBroker</code> activa el transporte MQTT.</li>
+  <li><strong>Distribución natural</strong>: mover un QActor a otro nodo es tan simple como cambiar
+      <code>host</code> en su contexto. La infraestructura de routing es automática.</li>
+  <li><strong>Escalabilidad extrema</strong>: al ser corrutinas Kotlin (no hilos del SO), es posible
+      instanciar miles de QActors en una sola JVM. Véase la demo de 100 luciérnagas (Task 4).</li>
+</ul>
+
+<h3>Ventajas</h3>
+<ul>
+  <li><span class="pro">+</span> Separación clara entre topología, mensajes y lógica de negocio.</li>
+  <li><span class="pro">+</span> La FSM hace el comportamiento explícito y auditable.</li>
+  <li><span class="pro">+</span> Mensajes tipados: errores detectados en tiempo de compilación/diseño.</li>
+  <li><span class="pro">+</span> Sin estado compartido: la concurrencia es segura por diseño.</li>
+  <li><span class="pro">+</span> Distribución y cambio de protocolo sin tocar la lógica del actor.</li>
+  <li><span class="pro">+</span> Miles de actores ligeros gracias a corrutinas Kotlin.</li>
+  <li><span class="pro">+</span> Soporte MQTT nativo: listo para IoT y microservicios.</li>
+</ul>
+
+<h3>Desventajas</h3>
+<ul>
+  <li><span class="con">–</span> Curva de aprendizaje mayor: hay que dominar el DSL, el modelo FSM
+      y los fragmentos Prolog.</li>
+  <li><span class="con">–</span> El ecosistema QAK es más pequeño que el de frameworks Java convencionales.</li>
+  <li><span class="con">–</span> Depuración más compleja: la ejecución asíncrona de corrutinas requiere
+      herramientas específicas.</li>
+  <li><span class="con">–</span> Sobrecoste para sistemas muy simples donde un POJO con Javalin sería suficiente.</li>
+</ul>
+
+<h2>4. Tabla Comparativa</h2>
+<table>
+  <tr>
+    <th>Dimensión</th>
+    <th>SistemaSJavalin / Better</th>
+    <th>Modelo QAK (QActors)</th>
+  </tr>
+  <tr>
+    <td><strong>Estilo de configuración</strong></td>
+    <td>Imperativo (código Java/Kotlin)</td>
+    <td>Declarativo (DSL QAK)</td>
+  </tr>
+  <tr>
+    <td><strong>Descripción de la arquitectura</strong></td>
+    <td>Implícita en el flujo del código</td>
+    <td>Explícita: contextos, actores, mensajes</td>
+  </tr>
+  <tr>
+    <td><strong>Gestión del estado</strong></td>
+    <td>Campos de instancia Java (estado mutable)</td>
+    <td>FSM explícita (estados nombrados)</td>
+  </tr>
+  <tr>
+    <td><strong>Tipado de mensajes</strong></td>
+    <td>Ninguno (String / JSON crudo)</td>
+    <td>Fuerte: Dispatch, Request/Reply, Event</td>
+  </tr>
+  <tr>
+    <td><strong>Modelo de concurrencia</strong></td>
+    <td>Pool de hilos del SO (Javalin)</td>
+    <td>Corrutinas Kotlin (sin estado compartido)</td>
+  </tr>
+  <tr>
+    <td><strong>Acoplamiento transporte–lógica</strong></td>
+    <td>Alto (handler llama a eval directamente)</td>
+    <td>Bajo (mensaje → FSM → reply)</td>
+  </tr>
+  <tr>
+    <td><strong>Distribución</strong></td>
+    <td>Una JVM, manual</td>
+    <td>Multi-contexto TCP/MQTT, automática</td>
+  </tr>
+  <tr>
+    <td><strong>Escalabilidad</strong></td>
+    <td>Limitada por hilos del SO</td>
+    <td>Miles de actores/corrutinas en 1 JVM</td>
+  </tr>
+  <tr>
+    <td><strong>Soporte MQTT/IoT</strong></td>
+    <td>No nativo</td>
+    <td>Nativo (<code>mqttBroker</code>)</td>
+  </tr>
+  <tr>
+    <td><strong>Testabilidad</strong></td>
+    <td>Difícil (acoplamiento fuerte)</td>
+    <td>Mejor (actor aislado, mensajes formales)</td>
+  </tr>
+  <tr>
+    <td><strong>Curva de aprendizaje</strong></td>
+    <td>Baja (Java convencional)</td>
+    <td>Alta (DSL + FSM + Prolog KB)</td>
+  </tr>
+  <tr>
+    <td><strong>Adecuado para sistemas simples</strong></td>
+    <td>Sí</td>
+    <td>Sobrecoste</td>
+  </tr>
+  <tr>
+    <td><strong>Adecuado para sistemas complejos/distribuidos</strong></td>
+    <td>Difícil sin refactorización profunda</td>
+    <td>Sí, por diseño</td>
+  </tr>
+</table>
+
+<h2>5. Reflexión crítica</h2>
+
+<p>
+  La diferencia fundamental entre los dos enfoques no es solo técnica sino <em>filosófica</em>:
+  <code>SistemaSJavalin</code> describe <em>cómo</em> construir el sistema (imperativo), mientras que
+  el modelo QAK describe <em>qué</em> es el sistema (declarativo).
+</p>
+
+<p>
+  El enfoque Javalin es adecuado cuando la velocidad de desarrollo es prioritaria y el sistema es
+  pequeño y monolítico. Conforme el sistema crece, la ausencia de tipado en los mensajes, el
+  acoplamiento entre transporte y lógica, y la dificultad para razonar sobre la concurrencia se
+  convierten en deuda técnica creciente.
+</p>
+
+<p>
+  El modelo QAK obliga al diseñador a pensar en términos de actores, mensajes y estados antes de
+  escribir una sola línea de código de negocio. Esta disciplina, aunque costosa al inicio, produce
+  sistemas más robustos, más fáciles de escalar y de distribuir. El hecho de que el mismo modelo
+  funcione sobre TCP, MQTT o Ethereum sin cambiar el actor ilustra la potencia de la abstracción.
+</p>
+
+<p>
+  En el contexto de la asignatura ISS26, el sistema de luciérnagas (Tasks 2–4) es un buen ejemplo
+  de por qué el modelo de actores escala mejor: 100 luciérnagas como 100 hilos del SO serían
+  costosas y propensas a problemas de sincronización; 100 QActors como corrutinas Kotlin son
+  ligeras, autónomas y se coordinan mediante eventos sin ningún estado compartido.
+</p>
+
+<h2>6. Conclusión</h2>
+
+<p>
+  Para sistemas distribuidos, reactivos y de mediana/alta complejidad, el <strong>modelo de actores QAK</strong>
+  ofrece ventajas estructurales claras sobre el enfoque <strong>SistemaSJavalin</strong>. La separación
+  declarativa de la arquitectura, los mensajes tipados y el modelo sin estado compartido reducen los
+  errores concurrentes y facilitan la evolución del sistema.
+</p>
+<p>
+  <code>SistemaSJavalin / Better</code> sigue siendo válido como adaptador de entrada (inbound adapter)
+  dentro de un sistema QAK, tal como se muestra en la integración Javalin–QAK del laboratorio:
+  Javalin recibe la petición HTTP/WS y la transforma en un mensaje QAK que es procesado por el actor
+  correspondiente.
+</p>
+
+<hr>
+<p class="meta">Documento generado para el Laboratorio 2 del curso ISS26 (A. Natali, DISI - Università di Bologna)</p>
+</body>
+</html>

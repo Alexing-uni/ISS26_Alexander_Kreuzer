@@ -1,4 +1,4 @@
-﻿System firefly3system
+System firefly3system
 Event flash : flash(ID)
 Context ctxfirefly3 ip [host="localhost" port=8021]
 QActor firefly1 context ctxfirefly3 {
