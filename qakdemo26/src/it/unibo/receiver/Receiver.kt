@@ -29,29 +29,65 @@ class Receiver ( name: String, scope: CoroutineScope, isconfined: Boolean=false,
 	override fun getBody() : (ActorBasicFsm.() -> Unit){
 		//val interruptedStateTransitions = mutableListOf<Transition>()
 		//IF actor.withobj !== null val actor.withobj.name� = actor.withobj.method�ENDIF
+		  
+				   clearlog("./logs/qakdemo26.log") 	//vedi src/main/resources/logback.xml
 		return { //this:ActionBasciFsm
 				state("s0") { //this:State
 					action { //it:State
-						CommUtils.outblack("Receiver | Iniciado y esperando mensajes...")
+						 logger.info(  "${currentState.stateName} handling $currentMsg"  )  
+						discardMessages = false
 						//genTimer( actor, state )
 					}
 					//After Lenzi Aug2002
 					sysaction { //it:State
 					}	 	 
-					 transition(edgeName="t00",targetState="handleSaludo",cond=whenDispatch("saludo"))
+					 transition( edgeName="goto",targetState="waitForMsgs", cond=doswitch() )
 				}	 
-				state("handleSaludo") { //this:State
+				state("waitForMsgs") { //this:State
 					action { //it:State
-						if( checkMsgContent( Term.createTerm("saludo(TEXTO)"), Term.createTerm("saludo(TEXTO)"), 
+						CommUtils.outblue("$name in ${currentState.stateName} | $currentMsg | ${Thread.currentThread().getName()} n=${Thread.activeCount()}")
+						 	   
+						 logger.info(  "${currentState.stateName} handling $currentMsg"  )  
+						//genTimer( actor, state )
+					}
+					//After Lenzi Aug2002
+					sysaction { //it:State
+					}	 	 
+					 transition(edgeName="t00",targetState="s2",cond=whenDispatch("msg1"))
+					transition(edgeName="t01",targetState="s3",cond=whenDispatch("msg2"))
+				}	 
+				state("s2") { //this:State
+					action { //it:State
+						CommUtils.outblue("$name in ${currentState.stateName} | $currentMsg | ${Thread.currentThread().getName()} n=${Thread.activeCount()}")
+						 	   
+						  logger.info(  "${currentState.stateName} handling $currentMsg"  )  
+						if( checkMsgContent( Term.createTerm("msg1(ARG)"), Term.createTerm("msg1(ARG)"), 
 						                        currentMsg.msgContent()) ) { //set msgArgList
-								CommUtils.outblack("Receiver | ¡MENSAJE RECIBIDO! Dice: ${payloadArg(0)}")
+								CommUtils.outblue("$name in s2 | msg1:msg1(${payloadArg(0)})")
+								delay(1000) 
 						}
 						//genTimer( actor, state )
 					}
 					//After Lenzi Aug2002
 					sysaction { //it:State
 					}	 	 
-					 transition( edgeName="goto",targetState="s0", cond=doswitch() )
+					 transition(edgeName="t02",targetState="s3",cond=whenDispatch("msg2"))
+				}	 
+				state("s3") { //this:State
+					action { //it:State
+						CommUtils.outblue("$name in ${currentState.stateName} | $currentMsg | ${Thread.currentThread().getName()} n=${Thread.activeCount()}")
+						 	   
+						  logger.info(  "${currentState.stateName} handling $currentMsg"  )  
+						if( checkMsgContent( Term.createTerm("msg2(ARG)"), Term.createTerm("msg2(1)"), 
+						                        currentMsg.msgContent()) ) { //set msgArgList
+								CommUtils.outblue("$name in s3 | msg2:msg2(${payloadArg(0)})")
+						}
+						//genTimer( actor, state )
+					}
+					//After Lenzi Aug2002
+					sysaction { //it:State
+					}	 	 
+					 transition( edgeName="goto",targetState="waitForMsgs", cond=doswitch() )
 				}	 
 			}
 		}

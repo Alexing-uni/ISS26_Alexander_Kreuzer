@@ -154,9 +154,9 @@ task dovesiamo {
 
 distributions {
     main {
-        distributionBaseName = 'conway26qak0'
+        distributionBaseName = 'firefly1system'
         contents { 
-             from './conway26qak0.pl'
+             from './firefly1system.pl'
              from './sysRules.pl'
              from './facadeConfig.json'
         }
