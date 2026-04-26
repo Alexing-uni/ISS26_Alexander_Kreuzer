@@ -154,9 +154,9 @@ task dovesiamo {
 
 distributions {
     main {
-        distributionBaseName = 'qakdemo26'
+        distributionBaseName = 'conway26qak0'
         contents { 
-             from './qakdemo26.pl'
+             from './conway26qak0.pl'
              from './sysRules.pl'
              from './facadeConfig.json'
         }
