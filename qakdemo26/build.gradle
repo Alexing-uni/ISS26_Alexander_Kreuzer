@@ -117,10 +117,13 @@ dependencies {
 
 sourceSets {
     main {
-        kotlin { srcDir 'src' }
-        java { srcDir 'src' }
+        java {
+            srcDir 'utils'
+            srcDir 'src'   // Importante per i file generati Qak
+            exclude 'main/**'
+        }
     }
-}
+}  
 
 /*
 eclipse {

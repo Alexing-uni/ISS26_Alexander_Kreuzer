@@ -1,17 +1,17 @@
 System conway26qak0
-mqttBroker "localhost" : 1883 eventTopic "lifegameIn"
+	mqttBroker "localhost" : 1883 eventTopic "lifegameIn"
 
 Event start     : start(X)
-Event stop      : stop(X)
+Event stop      : stop(X) 
 Event clear     : clear(X)
 Event cellstate : cellstate(X,Y)
  
-Context ctxlifegame ip [host="localhost" port=8945]  
+Context ctxlifegame ip [host="localhost" port=8945]     
  
-QActor lifegame context ctxlifegame withobj life using "main.java.conway.domain.Life(20,20)" {
-
+QActor lifegame context ctxlifegame {
+ 
 	State s0 initial {
-		println("QActor lifegame | START")
+		println("QActor lifegame | START") 
 	}
 	Goto waitEvents
 

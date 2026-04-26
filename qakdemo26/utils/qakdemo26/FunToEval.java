@@ -1,5 +1,4 @@
 package qakdemo26;
-
 import unibo.basicomm23.utils.CommUtils;
 
 public class FunToEval {

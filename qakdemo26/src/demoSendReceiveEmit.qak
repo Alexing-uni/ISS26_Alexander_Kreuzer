@@ -9,7 +9,7 @@ System /*-msglog*/  qakdemo26
  *  val logger = org.slf4j.LoggerFactory.getLogger(name)
  *  var currentState : State
  *  var currentMsg   : IApplMessage 
- * 
+ *  
  */       
   
 Dispatch msg1 : msg1(ARG)       "da sender a receiver"
