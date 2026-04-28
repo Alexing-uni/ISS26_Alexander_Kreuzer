@@ -1,0 +1,61 @@
+System sistemaSQak
+
+/*
+ * demoApril21.qak
+ * Modello QAK del SistemaS che opera come SistemaSJavalin.
+ * Il servizio riceve richieste di valutazione di una funzione matematica
+ * e restituisce il risultato: sin(x) + cos(sqrt(3)*x)
+ *
+ * Confronto con Javalin:
+ *   - La route POST /evaluate  <->  whenRequest eval -> handleEval
+ *   - Il corpo HTTP con il valore x  <->  il payload del messaggio eval(X)
+ *   - La risposta JSON  <->  replyTo eval with evalDone : evalDone(RESULT)
+ *   - Il server che resta in ascolto  <->  Goto waitForWork (loop)
+ */
+
+Request eval     : eval(X)     "richiesta di valutazione"
+Reply   evalDone : evalDone(V) for eval
+
+Context ctxSistemaS ip [host="localhost" port=8030]
+
+QActor sistemaS context ctxSistemaS {
+    State s0 initial {
+        println("$name | SistemaS QAK avviato, in ascolto...") color blue
+    }
+    Goto waitForWork
+
+    State waitForWork {
+        discardMsg Off
+    }
+    Transition t0 whenRequest eval -> handleEval
+
+    State handleEval {
+        onMsg( eval : eval(X) ) {
+            [# val x      = payloadArg(0).toDouble() #]
+            println("$name | eval ricevuto: x=${x}") color cyan
+            [# val result = Math.sin(x) + Math.cos(Math.sqrt(3.0) * x) #]
+            println("$name | risultato: ${result}") color cyan
+            replyTo eval with evalDone : evalDone( $result )
+        }
+    }
+    Goto waitForWork
+}
+
+QActor clientS context ctxSistemaS {
+    [# var x = 1.0 #]
+    State s0 initial {
+        delay 200
+        println("$name | invio eval(${x})") color green
+        request sistemaS -m eval : eval( $x )
+    }
+    Transition t0 whenReply evalDone -> handleResult
+
+    State handleResult {
+        onMsg( evalDone : evalDone(V) ) {
+            println("$name | risposta ricevuta: ${payloadArg(0)}") color green
+        }
+        [# x += 1.0 #]
+        delay 2000
+    }
+    Goto s0
+}
