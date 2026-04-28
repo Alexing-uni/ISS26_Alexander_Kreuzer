@@ -26,19 +26,8 @@ Repository del corso Ingegneria dei Sistemi Software a.a. 2025/2026 - DISI - Uni
 
 # Parte B: Il linguaggio QAK
 
-  **Progetto qakdemo26** | [Sorgenti QAK](qakdemo26/src)
-  * [demoSendReceiveEmit.qak](qakdemo26/src/demoSendReceiveEmit.qak) — demo messaggi Dispatch ed Event
-  * [conway26qak0.qak](qakdemo26/src/conway26qak0.qak) — modello QAK di ConwayLife con MQTT
+  * **Progetto qakdemo26** — Esempi e demo del linguaggio QAK | [Codice Sorgente](qakdemo26/src) | 📄 [qakdemo26.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/qakdemo26/userDocs/qakdemo26.html)
+  * **Progetto sistemasqak** — SistemaS modellato in QAK | [Codice Sorgente](sistemasqak/src) | 📄 [sistemasqak.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/sistemasqak/userDocs/sistemasqak.html)
+  * **Progetto firefly** — Sincronizzazione di lucciole modellata in QAK | [Codice Sorgente](firefly/src) | 📄 [firefly.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/firefly/userDocs/firefly.html)
 
-  **Progetto sistemasqak** | [Sorgenti](sistemasqak/src)
-  * [sistemas.qak](sistemasqak/src/sistemas.qak) — modello QAK del SistemaS (Dispatch + Request, versione del docente)
-  * [demoApril21.qak](sistemasqak/src/demoApril21.qak) — variante con `sin(x)+cos(√3·x)` allineata a `SistemaSJavalinBetterApplMsgs`
-
-  **Progetto firefly** | [Sorgenti](firefly/src)
-  * [fireflyModel0.qaktt](firefly/src/fireflyModel0.qaktt) — prima formalizzazione analitica (versione del docente, con `griddisplaymock`)
-  * [firefly1.qak](firefly/src/firefly1.qak) — sistema con 1 lucciola (timer interno)
-  * [firefly3.qak](firefly/src/firefly3.qak) — sistema con 3 lucciole sincronizzate
-  * [firefly100.qak](firefly/src/firefly100.qak) — sistema con 100 lucciole create dinamicamente
-  * Altri modelli del docente: [firefly1external](firefly/src/firefly1external.qaktt), [firefly1mqtt](firefly/src/firefly1mqtt.qaktt), [firefly3.qaktt](firefly/src/firefly3.qaktt), [firefly5.qaktt](firefly/src/firefly5.qaktt), [fireflyMany.qaktt](firefly/src/fireflyMany.qaktt), [fireflyPicow.qaktt](firefly/src/fireflyPicow.qaktt)
-
-  **Confronto Javalin vs QAK** | 📄 [Lab2_Comparacion_Javalin_QAK.html](userDocs/Lab2_Comparacion_Javalin_QAK.html) | 📄 [Main.html](qakdemo26/userDocs/Main.html)
+  **Analisi comparativa Javalin vs QAK** | 📄 [Lab2_Comparacion_Javalin_QAK.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/userDocs/Lab2_Comparacion_Javalin_QAK.html) | 📄 [Main.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/qakdemo26/userDocs/Main.html)
