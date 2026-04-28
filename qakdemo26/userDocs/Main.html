@@ -1,0 +1,198 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>Lab2 – Analisi Comparativa: SistemaSJavalin vs QAK</title>
+</head>
+
+<body>
+<div id="top">
+<h1>Laboratorio 2 – Analisi Comparativa: SistemaSJavalin vs Modello ad Attori QAK</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf'>ISS26 – Ingegneria dei Sistemi Software</a>
+<br>
+<b>Obiettivo Lab 2</b>: Analizzare criticamente due approcci architetturali per la descrizione di sistemi software: il sistema imperativo basato su Javalin (<code>SistemaSJavalin</code> / <code>SistemaSJavalinBetter</code>) e il modello dichiarativo ad attori QAK. Inoltre, modellare il comportamento di un sistema di lucciole sincronizzate mediante QAK (1, 3 e 100 lucciole).
+<br><br>
+Il laboratorio approfondisce il confronto tra programmazione orientata agli oggetti con thread e il paradigma ad attori con messaggi tipati, evidenziando vantaggi, limiti e scenari di applicazione di ciascun approccio.
+
+<h2>Requirements</h2>
+<pre>
+Le attività richieste sono:
+
+ TAREA: Produrre un'analisi critica comparativa tra:
+   - SistemaSJavalin / SistemaSJavalinBetter (approccio imperativo con Javalin)
+   - Modello dichiarativo ad attori QAK (QActors come FSM di Moore)
+
+ Task 2: Definire un modello QAK che simuli il comportamento di UNA lucciola.
+   - La lucciola si carica per un periodo fisso (1000 ms) ed emette un flash.
+   - Il ciclo si ripete indefinitamente.
+
+ Task 3: Estendere il modello per simulare TRE lucciole sincronizzate.
+   - Fasi iniziali diverse (0 ms, 300 ms, 600 ms).
+   - Meccanismo integrate-and-fire: quando una lucciola percepisce il flash
+     di un'altra, avanza la propria fase e lampeggia immediatamente.
+   - Periodo refrattario (200 ms) per evitare cascate di eventi.
+
+ Task 4: Estendere il modello per simulare 100 lucciole dinamiche.
+   - Un attore gestore crea 100 istanze dinamiche tramite createActorFsmDynamic.
+   - Ogni lucciola ha una fase iniziale casuale (0–900 ms).
+   - Il sistema dimostra sincronizzazione emergente a scala.
+</pre>
+
+<br>
+
+<h2>Requirement Analysis</h2>
+<p>
+    La domanda centrale del laboratorio è: <i>cosa guadagna e cosa perde lo sviluppatore passando da un sistema OO con thread a un sistema ad attori con messaggi tipati?</i>
+</p>
+<p>
+    <b>SistemaSJavalin</b> rappresenta l'approccio tradizionale: un server Javalin configurato in modo imperativo, dove route HTTP e handler WebSocket sono registrati direttamente come lambda. Il sistema è semplice da avviare ma accoppia fortemente il trasporto con la logica di dominio.
+</p>
+<p>
+    Il <b>modello QAK</b> (QActors) è un DSL esterno costruito su Xtext che descrive il sistema in modo dichiarativo. Ogni QActor è una Macchina a Stati di Moore (FSM) con stati, transizioni tipate e una coda di messaggi privata. Il sistema di lucciole è il caso d'uso scelto per dimostrare la scalabilità del modello.
+</p>
+<ul>
+    <li><b>1 lucciola</b>: verifica il ciclo base carica-flash senza sincronizzazione.</li>
+    <li><b>3 lucciole</b>: introduce il meccanismo integrate-and-fire e il periodo refrattario.</li>
+    <li><b>100 lucciole</b>: dimostra la scalabilità mediante attori dinamici (coroutine Kotlin) e sincronizzazione emergente.</li>
+</ul>
+
+<br>
+
+<h2>Problem Analysis</h2>
+<p>
+    Il confronto tra i due approcci evidenzia differenze fondamentali su più dimensioni:
+</p>
+
+<p><b>Configurazione e architettura:</b><br>
+<code>SistemaSJavalin</code> configura il sistema passo dopo passo nel codice: la topologia è implicita nel flusso di esecuzione. Il modello QAK la rende esplicita nel DSL (contesti, attori, messaggi), separando nettamente il "cosa" dal "come".
+</p>
+
+<p><b>Concorrenza:</b><br>
+Javalin gestisce un pool di thread del SO: operazioni bloccanti in un handler paralizzano quel thread. I QActors sono coroutine Kotlin: leggere, non bloccanti e prive di stato condiviso. 100 lucciole come 100 thread del SO sarebbero costose; come 100 coroutine sono banali.
+</p>
+
+<p><b>Messaggi:</b><br>
+In Javalin i messaggi sono stringhe o JSON grezzi senza contratto formale. In QAK, <code>Dispatch</code>, <code>Request/Reply</code> ed <code>Event</code> sono tipi di prima classe validati dal compilatore.
+</p>
+
+<p><b>Distribuzione:</b><br>
+<code>SistemaSJavalin</code> risiede in una sola JVM; scalarlo richiede infrastruttura esterna. In QAK, spostare un attore su un altro nodo richiede solo di cambiare <code>host</code> nel contesto. Il trasporto (TCP o MQTT) è intercambiabile senza modificare la logica dell'attore.
+</p>
+
+<p><b>Sincronizzazione emergente (lucciole):</b><br>
+Il modello integrate-and-fire è implementato con tre primitive QAK: <code>whenEvent flash</code> (percezione), <code>Goto doFlash if shouldSync</code> (avanzamento di fase) e <code>discardMsg On</code> + <code>delay 200</code> (periodo refrattario). A 100 attori, la sincronizzazione globale emerge dalle sole regole locali, senza coordinatore centrale.
+</p>
+
+<pre>
+// Esempio: ciclo base di una lucciola in QAK
+State charging { }
+Transition t0
+    whenTime 1000   -> doFlash
+    whenEvent flash -> perceiveFlash
+
+State perceiveFlash {
+    onMsg( flash : flash(ID) ){ [# shouldSync = payloadArg(0) != name #] }
+}
+Goto doFlash if [# shouldSync #] else charging
+
+State doFlash {
+    emit flash : flash(firefly1)
+    discardMsg On
+}
+Goto refractory
+
+State refractory { delay 200  discardMsg Off }
+Goto charging
+</pre>
+
+<br>
+
+<h2>Test Plans</h2>
+<p>
+    Il collaudo dei modelli QAK avviene mediante osservazione del log di esecuzione e verifica del comportamento atteso:
+</p>
+<ol>
+    <li>
+        <b>Task 2 (1 lucciola):</b> Avviare il sistema <code>firefly1system</code>. Verificare che il log mostri alternanza regolare di messaggi "cargando" e "FLASH!" con intervallo di ~1000 ms.
+    </li>
+    <li>
+        <b>Task 3 (3 lucciole):</b> Avviare <code>firefly3system</code>. Inizialmente i flash sono sfasati (0/300/600 ms). Criterio di accettazione: dopo poche iterazioni, i tre flash convergono allo stesso istante (sincronizzazione visibile nel log).
+    </li>
+    <li>
+        <b>Task 4 (100 lucciole):</b> Avviare <code>firefly100system</code>. Verificare che il gestore crei 100 istanze e che gradualmente i flash si sincronizzino. Monitorare l'assenza di deadlock o stack overflow (prova di scalabilità delle coroutine).
+    </li>
+</ol>
+
+<br>
+
+<h2>Project</h2>
+<p>
+    I modelli QAK sono definiti in tre file nella directory <code>qakdemo26/src/</code>:
+</p>
+<ul>
+    <li>
+        <b><code>firefly1.qak</code></b> – Sistema <code>firefly1system</code>, porta 8020.<br>
+        Un solo QActor <code>firefly1</code> con variabile <code>FlashPeriod = 1000L</code> e transizione <code>whenTimeVar FlashPeriod</code>. Nessuna sincronizzazione necessaria.
+    </li>
+    <li>
+        <b><code>firefly3.qak</code></b> – Sistema <code>firefly3system</code>, porta 8021.<br>
+        Tre QActors (<code>firefly1</code>, <code>firefly2</code>, <code>firefly3</code>) con fasi iniziali 0/300/600 ms. Sincronizzazione integrate-and-fire tramite evento <code>flash</code>. Periodo refrattario di 200 ms con <code>discardMsg On/Off</code>.
+    </li>
+    <li>
+        <b><code>firefly100.qak</code></b> – Sistema <code>firefly100system</code>, porta 8022.<br>
+        QActor <code>fireflymanager</code> crea 100 istanze dinamiche di <code>firefly</code> (marcato <code>dynamicOnly</code>) tramite loop <code>createActorFsmDynamic("firefly", "_$i", false)</code>. Ogni istanza sceglie una fase iniziale casuale (0–900 ms). Dimostra il principio "More is Different": sincronizzazione globale emergente da regole locali semplici.
+    </li>
+</ul>
+<p>
+    Il documento di analisi comparativa è disponibile in <code>userDocs/</code> (questo file).
+</p>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+    I modelli QAK non richiedono test unitari tradizionali in quanto il DSL garantisce la correttezza strutturale (stati, transizioni, messaggi tipati) già in fase di compilazione. Il testing funzionale è condotto mediante esecuzione diretta in Eclipse con il plugin QActork, osservando il log colorato prodotto dalle istruzioni <code>println(...) color yellow/cyan/green/blue</code>.
+</p>
+<p>
+    La comparazione con <code>SistemaSJavalin</code> evidenzia che il modello QAK ha una testabilità intrinsecamente migliore: ogni attore è isolato, i messaggi sono formali e la FSM è verificabile per ispezione visiva.
+</p>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+    Il confronto finale tra i due approcci:
+</p>
+<ul>
+    <li>
+        <b>SistemaSJavalin / Better</b> è adatto a servizi piccoli e monolitici dove la semplicità di setup è prioritaria. Diventa debito tecnico in sistemi distribuiti complessi.
+    </li>
+    <li>
+        <b>Modello QAK</b> introduce una curva di apprendimento più alta (DSL + FSM + Prolog) ma produce sistemi più robusti, scalabili e distribuibili. Rimane la scelta naturale per sistemi reattivi, IoT e microservizi.
+    </li>
+</ul>
+<p>
+    <code>SistemaSJavalin</code> continua ad avere un ruolo valido come <b>inbound adapter</b> all'interno di un sistema QAK: riceve la richiesta HTTP/WS e la trasforma in un messaggio QAK elaborato dall'attore corrispondente. I due approcci non si escludono; si complementano.
+</p>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>
