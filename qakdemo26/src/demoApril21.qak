@@ -1,4 +1,4 @@
-System sistemaSQak
+System sistemasqak
 
 /*
  * demoApril21.qak
@@ -16,9 +16,9 @@ System sistemaSQak
 Request eval     : eval(X)     "richiesta di valutazione"
 Reply   evalDone : evalDone(V) for eval
 
-Context ctxSistemaS ip [host="localhost" port=8030]
+Context ctxsistemas ip [host="localhost" port=8030]
 
-QActor sistemaS context ctxSistemaS {
+QActor sistemas context ctxsistemas {
     State s0 initial {
         println("$name | SistemaS QAK avviato, in ascolto...") color blue
     }
@@ -31,22 +31,22 @@ QActor sistemaS context ctxSistemaS {
 
     State handleEval {
         onMsg( eval : eval(X) ) {
-            [# val x      = payloadArg(0).toDouble() #]
-            println("$name | eval ricevuto: x=${x}") color cyan
-            [# val result = Math.sin(x) + Math.cos(Math.sqrt(3.0) * x) #]
-            println("$name | risultato: ${result}") color cyan
-            replyTo eval with evalDone : evalDone( $result )
+            [# val X      = payloadArg(0).toDouble() #]
+            println("$name | eval ricevuto: x=${X}") color cyan
+            [# val Result = Math.sin(X) + Math.cos(Math.sqrt(3.0) * X) #]
+            println("$name | risultato: ${Result}") color cyan
+            replyTo eval with evalDone : evalDone( $Result )
         }
     }
     Goto waitForWork
 }
 
-QActor clientS context ctxSistemaS {
-    [# var x = 1.0 #]
+QActor clients context ctxsistemas {
+    [# var X = 1.0 #]
     State s0 initial {
         delay 200
-        println("$name | invio eval(${x})") color green
-        request sistemaS -m eval : eval( $x )
+        println("$name | invio eval(${X})") color green
+        request sistemas -m eval : eval( $X )
     }
     Transition t0 whenReply evalDone -> handleResult
 
@@ -54,7 +54,7 @@ QActor clientS context ctxSistemaS {
         onMsg( evalDone : evalDone(V) ) {
             println("$name | risposta ricevuta: ${payloadArg(0)}") color green
         }
-        [# x += 1.0 #]
+        [# X += 1.0 #]
         delay 2000
     }
     Goto s0
