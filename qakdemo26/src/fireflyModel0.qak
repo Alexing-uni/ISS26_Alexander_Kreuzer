@@ -1,0 +1,74 @@
+System fireflyModel0system
+
+/*
+ * fireflyModel0.qak
+ * Prima formalizzazione di una lucciola come risultato dell'analisi.
+ *
+ * Modello analitico minimo: una lucciola è un attore che:
+ *   1. Attende per un periodo fisso (carica interna)
+ *   2. Emette un lampo (evento flash)
+ *   3. Ripete il ciclo
+ *
+ * Non modella ancora la sincronizzazione tra lucciole (-> firefly1/3/100).
+ * Serve come punto di partenza formale prima dell'implementazione.
+ */
+
+Event flash : flash(ID)
+
+Context ctxfirefly0 ip [host="localhost" port=8019]
+
+QActor firefly context ctxfirefly0 {
+    [# val FlashPeriod = 1000L #]
+
+    State s0 initial {
+        println("$name | lucciola pronta, periodo: ${FlashPeriod}ms") color yellow
+    }
+    Goto charging
+
+    State charging {
+        println("$name | in carica...") color yellow
+    }
+    Transition t0 whenTimeVar FlashPeriod -> doFlash
+
+    State doFlash {
+        println("$name | *** FLASH! ***") color yellow
+        emit flash : flash(firefly)
+    }
+    Goto charging
+}
+
+/*
+ * EVOLUZIONE (uso di attori esterni e primitive):
+ *
+ * Si introduce un attore timerActor separato che invia un Dispatch "tick"
+ * al firefly, rendendo il periodo controllabile dall'esterno e separando
+ * la responsabilità del timing dal comportamento di lampeggio.
+ *
+ * Dispatch tick : tick(X)
+ *
+ * QActor timerActor context ctxfirefly0 {
+ *     [# val Period = 1000L #]
+ *     State s0 initial { }
+ *     Goto loop
+ *     State loop { }
+ *     Transition t0 whenTimeVar Period -> sendTick
+ *     State sendTick {
+ *         forward firefly -m tick : tick(timer)
+ *     }
+ *     Goto loop
+ * }
+ *
+ * QActor firefly context ctxfirefly0 {
+ *     State s0 initial {
+ *         println("$name | in attesa del tick esterno") color yellow
+ *     }
+ *     Goto waitTick
+ *     State waitTick { discardMsg Off }
+ *     Transition t0 whenMsg tick -> doFlash
+ *     State doFlash {
+ *         println("$name | *** FLASH! ***") color yellow
+ *         emit flash : flash(firefly)
+ *     }
+ *     Goto waitTick
+ * }
+ */
