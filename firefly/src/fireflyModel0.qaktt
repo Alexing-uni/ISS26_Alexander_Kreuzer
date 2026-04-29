@@ -7,6 +7,7 @@ Dispatch cellstate : cellstate(X,Y,COLOR)     "set color of cell X,Y"
 
 Context ctxfirefly ip [ host="localhost"  port=8040 ] 
 
+
     QActor firefly1 context ctxfirefly  {
  	[#   
 	   var  X          = 1
@@ -58,4 +59,4 @@ Context ctxfirefly ip [ host="localhost"  port=8040 ]
         }
         Goto waitCmd 
 
-    }//griddisplaymock
+    }//griddisplaymock*/

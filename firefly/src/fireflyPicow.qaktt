@@ -19,7 +19,7 @@ Context ctxfirefly ip [ host="localhost"      port=8040 ]
 //ExternalQActor griddisplay context ctxgrid
  
  QActor firefly1 context ctxfirefly  {     
- 
+  
 	[#   
 	   var  X          = 0
 	   var  Y          = 0
