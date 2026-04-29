@@ -1,0 +1,297 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>griddisplay – Comportamento orchestrato e visualizzazione su griglia</title>
+</head>
+
+<body>
+<div id="top">
+<h1>Progetto griddisplay – Comportamento orchestrato e visualizzazione su griglia</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#section.24.6'>COMPORTAMENTO ORCHESTRATO</a>
+<br>
+<b>Goal</b>: Realizzare un'applicazione Lab2 che esemplifichi il <b>paradigma di interazione orchestrato</b> contrapposto a quello coreografico. Un attore <i>director</i> coordina centralmente una sequenza di azioni eseguite da uno o piu' attori <i>worker</i>. La grid display costituisce il sink visuale del sistema.
+
+<br><br>
+
+Il progetto e' il riferimento operativo della lezione del <b>29/04</b>, che introduce i temi della
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#subsection.1.1.1'>sfida moderna dell'IS</a>,
+del <a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#subsection.17.3.3'>Model Driven Engineering</a>,
+della <a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#subsection.2.7.1'>orchestrazione e coreografia</a>
+e dell'<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#subsection.11.2.4'>orchestrazione nei microservizi</a>.
+
+<h2>Requirements</h2>
+<pre>
+R1  Realizzare una griglia visuale (HTML + Javalin + WebSocket) capace
+    di ricevere messaggi cellstate(X,Y,COLOR) e aggiornare la cella
+    corrispondente in tempo reale. Implementata in `griddisplay.qak`.
+
+R2  Modellare un comportamento ORCHESTRATO che, in modo dichiarativo,
+    decida la sequenza di celle da illuminare:
+       - un attore "director" che impone l'ordine
+       - uno o piu' attori "worker" che eseguono le richieste e
+         rispondono "fatto" al director
+       - un attore di rendering (griddisplay o displaymock) che
+         materializza il risultato visivo
+
+R3  Mostrare il contrasto con il paradigma COREOGRAFICO (firefly):
+    nel caso coreografico ogni attore reagisce a eventi senza un
+    coordinatore centrale; nel caso orchestrato esiste un unico
+    punto di controllo (il director).
+
+R4  Mantenere il modello eseguibile in modo autonomo (senza
+    dipendere da broker MQTT esterni o da hardware).
+</pre>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p>
+    Il problema "comportamento orchestrato" e' una variante del classico
+    pattern <b>Master-Worker</b>: un master decide le attivita' da
+    svolgere e le smista a uno o piu' worker, attendendo la conferma di
+    completamento prima di assegnare il lavoro successivo.
+</p>
+
+<p>
+    In QAK, il pattern si esprime con tre primitive del linguaggio:
+</p>
+<ul>
+    <li><b><code>Request paint : paint(X,Y,COLOR)</code></b>
+        — richiesta tipata dal director al worker.</li>
+    <li><b><code>Reply painted : painted(WHAT) for paint</code></b>
+        — risposta tipata che permette al director di proseguire.</li>
+    <li><b><code>Dispatch cellstate : cellstate(X,Y,COLOR)</code></b>
+        — messaggio puntuale dal worker al rendering.</li>
+</ul>
+
+<p>
+    L'analisi dei requisiti porta a separare nettamente:
+</p>
+<ul>
+    <li>la <b>logica di coordinamento</b> (FSM del director, riconfigurabile aggiungendo o riordinando stati);</li>
+    <li>la <b>logica di esecuzione</b> (worker, indipendente dalla sequenza decisa dal director);</li>
+    <li>la <b>logica di rendering</b> (griddisplay con Javalin oppure displaymock con stampe a console).</li>
+</ul>
+
+<br>
+
+<h2>Problem analysis</h2>
+<p>
+    La differenza fondamentale tra orchestrazione e coreografia si traduce in QAK come scelta della primitiva di sincronizzazione:
+</p>
+
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Aspetto</th>
+        <th>Orchestrazione (questo progetto)</th>
+        <th>Coreografia (firefly)</th>
+    </tr>
+    <tr>
+        <td>Punto di controllo</td>
+        <td>Centralizzato (director)</td>
+        <td>Distribuito (ogni attore decide localmente)</td>
+    </tr>
+    <tr>
+        <td>Primitiva chiave</td>
+        <td><code>Request</code> + <code>Reply</code></td>
+        <td><code>Event</code> + <code>whenEvent</code></td>
+    </tr>
+    <tr>
+        <td>Sincronizzazione</td>
+        <td>Imposta dal flusso della FSM</td>
+        <td>Emergente da regole locali</td>
+    </tr>
+    <tr>
+        <td>Tracciabilita'</td>
+        <td>Alta (un solo log)</td>
+        <td>Media (richiede aggregazione log)</td>
+    </tr>
+    <tr>
+        <td>Resilienza</td>
+        <td>Bassa (single point of failure)</td>
+        <td>Alta (nessun coordinatore)</td>
+    </tr>
+    <tr>
+        <td>Caso d'uso tipico</td>
+        <td>Workflow, business process, BPMN</td>
+        <td>Sistemi reattivi, IoT, sciami</td>
+    </tr>
+</table>
+
+<p>
+    Un secondo problema progettuale e' la <b>posizione del rendering</b>: il
+    painter (worker) parla con il rendering tramite <code>Dispatch cellstate</code>.
+    Questo disaccoppia la sequenza di disegno dalla tecnologia di
+    visualizzazione: sostituire <code>displaymock</code> con il vero
+    <code>griddisplay</code> (Javalin/HTML) e' una modifica di una sola riga.
+</p>
+
+<pre>
+forward displaymock -m cellstate : cellstate( $X, $Y, $COLOR )
+                |
+                +--- sostituendo "displaymock" con "griddisplay"
+                     il rendering passa da console a GUI HTML
+</pre>
+
+<br>
+
+<h2>Test plans</h2>
+<p>
+    Il piano di collaudo si articola in tre livelli:
+</p>
+
+<ol>
+    <li>
+        <b>Test della griglia (griddisplay.qak):</b> avviare il sistema su
+        porta 8050; il browser apre <code>http://localhost:8080</code> con
+        la pagina <code>GridNoCanvas.html</code>. Inviare manualmente un
+        <code>cellstate(10,10,1)</code> e verificare l'aggiornamento della cella.
+    </li>
+    <li>
+        <b>Test della sequenza orchestrata (orchestratedDemo.qak):</b>
+        avviare il sistema su porta 8060. Verificare che il log mostri
+        nell'ordine: paint(5,5,1) → painted → paint(2,2,2) → painted
+        → paint(8,8,3) → painted → paint(2,8,4) → painted. La sequenza
+        deve essere <i>strettamente sequenziale</i>: ogni step inizia solo
+        dopo la conferma del precedente.
+    </li>
+    <li>
+        <b>Test di integrazione:</b> avviare entrambi i sistemi e modificare
+        il painter per inviare <code>cellstate</code> verso l'attore
+        <code>griddisplay</code> (porta 8050) anziche' verso displaymock.
+        Verificare che le 4 celle compaiano nell'ordine prescritto sulla
+        GUI HTML.
+    </li>
+</ol>
+
+<br>
+
+<h2>Project</h2>
+<p>
+    Il progetto contiene due modelli QAK distinti che esemplificano due aspetti complementari del comportamento orchestrato.
+</p>
+
+<h3>Modello del docente: <code>griddisplay.qak</code></h3>
+<ul>
+    <li><b>System</b>: <code>griddisplay</code></li>
+    <li><b>Context</b>: <code>ctxgrid</code> su porta 8050</li>
+    <li><b>Attore</b>: <code>griddisplay</code> con Javalin GUI handler integrato.</li>
+    <li><b>Messaggio</b>: <code>cellstate(X,Y,COLOR)</code> ricevuto sia come Dispatch che come Event.</li>
+    <li><b>GUI</b>: pagina <code>GridNoCanvas.html</code> servita su porta 8080 con WebSocket per aggiornamenti real-time.</li>
+</ul>
+
+<h3>Modello personale: <code>orchestratedDemo.qak</code></h3>
+<ul>
+    <li><b>System</b>: <code>orchestrateddemo</code></li>
+    <li><b>Context</b>: <code>ctxorch</code> su porta 8060</li>
+    <li><b>Attori</b>:
+        <ul>
+            <li><b><code>director</code></b> — orchestratore. FSM con 4 step di richiesta-attesa-conferma. Decide centralmente l'intera sequenza di disegno.</li>
+            <li><b><code>painter</code></b> — worker. Resta in attesa di richieste <code>paint</code>; per ogni richiesta calcola il messaggio <code>cellstate</code> e lo inoltra al rendering, quindi risponde <code>painted(ok)</code>.</li>
+            <li><b><code>displaymock</code></b> — sink di rendering su console. Sostituibile dal vero <code>griddisplay</code> per l'integrazione GUI.</li>
+        </ul>
+    </li>
+    <li><b>Messaggi</b>:
+        <ul>
+            <li><code>Request paint : paint(X,Y,COLOR)</code> con <code>Reply painted : painted(WHAT) for paint</code></li>
+            <li><code>Dispatch cellstate : cellstate(X,Y,COLOR)</code></li>
+        </ul>
+    </li>
+</ul>
+
+<h3>File di supporto</h3>
+<ul>
+    <li><code>griddisplay/utils/guiout/JavalinGuiHandler.java</code> — bridge tra QActor e Javalin/WebSocket.</li>
+    <li><code>griddisplay/src/main/resources/page/</code> — pagina HTML, fogli di stile, script JS per il rendering della griglia.</li>
+    <li><code>griddisplay/Dockerfile</code> — image Docker per il deployment del sistema.</li>
+</ul>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+    L'esecuzione del progetto avviene tramite Gradle:
+</p>
+
+<pre>
+cd griddisplay
+./gradlew run     # esegue il sistema griddisplay (rendering Javalin)
+</pre>
+
+<p>
+    Per eseguire il demo orchestrato (orchestratedDemo.qak) e' sufficiente
+    cambiare il <code>mainClassName</code> in <code>build.gradle</code> al
+    contesto generato dal plugin QAK per il sistema <code>orchestrateddemo</code>.
+</p>
+
+<p>
+    Il modello e' autosufficiente: <code>displaymock</code> rende su console,
+    quindi non e' necessaria alcuna infrastruttura esterna per il primo
+    collaudo. Solo per l'integrazione GUI occorre avviare anche
+    <code>griddisplay</code> e adattare il destinatario del Dispatch
+    <code>cellstate</code> nel painter.
+</p>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+    Il modello e' progettato per essere esteso facilmente:
+</p>
+
+<ul>
+    <li>
+        <b>Aggiungere step alla sequenza</b>: aggiungere uno stato
+        <code>stepNRequest</code>, una transizione <code>whenReply painted</code>
+        e uno stato <code>stepNDone</code> alla FSM del director. Nessuna
+        modifica al painter o al displaymock.
+    </li>
+    <li>
+        <b>Parallelizzare il rendering</b>: introdurre piu' painter
+        (<code>painter1</code>, <code>painter2</code>, ...) e modificare
+        il director per inviare richieste in parallelo (l'attesa diventa
+        un <code>Transition t0 whenReply painted -> ...</code> conta-
+        risposte). Si dimostra cosi' che l'orchestrazione puo' essere
+        anche parallela, non solo sequenziale.
+    </li>
+    <li>
+        <b>Trasformare in coreografia</b>: rimuovere il director, fare
+        emit di un <code>Event paintRequest</code> da un trigger esterno;
+        ogni painter, sentendo l'evento, decide se reagire in base a
+        criteri locali (es. se la cella richiesta appartiene alla
+        propria zona). Questo refactoring evidenzia operativamente la
+        differenza tra i due paradigmi.
+    </li>
+</ul>
+
+<p>
+    Il pattern Master-Worker dell'orchestrazione e' la base concettuale
+    di numerosi framework moderni di workflow (BPMN, Camunda, Temporal,
+    Apache Airflow). La sua espressione in QAK e' particolarmente
+    leggibile perche' la sequenza e' resa esplicita dal grafo di stati
+    del director, senza nascondersi in callback o promise asincroni.
+</p>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>
