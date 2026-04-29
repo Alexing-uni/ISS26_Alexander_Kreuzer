@@ -1,0 +1,229 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>firefly – Sincronizzazione di lucciole modellata in QAK</title>
+</head>
+
+<body>
+<div id="top">
+<h1>Progetto firefly – Sincronizzazione di lucciole modellata in QAK</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.10'>FIREFLIES SYNCHRONIZATION</a>
+<br>
+<b>Goal</b>: Modellare in QAK il fenomeno biologico della <b>sincronizzazione spontanea delle lucciole</b> (<i>Photinus carolinus</i>): centinaia di insetti che, partendo da fasi indipendenti, convergono a lampeggiare all'unisono senza alcun coordinatore centrale.
+
+<br><br>
+
+Il problema è un caso di studio canonico per i sistemi reattivi distribuiti: dimostra come <b>regole locali semplici</b> producano <b>comportamento globale ordinato</b> (principio "More is Different"). La modellazione in QAK consente di studiare il fenomeno con incrementi progressivi di complessità: da una singola lucciola a 100 attori dinamici sincronizzati.
+
+<h2>Requirements</h2>
+<pre>
+R1  Modellare una singola lucciola come QActor che si carica per un
+    periodo fisso ed emette un flash, ripetendo il ciclo all'infinito.
+
+R2  Estendere il modello a 3 lucciole con fasi iniziali sfalsate
+    (0 / 300 / 600 ms) e meccanismo integrate-and-fire:
+       - una lucciola che percepisce il flash di un'altra avanza
+         la propria fase e lampeggia immediatamente;
+       - dopo il flash entra in periodo refrattario per evitare
+         cascate di rimbalzo.
+
+R3  Estendere il modello a 100 lucciole create dinamicamente, con
+    fase iniziale casuale (0–900 ms). Verificare che la
+    sincronizzazione globale emerga senza coordinatore.
+
+R4  Mantenere la stessa primitiva integrate-and-fire per le tre
+    versioni: solo i parametri (numero di lucciole, fase, periodo)
+    cambiano fra una versione e l'altra.
+</pre>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p>
+    Il modello biologico delle lucciole può essere espresso con due primitive QAK fondamentali:
+</p>
+
+<ul>
+    <li>
+        <b><code>whenTime</code></b> / <b><code>whenTimeVar</code></b>: transizioni guidate da un timer interno. Modellano il <i>caricamento spontaneo</i> della lucciola fino a soglia di flash.
+    </li>
+    <li>
+        <b><code>whenEvent flash</code></b>: transizione guidata dalla percezione del flash di un'altra lucciola (broadcast). Modella il <i>coupling</i> tra individui.
+    </li>
+</ul>
+
+<p>
+    Il modello matematico sottostante è quello degli <b>oscillatori a impulsi accoppiati</b> (Mirollo & Strogatz, 1990): ogni oscillatore avanza linearmente la propria fase e quando un altro oscillatore "scarica" il primo riceve un kick proporzionale, che lo spinge anch'esso a scaricare. Sotto certe condizioni si dimostra che la sincronizzazione globale è inevitabile.
+</p>
+
+<p>
+    Un requisito non funzionale critico è la <b>scalabilità</b>: 100 lucciole come 100 thread del SO sarebbero costose; come 100 coroutine Kotlin sono banali. QAK eredita questa proprietà dall'infrastruttura sottostante (<code>kotlinx.coroutines</code>).
+</p>
+
+<br>
+
+<h2>Problem analysis</h2>
+<p>
+    Il problema progettuale principale è evitare le <b>cascate di flash</b>: senza precauzioni, ogni lucciola che lampeggia farebbe lampeggiare tutte le altre in catena, provocando un effetto domino senza convergenza.
+</p>
+
+<p>
+    La soluzione adottata è il <b>periodo refrattario</b>: dopo aver lampeggiato, la lucciola entra in uno stato in cui ignora gli eventi <code>flash</code> ricevuti per un breve intervallo. In QAK questo si esprime con la coppia di primitive:
+</p>
+
+<ul>
+    <li><b><code>discardMsg On</code></b> nello stato <code>doFlash</code>: scarta i flash percepiti durante l'emissione.</li>
+    <li>Stato <code>refractory</code> con <b><code>delay 200</code></b> e <code>discardMsg Off</code> al termine, per riarmare la sensibilità prima del successivo ciclo di carica.</li>
+</ul>
+
+<pre>
+State charging { [# shouldSync = false #]  discardMsg Off }
+Transition t0
+    whenTime 1000   -> doFlash
+    whenEvent flash -> perceiveFlash
+
+State perceiveFlash {
+    onMsg( flash : flash(ID) ){
+        [# shouldSync = payloadArg(0) != name #]
+    }
+}
+Goto doFlash if [# shouldSync #] else charging
+
+State doFlash {
+    println("$name | *** FLASH! ***") color yellow
+    emit flash : flash(firefly1)
+    discardMsg On
+}
+Goto refractory
+
+State refractory { delay 200  discardMsg Off }
+Goto charging
+</pre>
+
+<p>
+    La condizione <code>payloadArg(0) != name</code> impedisce che una lucciola reagisca al proprio stesso flash (auto-percezione). È un dettaglio cruciale che senza il controllo provocherebbe un loop chiuso.
+</p>
+
+<p>
+    Per il modello a 100 lucciole, l'attore <code>fireflymanager</code> usa la primitiva <code>createActorFsmDynamic("firefly", "_$i", false)</code> all'interno di un blocco Kotlin <code>[# ... #]</code>. Le 100 istanze vengono create al volo, condividendo il medesimo template <code>QActor firefly ... dynamicOnly</code>.
+</p>
+
+<br>
+
+<h2>Test plans</h2>
+<p>
+    Il piano di collaudo procede per <b>livelli di crescente complessità</b>:
+</p>
+
+<ol>
+    <li>
+        <b>Test del ciclo base (firefly1):</b> avviare il sistema <code>firefly1system</code> (porta 8020). Il log deve mostrare alternanza regolare di "cargando..." e "FLASH!" con periodo di ~1000 ms. Criterio di accettazione: nessun errore nelle prime 10 iterazioni.
+    </li>
+    <li>
+        <b>Test della sincronizzazione (firefly3):</b> avviare <code>firefly3system</code> (porta 8021). Le tre lucciole partono con fasi 0/300/600 ms; dopo poche iterazioni i loro flash devono convergere allo stesso istante. Criterio di accettazione: i tre log "FLASH!" appaiono contemporaneamente entro 5 cicli.
+    </li>
+    <li>
+        <b>Test di scalabilità (firefly100):</b> avviare <code>firefly100system</code> (porta 8022). Il <code>fireflymanager</code> deve creare 100 attori senza errori; nelle prime iterazioni i flash sono distribuiti casualmente; gradualmente convergono verso una pulsazione comune. Criterio di accettazione: assenza di stack overflow / deadlock e visibile sincronizzazione progressiva.
+    </li>
+</ol>
+
+<br>
+
+<h2>Project</h2>
+<p>
+    Il progetto è un modulo Gradle indipendente importato dal repository del docente (<code>anatali/issLab2026</code>) e arricchito con i modelli personali sviluppati durante il laboratorio.
+</p>
+
+<h3>Modelli personali</h3>
+<ul>
+    <li>
+        <b><code>firefly/src/firefly1.qak</code></b> – Sistema <code>firefly1system</code>, porta 8020.<br>
+        Una sola lucciola con <code>FlashPeriod = 1000L</code> e transizione <code>whenTimeVar FlashPeriod</code>. Senza sincronizzazione: serve come <i>baseline</i> del comportamento.
+    </li>
+    <li>
+        <b><code>firefly/src/firefly3.qak</code></b> – Sistema <code>firefly3system</code>, porta 8021.<br>
+        Tre QActors (<code>firefly1</code>, <code>firefly2</code>, <code>firefly3</code>) con fasi iniziali sfalsate. Sincronizzazione integrate-and-fire con periodo refrattario di 200 ms.
+    </li>
+    <li>
+        <b><code>firefly/src/firefly100.qak</code></b> – Sistema <code>firefly100system</code>, porta 8022.<br>
+        Attore <code>fireflymanager</code> che crea 100 istanze dinamiche di un template <code>firefly dynamicOnly</code>. Ogni istanza sceglie una fase iniziale casuale.
+    </li>
+</ul>
+
+<h3>Modelli di riferimento (docente)</h3>
+<ul>
+    <li><b><code>fireflyModel0.qaktt</code></b> – Prima formalizzazione analitica con un attore <code>griddisplaymock</code> esterno che riceve <code>cellstate(X,Y,COLOR)</code> per la visualizzazione su griglia.</li>
+    <li><b><code>firefly1external.qaktt</code></b> – Versione che usa un attore esterno per il timer (separazione di responsabilità).</li>
+    <li><b><code>firefly1mqtt.qaktt</code></b> – Variante che pubblica gli eventi <code>flash</code> su un broker MQTT.</li>
+    <li><b><code>firefly5.qaktt</code></b>, <b><code>fireflyMany.qaktt</code></b>, <b><code>fireflyPicow.qaktt</code></b> – Varianti su numerosi temi (5 attori, deployment su microcontrollore Pico W).</li>
+</ul>
+
+<h3>Esecuzione</h3>
+<pre>
+cd firefly
+./gradlew run     # esegue firefly1 (default)
+</pre>
+<p>
+    Per eseguire <code>firefly3</code> o <code>firefly100</code> modificare in <code>build.gradle</code>:
+</p>
+<pre>
+mainClassName = 'it.unibo.ctxfirefly3.MainCtxfirefly3Kt'   // oppure
+mainClassName = 'it.unibo.ctxfirefly100.MainCtxfirefly100Kt'
+</pre>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+    Il testing è esclusivamente <b>osservazionale</b> sui log prodotti dal sistema. Ogni QActor emette stampe colorate che permettono di seguire la traiettoria temporale dell'esecuzione:
+</p>
+<ul>
+    <li><code>color yellow</code> per la lucciola 1</li>
+    <li><code>color cyan</code> per la lucciola 2</li>
+    <li><code>color green</code> per la lucciola 3</li>
+    <li><code>color blue</code> per il <code>fireflymanager</code></li>
+</ul>
+
+<p>
+    La <b>sincronizzazione</b> si manifesta visivamente come allineamento orizzontale delle stampe "FLASH!" nel log temporizzato. Per i 100 attori, l'analisi può essere automatizzata estraendo i timestamp e calcolando la deviazione standard dei tempi di flash: una <i>Std → 0</i> indica sincronizzazione completa.
+</p>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+    Il modello è strutturato per essere estendibile con perturbazioni biologiche realistiche:
+</p>
+<ul>
+    <li><b>Eterogeneità</b>: assegnare a ogni lucciola un <code>FlashPeriod</code> leggermente diverso (es. estratto da una distribuzione gaussiana attorno a 1000 ms) e verificare che la sincronizzazione persista solo entro una varianza limitata.</li>
+    <li><b>Topologia</b>: limitare la propagazione dell'<code>emit flash</code> ai soli "vicini" (sostituendo l'evento broadcast con dispatch su una lista di destinatari) per modellare reti spaziali.</li>
+    <li><b>Visualizzazione</b>: aggiungere un attore <code>griddisplaymock</code> (come in <code>fireflyModel0</code>) che mappi le lucciole su una griglia 2D e visualizzi lo stato in tempo reale tramite WebSocket o un canvas HTML.</li>
+</ul>
+
+<p>
+    Il progetto <code>firefly</code> è pertanto sia un risultato concluso (le tre versioni <code>firefly1</code>, <code>firefly3</code>, <code>firefly100</code>) sia una <b>piattaforma di sperimentazione</b> per studi futuri sui sistemi reattivi distribuiti.
+</p>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>

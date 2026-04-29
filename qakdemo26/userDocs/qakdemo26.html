@@ -1,0 +1,160 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>qakdemo26 – Esempi e demo del linguaggio QAK</title>
+</head>
+
+<body>
+<div id="top">
+<h1>Progetto qakdemo26 – Esempi e demo del linguaggio QAK</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.10'>IL LINGUAGGIO QAK</a>
+<br>
+<b>Goal</b>: Fornire una raccolta di modelli QAK dimostrativi che illustrino le primitive fondamentali del linguaggio: <b>Dispatch</b>, <b>Event</b>, <b>Request/Reply</b>, transizioni guidate da messaggi e da timer, attori dinamici, integrazione MQTT.
+
+<br><br>
+
+Il progetto <code>qakdemo26</code> è il punto di ingresso pratico al paradigma ad attori adottato nel corso. Ogni file <code>.qak</code> è un sistema autonomo che espone una caratteristica del linguaggio in forma minima e ispezionabile.
+
+<h2>Requirements</h2>
+<pre>
+R1  Disporre di esempi minimi e funzionanti che coprano tutte le primitive
+    di interazione tra QActors:
+       - Dispatch (messaggio puntuale verso un destinatario)
+       - Event (messaggio in broadcast su un topic)
+       - Request / Reply (interazione sincrona tipata)
+
+R2  Fornire un modello QAK del gioco ConwayLife che si integri con il
+    broker MQTT per ricevere comandi dall'esterno (start, stop, clear,
+    cellstate).
+
+R3  Tutti i modelli devono essere eseguibili dal medesimo progetto Gradle
+    (`gradlew run`) e documentati in modo da costituire un riferimento
+    operativo per gli sprint successivi (sistemasqak, firefly).
+</pre>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p>
+    Il linguaggio QAK è un DSL esterno costruito su Xtext. Ogni QActor è una <b>Macchina a Stati Finiti di Moore</b> con coda di messaggi privata. Per familiarizzare con la sintassi e la semantica occorre disporre di esempi che isolino una primitiva alla volta:
+</p>
+
+<ul>
+    <li>
+        <b>demoSendReceiveEmit.qak</b>: tre attori (<code>sender</code>, <code>receiver</code>, <code>perceiver</code>) che mostrano insieme l'uso di <code>Dispatch</code> punto-a-punto e di <code>Event</code> in broadcast. Include la primitiva <code>discardMsg Off</code> per memorizzare i messaggi non attesi.
+    </li>
+    <li>
+        <b>conway26qak0.qak</b>: porting in QAK del gioco ConwayLife. Mostra come integrare un broker <b>MQTT</b> nel contesto (<code>mqttBroker "localhost":1883</code>) e come gestire eventi ricevuti dall'esterno (<code>start</code>, <code>cellstate</code>) con <code>whenEvent</code>.
+    </li>
+</ul>
+
+<p>
+    L'analisi del requisito conduce a separare nettamente <b>il trasporto</b> (TCP, MQTT) dalla <b>logica dell'attore</b> (FSM). Il DSL garantisce che ogni messaggio abbia un contratto formale (es. <code>Event cellstate : cellstate(X,Y)</code>) verificato a tempo di compilazione.
+</p>
+
+<br>
+
+<h2>Problem analysis</h2>
+<p>
+    Il problema progettuale principale di un sistema ad attori è la <b>gestione della coda dei messaggi</b>. QAK risolve la questione con la coppia di primitive:
+</p>
+
+<ul>
+    <li><code>discardMsg Off</code> (default): i messaggi che non hanno una transizione attesa nello stato corrente vengono memorizzati e riconsiderati nello stato successivo.</li>
+    <li><code>discardMsg On</code>: i messaggi non attesi vengono scartati. Utile per implementare <i>periodi refrattari</i> o stati transitori.</li>
+</ul>
+
+<p>
+    Un secondo problema riguarda la <b>concorrenza</b>: ogni QActor è eseguito su una coroutine Kotlin, non su un thread del SO. Ciò consente di istanziare migliaia di attori senza degrado prestazionale, premessa indispensabile per il modello a 100 lucciole (vedi progetto <code>firefly</code>).
+</p>
+
+<pre>
+// Esempio: ricezione mista di Dispatch ed Event
+State waitForMsgs {
+    discardMsg Off
+}
+Transition t0
+    whenMsg msg1 -> handleMsg1
+    whenMsg msg2 -> handleMsg2
+    whenEvent alarm -> handleAlarm
+</pre>
+
+<br>
+
+<h2>Test plans</h2>
+<p>
+    I modelli del progetto <code>qakdemo26</code> non richiedono test JUnit tradizionali: il DSL valida la struttura (stati, transizioni, contratti dei messaggi) già a tempo di compilazione. Il piano di collaudo è quindi <i>ad osservazione del log</i>:
+</p>
+
+<ol>
+    <li>
+        <b>demoSendReceiveEmit</b>: avviare il sistema, verificare che <code>sender</code> emetta in sequenza <code>msg1(1)</code>, <code>msg1(2)</code>, <code>msg2(1)</code> e infine l'evento <code>alarm(fire)</code>. <code>receiver</code> deve ricevere i tre messaggi nell'ordine; <code>perceiver</code> deve registrare solo l'evento.
+    </li>
+    <li>
+        <b>conway26qak0</b>: avviare il broker MQTT (<code>mosquitto</code>), inviare al topic <code>lifegameIn</code> un messaggio <code>start(go)</code> e verificare che il QActor <code>lifegame</code> entri nello stato <code>handleStart</code>. Inviare poi <code>cellstate(3,4)</code> e verificare il log "Click en celda: 3,4".
+    </li>
+</ol>
+
+<br>
+
+<h2>Project</h2>
+<p>
+    Il progetto è un modulo Gradle indipendente con la struttura standard QAK:
+</p>
+
+<ul>
+    <li><code>qakdemo26/src/</code> – Sorgenti dei modelli <code>.qak</code> e classi Kotlin generate dal plugin Eclipse.</li>
+    <li><code>qakdemo26/build.gradle</code> – Configurazione Gradle con dipendenze Kotlin, MQTT (Paho), HTTP (Apache HttpComponents), CoAP (Californium) e logging (Logback).</li>
+    <li><code>qakdemo26/userDocs/</code> – Documentazione di progetto (questo file e l'analisi comparativa <code>Main.html</code>).</li>
+</ul>
+
+<h3>Modelli inclusi</h3>
+<ul>
+    <li><b><code>demoSendReceiveEmit.qak</code></b>: dimostrazione delle primitive <code>Dispatch</code> ed <code>Event</code> con tre attori cooperanti.</li>
+    <li><b><code>conway26qak0.qak</code></b>: modello QAK del gioco ConwayLife integrato con MQTT (porta 8945, broker <code>localhost:1883</code>, topic <code>lifegameIn</code>).</li>
+    <li>Numerosi <code>.qaktt</code> di riferimento (<i>guards</i>, <i>create</i>, <i>delegate</i>, <i>observer</i>, <i>request</i>, <i>resource</i>, ecc.) come catalogo di pattern.</li>
+</ul>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+    Il testing dei modelli avviene tramite <b>ispezione del log colorato</b> prodotto dalle istruzioni <code>println("...") color yellow|cyan|green|blue|magenta</code>. Ogni stato significativo emette una stampa identificativa che permette di verificare la sequenza di esecuzione.
+</p>
+<p>
+    Per i test automatici si fa riferimento alla libreria <code>unibo.basicomm23</code> (modulo <code>unibolibs</code>) che fornisce un client TCP/WS riutilizzabile per inviare messaggi al sistema e collezionare le risposte.
+</p>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+    Il progetto <code>qakdemo26</code> evolve come <b>libreria viva</b> di esempi: ogni nuova primitiva del linguaggio QAK introdotta nel corso viene documentata aggiungendo un nuovo <code>.qak</code> al modulo. I demo storici rimangono come <code>.qaktt</code> per consultazione.
+</p>
+<p>
+    L'integrazione con MQTT (<code>conway26qak0.qak</code>) costituisce il modello di riferimento per gli sprint successivi che richiedono un disaccoppiamento totale fra produttore di eventi (es. una GUI HTML esterna) e consumer (il QActor).
+</p>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>

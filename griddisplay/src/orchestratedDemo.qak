@@ -1,0 +1,171 @@
+System orchestrateddemo
+
+/*
+ * orchestratedDemo.qak
+ * ---------------------------------------------------------------
+ * Demo del paradigma di interazione ORCHESTRATO.
+ *
+ * Tre attori cooperano per disegnare una sequenza di celle su una
+ * "grid" simulata. La sequenza e' decisa centralmente da un attore
+ * "direttore" (director) che impone l'ordine delle azioni.
+ *
+ *   director ---(Request paint)---> painter ---(Dispatch cellstate)---> displaymock
+ *            <--(Reply painted)----
+ *
+ * CONFRONTO CON LA COREOGRAFIA (firefly):
+ *  - Coreografia: ogni attore reagisce a eventi senza coordinatore.
+ *    La sincronizzazione globale emerge dalle sole regole locali
+ *    (es. lucciole integrate-and-fire).
+ *  - Orchestrazione: c'e' un punto di controllo centrale (director).
+ *    I worker sono passivi, eseguono solo cio' che il director chiede
+ *    e rispondono "fatto". L'ordine globale e' garantito dal flusso
+ *    della FSM del director.
+ *
+ * VANTAGGI dell'orchestrazione:
+ *   + Comportamento globale leggibile in un solo punto (il director)
+ *   + Facile aggiungere fasi: basta modificare la FSM del director
+ *   + Tracciabilita' immediata: un solo log mostra l'intera sequenza
+ *
+ * SVANTAGGI:
+ *   - Single point of failure: se il director cade, il sistema
+ *     si ferma
+ *   - Scalabilita' limitata: il director e' un collo di bottiglia
+ *   - Coupling: i worker devono conoscere il protocollo del director
+ */
+
+Request  paint     : paint(X,Y,COLOR)         "richiesta di disegno"
+Reply    painted   : painted(WHAT) for paint
+Dispatch cellstate : cellstate(X,Y,COLOR)     "aggiornamento cella"
+
+Context ctxorch ip [host="localhost" port=8060]
+
+
+/* ===============================================================
+ * DIRECTOR - l'orchestratore
+ * Definisce la sequenza di disegno come un grafo di stati.
+ * Ogni stato chiede al painter una cella e attende la risposta
+ * prima di passare al successivo.
+ * =============================================================== */
+QActor director context ctxorch {
+
+    State s0 initial {
+        delay 1000
+        println("$name | --- INIZIO SEQUENZA ORCHESTRATA ---") color magenta
+    }
+    Goto step1Request
+
+    /* --- Step 1: cella centrale rossa --- */
+    State step1Request {
+        println("$name | step 1: richiedo paint(5,5,1)") color magenta
+        request painter -m paint : paint(5,5,1)
+    }
+    Transition t0 whenReply painted -> step1Done
+
+    State step1Done {
+        printCurrentMessage color magenta
+        println("$name | step 1 completato, attendo prima del prossimo") color magenta
+        delay 1500
+    }
+    Goto step2Request
+
+    /* --- Step 2: cella in alto a sinistra verde --- */
+    State step2Request {
+        println("$name | step 2: richiedo paint(2,2,2)") color magenta
+        request painter -m paint : paint(2,2,2)
+    }
+    Transition t0 whenReply painted -> step2Done
+
+    State step2Done {
+        printCurrentMessage color magenta
+        println("$name | step 2 completato") color magenta
+        delay 1500
+    }
+    Goto step3Request
+
+    /* --- Step 3: cella in basso a destra blu --- */
+    State step3Request {
+        println("$name | step 3: richiedo paint(8,8,3)") color magenta
+        request painter -m paint : paint(8,8,3)
+    }
+    Transition t0 whenReply painted -> step3Done
+
+    State step3Done {
+        printCurrentMessage color magenta
+        println("$name | step 3 completato") color magenta
+        delay 1500
+    }
+    Goto step4Request
+
+    /* --- Step 4: cella in basso a sinistra giallo --- */
+    State step4Request {
+        println("$name | step 4: richiedo paint(2,8,4)") color magenta
+        request painter -m paint : paint(2,8,4)
+    }
+    Transition t0 whenReply painted -> finish
+
+    State finish {
+        printCurrentMessage color magenta
+        println("$name | --- SEQUENZA ORCHESTRATA TERMINATA ---") color magenta
+    }
+}
+
+
+/* ===============================================================
+ * PAINTER - il worker
+ * Riceve richieste paint, traduce in un messaggio cellstate
+ * verso il displaymock e risponde "ok" al director.
+ * =============================================================== */
+QActor painter context ctxorch {
+
+    State s0 initial {
+        println("$name | painter pronto") color cyan
+    }
+    Goto waitOrder
+
+    State waitOrder {
+        discardMsg Off
+    }
+    Transition t0 whenRequest paint -> handlePaint
+
+    State handlePaint {
+        printCurrentMessage color cyan
+        onMsg( paint : paint(X,Y,COLOR) ) {
+            [#
+                val X     = payloadArg(0)
+                val Y     = payloadArg(1)
+                val COLOR = payloadArg(2)
+            #]
+            println("$name | ricevuto paint(${X},${Y},${COLOR})") color cyan
+            forward displaymock -m cellstate : cellstate( $X, $Y, $COLOR )
+            println("$name | inviato cellstate al displaymock") color cyan
+            replyTo paint with painted : painted( ok )
+        }
+    }
+    Goto waitOrder
+}
+
+
+/* ===============================================================
+ * DISPLAYMOCK - rendering su console
+ * Sostituibile dal vero attore griddisplay (Javalin GUI) cambiando
+ * il nome del destinatario nel painter.
+ * =============================================================== */
+QActor displaymock context ctxorch {
+
+    State s0 initial {
+        println("$name | griglia mock pronta (output su console)") color green
+    }
+    Goto waitCmd
+
+    State waitCmd {
+        discardMsg Off
+    }
+    Transition t0 whenMsg cellstate -> handleCell
+
+    State handleCell {
+        onMsg( cellstate : cellstate(X,Y,COLOR) ) {
+            println("$name | grid[${payloadArg(0)},${payloadArg(1)}] = ${payloadArg(2)}") color green
+        }
+    }
+    Goto waitCmd
+}

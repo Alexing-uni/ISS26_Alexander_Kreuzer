@@ -1,0 +1,232 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>sistemasqak – SistemaS modellato in QAK</title>
+</head>
+
+<body>
+<div id="top">
+<h1>Progetto sistemasqak – SistemaS modellato in QAK</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.10'>SistemaS – DAI MONOLITI AI MICROSERVIZI</a>
+<br>
+<b>Goal</b>: Riformulare nel linguaggio QAK il servizio di valutazione matematica già implementato in Java/Javalin (<code>SistemaSJavalinBetterApplMsgs</code>), dimostrando come lo stesso comportamento possa essere descritto in modo dichiarativo come una <b>Macchina a Stati Finiti</b> con messaggi tipati.
+
+<br><br>
+
+Il progetto realizza la <b>Fase 3</b> dell'evoluzione di SistemaS:
+<ul>
+    <li><b>Fase 1</b> – Monolite Javalin in Java (<code>AService/Sprint1/SistemaSJavalin</code>).</li>
+    <li><b>Fase 2</b> – Refactoring ad attori con Protoactor (<code>SistemaSProtoactor</code>).</li>
+    <li><b>Fase 3</b> – Modello dichiarativo in QAK (<i>questo progetto</i>).</li>
+</ul>
+
+<h2>Requirements</h2>
+<pre>
+R1  Realizzare un servizio che valuti il valore di una funzione matematica
+    a partire da un input numerico ricevuto da un client esterno.
+
+R2  Il servizio deve supportare due paradigmi di interazione:
+       - Dispatch (fire-and-forget): il client invia il valore senza
+         attendere risposta.
+       - Request / Reply: il client attende il risultato della
+         valutazione.
+
+R3  Il modello QAK deve essere funzionalmente equivalente al
+    SistemaSJavalinBetter: stesso input, stesso output, stesso protocollo
+    semantico.
+
+R4  Mantenere disaccoppiate la logica di valutazione (funzione matematica)
+    dalla logica di trasporto (messaggi QAK), in linea con i principi
+    Clean Architecture.
+</pre>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p>
+    Il problema della valutazione di una funzione matematica può essere riletto come:
+</p>
+<ul>
+    <li>un attore <b>servente</b> che attende richieste, calcola il risultato e (eventualmente) risponde;</li>
+    <li>un attore <b>cliente</b> che invia richieste e riceve la risposta.</li>
+</ul>
+
+<p>
+    Le due modalità di interazione si traducono in due primitive QAK distinte:
+</p>
+
+<ul>
+    <li>
+        <b><code>Dispatch eval : arg(V)</code></b> – messaggio puntuale senza attesa di risposta. L'attore che lo riceve esegue il calcolo e termina la transazione. Equivalente a una <i>POST HTTP fire-and-forget</i>.
+    </li>
+    <li>
+        <b><code>Request evalr : argr(V)</code></b> con <b><code>Reply evalreply : value(V) for evalr</code></b> – richiesta sincrona tipata. Il chiamante è bloccato fino alla ricezione della risposta. Equivalente a una <i>GET HTTP</i> con response.
+    </li>
+</ul>
+
+<p>
+    Questo doppio canale è una caratteristica nativa di QAK: lo stesso attore può esporre contemporaneamente entrambe le semantiche senza modificare il proprio codebase di base.
+</p>
+
+<br>
+
+<h2>Problem analysis</h2>
+<p>
+    Il problema progettuale principale è la corretta definizione delle <b>transizioni di stato</b> dell'attore <code>sistemas</code>. La FSM deve poter:
+</p>
+
+<ol>
+    <li>essere in <i>idle</i> in attesa di un messaggio (sia Dispatch che Request);</li>
+    <li>ricevere un messaggio e passare a uno stato di gestione specifico (<code>handleEval</code> o <code>handleRequest</code>);</li>
+    <li>elaborare il payload, calcolare il risultato e (nel caso di Request) rispondere;</li>
+    <li>tornare nello stato di attesa.</li>
+</ol>
+
+<p>
+    Una <b>peculiarità del DSL QAK</b> è che la dichiarazione delle transizioni può essere ripetuta dopo ogni stato, evitando il costrutto "loop globale". Ciò rende l'FSM molto leggibile ma richiede attenzione: dimenticare la riga <code>Transition t0 ...</code> dopo uno stato significa che l'attore termina dopo la prima richiesta.
+</p>
+
+<pre>
+Transition t0
+    whenMsg eval      -> handleEval
+    whenRequest evalr -> handleRequest
+
+State handleEval {
+    onMsg( eval : arg(X) ) {
+        [# val V = payloadArg(0).toDouble() #]
+        [# val R = eval(V) #]
+        println("$name | result=$R") color magenta
+    }
+}
+Transition t0
+    whenMsg eval      -> handleEval
+    whenRequest evalr -> handleRequest
+</pre>
+
+<p>
+    Un secondo problema riguarda l'<b>esposizione esterna</b> del servizio. Mentre <code>SistemaSJavalin</code> espone direttamente endpoint HTTP/WS, il QActor <code>sistemas</code> riceve messaggi QAK. Per integrare un client HTTP "ingenuo" si introduce un <i>inbound adapter</i> Java (<code>CallerSistemas.java</code> in <code>utils/sistemasqak/</code>) che traduce richieste HTTP in messaggi QAK.
+</p>
+
+<br>
+
+<h2>Test plans</h2>
+<p>
+    Il piano di collaudo prevede tre livelli di verifica:
+</p>
+
+<ol>
+    <li>
+        <b>Test funzionale base:</b> avviare <code>sistemasqak</code> e <code>callermock</code>. Verificare nel log che <code>callermock</code> emetta <code>forward</code> di Dispatch e <code>request</code> di Request, e che <code>sistemas</code> entri rispettivamente in <code>handleEval</code> e <code>handleRequest</code>.
+    </li>
+    <li>
+        <b>Test del payload:</b> il valore <code>V = 2.0</code> deve produrre <code>R = 6.0</code> (la funzione di esempio è <code>3·x</code>). La risposta deve arrivare a <code>callermock</code> con <code>onMsg(evalreply : value(X))</code>.
+    </li>
+    <li>
+        <b>Test del client esterno:</b> con il <code>CallerSistemas.java</code> di <code>utils/</code>, verificare che il servizio risponda correttamente anche da un client HTTP esterno (compatibilità con il protocollo Javalin originale).
+    </li>
+</ol>
+
+<br>
+
+<h2>Project</h2>
+<p>
+    Il progetto è un modulo Gradle indipendente. La struttura ricalca quella del progetto <code>firefly</code> (stesso scheletro Gradle/Eclipse).
+</p>
+
+<ul>
+    <li><code>sistemasqak/src/sistemas.qak</code> – Modello QAK principale (versione del docente). Funzione di esempio: <code>R = 3·x</code>.</li>
+    <li><code>sistemasqak/src/demoApril21.qak</code> – Variante personale che implementa la funzione complessa <code>sin(x) + cos(√3·x)</code>, allineata a <code>SistemaSJavalinBetterApplMsgs</code>.</li>
+    <li><code>sistemasqak/src/it/unibo/sistemas/Sistemas.kt</code> – Codice Kotlin generato dal plugin QAK per l'attore <code>sistemas</code>.</li>
+    <li><code>sistemasqak/src/it/unibo/callermock/Callermock.kt</code> – Codice Kotlin per l'attore client di test <code>callermock</code>.</li>
+    <li><code>sistemasqak/src/it/unibo/ctxsistemas/MainCtxsistemas.kt</code> – Entry point del sistema, carica <code>sistemasqak.pl</code> e <code>sysRules.pl</code>.</li>
+    <li><code>sistemasqak/sistemasqak.pl</code> – Definizione Prolog del sistema (contesto, attori, messaggi).</li>
+    <li><code>sistemasqak/utils/sistemasqak/CallerSistemas.java</code> – Client Java standalone per test di integrazione.</li>
+</ul>
+
+<h3>Differenze tra <code>sistemas.qak</code> e <code>demoApril21.qak</code></h3>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Aspetto</th>
+        <th><code>sistemas.qak</code> (docente)</th>
+        <th><code>demoApril21.qak</code> (variante)</th>
+    </tr>
+    <tr>
+        <td>Funzione</td>
+        <td><code>R = 3·x</code></td>
+        <td><code>R = sin(x) + cos(√3·x)</code></td>
+    </tr>
+    <tr>
+        <td>Messaggi</td>
+        <td>Dispatch <code>eval</code> + Request <code>evalr</code></td>
+        <td>Solo Request <code>eval</code> con <code>evalDone</code></td>
+    </tr>
+    <tr>
+        <td>Cliente di test</td>
+        <td><code>callermock</code> (singola transazione)</td>
+        <td><code>clients</code> (loop con incremento)</td>
+    </tr>
+    <tr>
+        <td>Porta TCP</td>
+        <td>8010</td>
+        <td>8030</td>
+    </tr>
+</table>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+    Il testing è condotto in due modalità:
+</p>
+<ul>
+    <li>
+        <b>Esecuzione diretta in Eclipse</b> con il plugin QActork: avvio del contesto <code>ctxsistemas</code>, ispezione del log colorato. È il modo più rapido per validare un nuovo modello.
+    </li>
+    <li>
+        <b>Esecuzione tramite Gradle</b>: <code>gradlew run</code> avvia <code>MainCtxsistemas</code>. Per cambiare la classe Main da eseguire si modifica <code>mainClassName</code> in <code>build.gradle</code>.
+    </li>
+</ul>
+
+<p>
+    Il client esterno <code>CallerSistemas.java</code> permette di invocare il servizio da una JVM separata, rendendo il test più realistico e confrontabile con la versione Javalin.
+</p>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+    Il modello <code>sistemasqak</code> è progettato per essere il <b>nucleo riusabile</b> di servizi più complessi. Aggiungere una nuova operazione (es. <code>derive</code>, <code>integrate</code>) richiede tre modifiche locali:
+</p>
+<ol>
+    <li>Aggiungere un <code>Dispatch</code> o <code>Request</code> nel preambolo del file <code>.qak</code>.</li>
+    <li>Aggiungere uno stato <code>handleNuovo</code> con il calcolo specifico nel blocco <code>[# ... #]</code>.</li>
+    <li>Aggiornare la riga <code>Transition t0</code> per includere il nuovo trigger.</li>
+</ol>
+
+<p>
+    Il <i>build.gradle</i> non richiede modifiche: il plugin QAK ricompila automaticamente. Questo dimostra l'estensibilità del modello rispetto a un equivalente Javalin (dove ogni nuovo endpoint richiede una <code>app.post(...)</code> esplicita più la deserializzazione manuale del payload).
+</p>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>
