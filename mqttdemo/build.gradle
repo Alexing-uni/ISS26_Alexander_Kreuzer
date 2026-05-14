@@ -1,0 +1,90 @@
+plugins {
+    id 'application'
+    id 'java'
+    id 'jacoco'
+    id 'eclipse'
+}
+
+version '1.0'
+
+java {
+    toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+}
+
+repositories {
+    mavenCentral()
+    flatDir {   dirs '../unibolibs'  } 
+}
+
+dependencies {
+    /* JSON ********************************************************************************* */
+    // https://mvnrepository.com/artifact/org.json/json
+    implementation 'com.googlecode.json-simple:json-simple:1.1.1'
+    implementation group: 'org.json', name: 'json', version: '20180130'
+
+    /* UNIBO ******************************* */
+    implementation name: 'uniboInterfaces'
+    implementation name: '2p301'
+    implementation name: 'unibo.basicomm23-1.0'
+    
+    /*  MQTT *******************************************************************************  */
+     implementation group: 'org.eclipse.paho', name: 'org.eclipse.paho.client.mqttv3', version: '1.2.5'
+
+}
+
+/*
+Se è una cartella normale (gialla): Eclipse non la riconosce. 
+Cliccaci sopra col destro -> Build Path -> Use as Source Folder.
+
+Se i file hanno una "J" grigia: Significa che sono esclusi dal build.
+*/
+sourceSets {
+    main {
+        java {
+             srcDir 'src/mqttdemo'            
+        }
+    }
+}
+
+/*
+eclipse {
+    classpath {
+        sourceSets -= [sourceSets.main, sourceSets.test]
+    }
+}
+*/
+application {
+    //Define the main class for the application.
+    mainClassName    = 'usingSupport.MainUseSupport'
+}
+
+jar {
+    println("building jar")
+    from sourceSets.main.allSource
+    /*
+    from('./') {
+      include '*.pl'
+      include '*.json'
+    }
+    */
+    manifest {
+        attributes 'Main-Class': "$mainClassName"
+    }
+    //Gestisci i file duplicati (evita errori di build)
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+ 
+task dovesiamo {
+    println("projectDir= $projectDir")
+    println("buildDir  = $buildDir")
+}
+ 
+jacocoTestReport {
+    dependsOn test // Il report viene generato solo dopo l'esecuzione dei test
+
+    reports {
+        xml.required = false
+        csv.required = false
+        html.outputLocation = layout.buildDirectory.dir('reports/jacoco')
+    }
+}
