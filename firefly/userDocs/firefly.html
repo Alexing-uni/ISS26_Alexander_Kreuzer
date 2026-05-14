@@ -165,6 +165,54 @@ Goto charging
     <li><b><code>firefly5.qaktt</code></b>, <b><code>fireflyMany.qaktt</code></b>, <b><code>fireflyPicow.qaktt</code></b> – Varianti su numerosi temi (5 attori, deployment su microcontrollore Pico W).</li>
 </ul>
 
+<h3>Modelli di sincronizzazione su griglia (lezione 29/04)</h3>
+<p>
+    I due modelli seguenti sono il fulcro della lezione del <b>29/04</b> e mostrano operativamente la contrapposizione tra i due paradigmi di interazione. Entrambi creano dinamicamente <code>RowsN×ColsN</code> attori <code>firefly_X_Y</code> (numero letto da <code>gridConfig.json</code>) che inviano <code>cellstate(X,Y,COLOR)</code> all'attore esterno <code>griddisplay</code> per il rendering visuale.
+</p>
+
+<ul>
+    <li>
+        <b><code>fireflySynchOrchestr.qaktt</code></b> – Sincronizzazione <b>ORCHESTRATA</b>. Un attore <code>orchestrator</code> emette periodicamente un evento <code>synch(TIME)</code> che impone a tutte le lucciole un nuovo Timer comune (1 sec, il più breve). Le lucciole, all'avvio, hanno timer random fra 1.1 e 2.1 sec; alla ricezione del <code>synch</code> entrano nello stato <code>elabSynch → flashSynch</code> e si allineano. La sincronizzazione è <i>imposta dall'alto</i>.
+    </li>
+    <li>
+        <b><code>fireflySynchCoreog.qaktt</code></b> – Sincronizzazione <b>COREOGRAFATA</b>. Nessun orchestrator. Ogni lucciola si iscrive ai vicini (8-connettività) tramite <code>subscribeTo</code> ed emette <code>emitlocalstream flashlamp(name, Timer)</code> al termine del proprio flash. Quando percepisce un <code>flashlamp</code> da un vicino più veloce di sé, adotta il Timer del vicino (<code>if DeltaT > 0</code>). La sincronizzazione <i>emerge</i> dal solo accoppiamento locale.
+    </li>
+</ul>
+
+<h3>Confronto Orchestrato vs Coreografato</h3>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Aspetto</th>
+        <th>fireflySynchOrchestr</th>
+        <th>fireflySynchCoreog</th>
+    </tr>
+    <tr>
+        <td>Attore di coordinamento</td>
+        <td><code>orchestrator</code> centrale</td>
+        <td>Nessuno</td>
+    </tr>
+    <tr>
+        <td>Primitiva di sync</td>
+        <td><code>emit synch(TIME)</code> globale</td>
+        <td><code>emitlocalstream flashlamp</code> + <code>subscribeTo</code></td>
+    </tr>
+    <tr>
+        <td>Logica adattiva</td>
+        <td>Tutte adottano il Timer dell'orchestrator</td>
+        <td>Ogni lucciola adotta il Timer del vicino più veloce</td>
+    </tr>
+    <tr>
+        <td>Topologia</td>
+        <td>Broadcast (orchestrator → tutti)</td>
+        <td>Locale 8-connettività</td>
+    </tr>
+    <tr>
+        <td>Resilienza</td>
+        <td>Bassa: se cade l'orchestrator, niente sync</td>
+        <td>Alta: il sistema regge la perdita di nodi</td>
+    </tr>
+</table>
+
 <h3>Esecuzione</h3>
 <pre>
 cd firefly
