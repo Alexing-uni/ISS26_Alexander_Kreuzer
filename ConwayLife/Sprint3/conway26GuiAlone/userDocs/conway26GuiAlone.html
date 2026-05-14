@@ -1,0 +1,253 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>conway26GuiAlone – ConwayLife con GUI HTML standalone</title>
+</head>
+
+<body>
+<div id="top">
+<h1>conway26GuiAlone – ConwayLife con GUI HTML standalone</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.6'>GAME OF LIFE DI CONWAY</a>
+<br>
+<b>Goal</b>: Realizzare una variante dello Sprint 3 di ConwayLife in cui la <b>GUI HTML</b> e' completamente <i>standalone</i> rispetto al core di dominio: il browser comunica via WebSocket o MQTT direttamente con il LifeController, senza intermediazione di un attore qak.
+
+<br><br>
+
+Questa versione del progetto consolida i pattern di interazione HTML+Javalin gia' presentati in <code>conway26GuiHtml</code> e li riorganizza in modo da rendere visibile la separazione fra:
+<ul>
+    <li>il <b>core di business</b> ConwayLife (riusato come libreria <code>conway26Java-1.0.jar</code> del Sprint 1);</li>
+    <li>l'<b>adapter di I/O</b> (IoJavalin con varianti per porte e protocolli);</li>
+    <li>il <b>controller applicativo</b> (LifeControllerAdhoc che orchestra ConwayLife e GUI);</li>
+    <li>la <b>pagina HTML</b> che funge da view interattiva.</li>
+</ul>
+
+<h2>Requirements</h2>
+<pre>
+R1  Realizzare una GUI HTML che soddisfi i requisiti di interazione del
+    Sprint 3 di ConwayLife (start, stop, clear, edit celle, visualizzazione)
+    senza dipendere da un attore qak intermedio.
+
+R2  Riusare il core ConwayLife dello Sprint 1 come libreria binaria
+    (conway26Java-1.0.jar), dimostrando che le interfacce IGrid/ICell/Life
+    progettate al Sprint 1 supportano un'evoluzione tecnologica completa
+    senza alcuna modifica al dominio.
+
+R3  Esporre due varianti di trasporto:
+        - WebSocket diretto via Javalin
+        - MQTT per integrazione con sistemi distribuiti
+
+R4  Mantenere la possibilita' di deployment in Docker (Dockerfile fornito).
+</pre>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p>
+    Il progetto <code>conway26GuiAlone</code> si distingue da <code>conway26GuiHtml</code> e da <code>conway26Protoactors</code> per il <b>modello di concorrenza</b>:
+</p>
+
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Variante</th>
+        <th>Concorrenza</th>
+        <th>I/O</th>
+        <th>Use case</th>
+    </tr>
+    <tr>
+        <td><code>conway26GuiHtml</code></td>
+        <td>Threads Java + Javalin pool</td>
+        <td>HTTP + WS</td>
+        <td>Baseline web</td>
+    </tr>
+    <tr>
+        <td><code>conway26Protoactors</code></td>
+        <td>Protoactors (attori in-process)</td>
+        <td>HTTP + WS</td>
+        <td>Refactoring ad attori</td>
+    </tr>
+    <tr>
+        <td><b><code>conway26GuiAlone</code></b></td>
+        <td>Threads + Observer pattern</td>
+        <td>WS + MQTT</td>
+        <td>GUI distribuita / multi-client</td>
+    </tr>
+</table>
+
+<p>
+    L'analisi dei requisiti porta a strutturare l'applicazione in tre
+    "interaction modules":
+</p>
+<ul>
+    <li><code>LifeGameInteraction</code> — gestione della logica di gioco (start/stop/clear);</li>
+    <li><code>OutInGuiInteraction</code> — gestione dell'invio stato verso la GUI;</li>
+    <li><code>CallerServerInteraction</code> / <code>ObserverServerInteraction</code> — adattatori per client esterni.</li>
+</ul>
+
+<br>
+
+<h2>Problem analysis</h2>
+<p>
+    Il problema progettuale principale e' garantire che <b>multiple GUI clienti</b> possano connettersi simultaneamente al LifeController e vedere la stessa evoluzione del gioco. La soluzione adottata e' il pattern <b>Observer</b> esteso ai client WS:
+</p>
+
+<pre>
+                            +-----------+
+                  +-------> | Client 1  |
+                  |         +-----------+
+   LifeController +-------> | Client 2  |
+   (Observable)   |         +-----------+
+                  +-------> | Client N  |
+                            +-----------+
+        Ogni notifica e' inviata in fan-out su tutte le sessioni WS attive
+</pre>
+
+<p>
+    Un secondo problema riguarda il <b>controllo di flusso</b>: se il
+    LifeController emette generazioni a velocita' superiore a quanto la
+    GUI puo' renderizzare, occorre evitare di saturare la rete. La
+    soluzione e' un thread separato di calcolo con un piccolo delay per
+    sincronizzare al framerate del browser.
+</p>
+
+<br>
+
+<h2>Test plans</h2>
+<ol>
+    <li>
+        <b>Test del core riusato:</b> verificare che la <code>libs/conway26Java-1.0.jar</code> sia caricata correttamente all'avvio.
+    </li>
+    <li>
+        <b>Test della GUI single-client:</b> avviare <code>MainConwayGui.java</code>, aprire <code>http://localhost:8080/page/LifeIInOutCanvas.html</code> nel browser, premere Start e verificare l'animazione.
+    </li>
+    <li>
+        <b>Test multi-client:</b> aprire la stessa URL in due browser; verificare che entrambi vedano in tempo reale la stessa evoluzione.
+    </li>
+    <li>
+        <b>Test MQTT:</b> avviare un broker e variante <code>IoJavalinMqtt</code>; verificare che eventi <code>cellstate</code> arrivino al topic configurato.
+    </li>
+    <li>
+        <b>Test Docker:</b> <code>docker build -t conway26GuiAlone .</code> e <code>docker run -p 8080:8080 conway26GuiAlone</code>.
+    </li>
+</ol>
+
+<br>
+
+<h2>Project</h2>
+<p>
+    Il progetto e' un modulo Gradle con la seguente organizzazione:
+</p>
+
+<h3>Sorgenti</h3>
+<ul>
+    <li>
+        <code>src/main/java/conway/io/</code>:
+        <ul>
+            <li><code>IoJavalin.java</code> — adapter Javalin di base (porta 8080)</li>
+            <li><code>IoJavalinFor8070.java</code> — variante su porta 8070</li>
+            <li><code>IoJavalinMqtt.java</code> — variante MQTT</li>
+        </ul>
+    </li>
+    <li>
+        <code>src/main/java/conway26appl/</code>:
+        <ul>
+            <li><code>LifeControllerAdhoc.java</code> — controller orientato al riuso</li>
+            <li><code>LifeGameInteraction.java</code> — modulo di interazione di gioco</li>
+            <li><code>OutInGuiInteraction.java</code> — modulo I/O verso GUI</li>
+        </ul>
+    </li>
+    <li>
+        <code>src/main/java/conway26appl/caller/</code>:
+        <ul>
+            <li><code>CallerServerInteraction.java</code> — client di test</li>
+            <li><code>ObserverServerInteraction.java</code> — client osservatore</li>
+        </ul>
+    </li>
+    <li><code>src/main/java/conwaygui/MainConwayGui.java</code> — entry point dell'applicazione</li>
+</ul>
+
+<h3>Risorse web</h3>
+<ul>
+    <li><code>src/main/resources/page/LifeIInOutCanvas.html</code> — pagina principale con canvas</li>
+    <li><code>iomap.js</code>, <code>wscanvascontrol.js</code>, <code>outArea.js</code> — script JS della GUI</li>
+    <li><code>mapstyle.css</code> — stile della griglia</li>
+</ul>
+
+<h3>Dipendenze</h3>
+<ul>
+    <li><code>libs/conway26Java-1.0.jar</code> — core ConwayLife dello Sprint 1 (riuso senza modifiche)</li>
+</ul>
+
+<h3>Deployment</h3>
+<ul>
+    <li><code>Dockerfile</code> — image per deployment containerizzato</li>
+    <li><code>conway26GuiAlone.yaml</code> — manifest Kubernetes/Docker Compose</li>
+</ul>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+    Il testing e' principalmente <b>manuale</b> (System Test) data la natura
+    interattiva del progetto. Il piano si articola in tre dimensioni:
+</p>
+<ul>
+    <li>
+        <b>Funzionale:</b> verificare che ogni bottone (Start/Stop/Clear) abbia l'effetto atteso sul motore Conway;
+    </li>
+    <li>
+        <b>Concorrenziale:</b> aprire piu' tab del browser e verificare il fan-out;
+    </li>
+    <li>
+        <b>Deployment:</b> verificare l'avvio in container e l'esposizione corretta delle porte.
+    </li>
+</ul>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+    Il progetto e' progettato per essere il <b>punto di riferimento</b> per future evoluzioni della famiglia Conway:
+</p>
+<ul>
+    <li>
+        <b>GUI nativa</b>: sostituire la pagina HTML con un'app Android/Desktop che parli lo stesso protocollo WS.
+    </li>
+    <li>
+        <b>Persistenza</b>: aggiungere un layer di storage (MongoDB, Redis) per salvare e ricaricare configurazioni iniziali.
+    </li>
+    <li>
+        <b>Multi-game</b>: estendere il backend per supportare multiple istanze parallele del gioco, ciascuna con il proprio ID di sessione.
+    </li>
+</ul>
+
+<p>
+    Il riuso senza modifiche di <code>conway26Java-1.0.jar</code> e' la
+    dimostrazione concreta del valore della progettazione orientata alle
+    interfacce: il dominio Conway sviluppato 12 settimane fa ancora funziona,
+    e funziona dentro un ambiente tecnologico completamente nuovo (Javalin,
+    WebSocket, MQTT, Docker, multi-client).
+</p>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>

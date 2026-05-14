@@ -1,0 +1,242 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>vrUsage26 – Esempi d'uso del VirtualRobot26</title>
+</head>
+
+<body>
+<div id="top">
+<h1>Progetto vrUsage26 – Esempi d'uso del VirtualRobot26</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.26'>RobotObj26 come oggetto osservabile</a>
+<br>
+<b>Goal</b>: Sviluppare un'applicazione che comanda il <b>Differential Drive Robot (DDR)</b> per farlo percorrere il perimetro di una stanza rettangolare vuota, partendo da una posizione HOME e fermandosi al ritorno. Il progetto rappresenta il riferimento operativo delle lezioni del <b>12/05 e 13/05</b>.
+
+<br><br>
+
+L'esercitazione introduce due percorsi progettuali:
+<ul>
+    <li>uso <b>diretto</b> del VirtualRobot26 tramite WebSocket (paradigma <i>technology-dependent</i>);</li>
+    <li>uso <b>indiretto</b> tramite POJO <code>RobotObj26</code> che incapsula il trasporto e si comporta come oggetto osservabile (paradigma <i>technology-agnostic</i>).</li>
+</ul>
+<p>
+    Il confronto fra i due approcci e' tema centrale della lezione: il primo esibisce tutti i dettagli del protocollo, il secondo li nasconde dietro un oggetto Java tradizionale.
+</p>
+
+<h2>Requirements</h2>
+<pre>
+R1  Costruire un sistema software che comanda un DDR per fargli percorrere
+    il perimetro di una stanza rettangolare vuota, partendo da HOME e
+    fermandosi al ritorno in HOME.
+
+R2  Il DDR e' sensibile anche ai dati di Radar:
+    - se il Radar rileva un 'intruso' a distanza < DMIN:
+        - se il DDR e' in movimento, si ferma fino a quando il Radar non
+          rileva piu' alcuna minaccia
+        - se il DDR e' fermo in HOME, ruota fino alla scomparsa
+          della minaccia
+
+R3  Calcolare la lunghezza del lato della stanza in unita' robot,
+    tarando lo step temporale appropriato per la combinazione
+    velocita'/dimensione fisica della stanza simulata.
+
+R4  Costruire una mappa della stanza in cui il robot opera, assumendo
+    ostacoli fissi e perimetro libero da ostacoli entro la banda di
+    larghezza pari al robot.
+</pre>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p>
+    L'analisi parte da una distinzione cruciale: il DDR <i>fisico</i> non e' deterministico nei tempi di esecuzione di un comando di movimento. Una <code>moveForward</code> mantenuta per <i>n</i> millisecondi non produce esattamente <i>n*v</i> unita' di spostamento perche':
+</p>
+<ul>
+    <li>l'avvio richiede un transitorio (accelerazione);</li>
+    <li>la frenata richiede un tempo di decelerazione;</li>
+    <li>l'ambiente (attrito, inerzia, batteria) introduce variabilita'.</li>
+</ul>
+
+<p>
+    Da cio' deriva la necessita' di tre primitive ortogonali:
+</p>
+<ul>
+    <li><b><code>moveForward / turnLeft / turnRight / halt</code></b> — comandi base.</li>
+    <li><b><code>step(t)</code></b> — comando di alto livello: muoviti per <i>t</i> ms e fermati. La calibrazione di <i>t</i> e' specifica del robot.</li>
+    <li><b>Observable pattern</b> — il robot deve poter notificare quando un comando termina, in modo che l'applicazione si sincronizzi senza polling.</li>
+</ul>
+
+<br>
+
+<h2>Problem analysis</h2>
+<p>
+    Le due architetture proposte nel progetto materializzano due punti del continuum <i>vicino al protocollo</i> ↔ <i>vicino al dominio</i>:
+</p>
+
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Aspetto</th>
+        <th>Uso diretto WebSocket</th>
+        <th>Uso via RobotObj26 (POJO)</th>
+    </tr>
+    <tr>
+        <td>Esempio</td>
+        <td><code>BoundaryWalkNaiveUsingWs26.java</code></td>
+        <td><code>BoundaryWithBasicMoves.java</code>, <code>BoundaryWithStep.java</code></td>
+    </tr>
+    <tr>
+        <td>API esposta</td>
+        <td>JSON su WS (<code>ctx.send("{cmd:'forward'}")</code>)</td>
+        <td>Metodi Java (<code>robot.forward()</code>, <code>robot.step(t)</code>)</td>
+    </tr>
+    <tr>
+        <td>Concorrenza</td>
+        <td>Callback <code>@OnMessage</code></td>
+        <td>Observer pattern + Thread interno</td>
+    </tr>
+    <tr>
+        <td>Calibrazione</td>
+        <td>Hard-coded nel codice</td>
+        <td>Centralizzata in <code>RobotObj26.create(...)</code></td>
+    </tr>
+    <tr>
+        <td>Riusabilita'</td>
+        <td>Bassa (un'app, un protocollo)</td>
+        <td>Alta (il POJO incapsula il trasporto)</td>
+    </tr>
+</table>
+
+<p>
+    L'analisi del problema porta a preferire la versione POJO per i casi d'uso applicativi: il <code>BoundaryWithStep</code> e' molto piu' leggibile di <code>BoundaryWalkNaiveUsingWs26</code> perche' parla il linguaggio del dominio (step, turn, halt) anziche' quello del trasporto (JSON message, session).
+</p>
+
+<pre>
+// BoundaryWithStep - chiaro, dominio-orientato
+RobotObj26 robot = RobotObj26.create(addr, null, logFName);
+for (int side = 0; side &lt; 4; side++) {
+    for (int i = 0; i &lt; sideLength; i++) robot.step(stepTime);
+    robot.turnLeft();
+}
+robot.halt();
+</pre>
+
+<br>
+
+<h2>Test plans</h2>
+<p>
+    Il piano di collaudo procede in quattro fasi:
+</p>
+
+<ol>
+    <li>
+        <b>Calibrazione step:</b> eseguire <code>calibrate/TuneSteptime.java</code> e regolare il parametro <code>stepTime</code> fino a ottenere un movimento di una unita' grid per step.
+    </li>
+    <li>
+        <b>Misura della stanza:</b> eseguire <code>calibrate/RoomSideLength.java</code> per calcolare la lunghezza del lato in unita' robot.
+    </li>
+    <li>
+        <b>Test di movimento naive:</b> eseguire <code>BoundaryWalkNaiveUsingWs26</code>. Analizzare il log e i thread (uso di <code>CommUtils.aboutThreads</code>).
+    </li>
+    <li>
+        <b>Test di movimento ad alto livello:</b> eseguire <code>BoundaryWithStep</code> e verificare che il robot percorra il perimetro completo in tempo prevedibile.
+    </li>
+</ol>
+
+<br>
+
+<h2>Project</h2>
+<p>
+    Il progetto e' un modulo Gradle indipendente con la seguente organizzazione:
+</p>
+
+<h3>Sorgenti</h3>
+<ul>
+    <li>
+        <b><code>src/it/unibo/virtualRobot2026/clients/</code></b> — Client diretti su protocollo:
+        <ul>
+            <li><code>TestMovesUsingHttp.java</code>, <code>TestMovesUsingWs26.java</code> — primi test di movimento</li>
+            <li><code>BoundaryWalkNaiveUsingHttp.java</code>, <code>BoundaryWalkNaiveUsingWs26.java</code> — perimeter walk grezzo via HTTP/WS</li>
+        </ul>
+    </li>
+    <li>
+        <b><code>src/appls/</code></b> — Applicazioni ad alto livello che usano RobotObj26:
+        <ul>
+            <li><code>BoundaryWithBasicMoves.java</code> — perimeter walk con comandi base</li>
+            <li><code>BoundaryWithStep.java</code> — perimeter walk con step (lettura immediata)</li>
+        </ul>
+    </li>
+    <li>
+        <b><code>src/calibrate/</code></b> — Utility di calibrazione:
+        <ul>
+            <li><code>TuneSteptime.java</code> — taratura del parametro stepTime</li>
+            <li><code>RoomSideLength.java</code> — misura del lato della stanza</li>
+        </ul>
+    </li>
+    <li><b><code>utils/NaiveGui.html</code></b> — pagina HTML per visualizzare il movimento del robot</li>
+    <li><b><code>utils/map/RobotDir.java</code></b> — utility per direzione/orientamento</li>
+</ul>
+
+<h3>Risorse</h3>
+<ul>
+    <li><code>src/main/resources/logback.xml</code> — configurazione log</li>
+    <li><code>libs/</code> — dipendenza <code>RobotObj26.jar</code></li>
+</ul>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+    Il testing e' interattivo e basato su <b>analisi log + thread inspection</b>:
+</p>
+<ul>
+    <li>
+        Le applicazioni emettono log dettagliati su <code>logs/vrusage26.log</code>. La configurazione e' duplicata in <code>src/logback.xml</code> per supportare l'esecuzione tramite "Run As → Java Application" da Eclipse.
+    </li>
+    <li>
+        Ogni applicazione invoca <code>CommUtils.aboutThreads("name")</code> per stampare lo stato dei thread attivi al momento. Il confronto fra log produced da diverse versioni evidenzia il diverso modello di concorrenza (callback vs observer).
+    </li>
+    <li>
+        Per i test che richiedono il VirtualRobot26 attivo, occorre avviare prima il server <code>WebGLScene/indexOk.html</code> del progetto <code>it.unibo.virtualRobot2026</code>, che e' la scena WebGL con il robot animato.
+    </li>
+</ul>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+    Il progetto e' la base per le evoluzioni delle settimane successive:
+</p>
+<ul>
+    <li>
+        <b>RobotService26</b> (settimana 13): trasformazione del POJO in servizio raggiungibile via rete, con eventi osservabili. Java objects inseriti dentro attori qak (vedi capitolo 22.7 del Protobook).
+    </li>
+    <li>
+        <b>Room Map</b> (TODO settimana 13): costruzione di una mappa della stanza assumendo ostacoli fissi e perimetro libero entro la banda di larghezza del robot.
+    </li>
+    <li>
+        <b>Picow/HC-SR04</b> (settimana 14): sostituzione del Radar simulato con un vero sonar HC-SR04 connesso a un Raspberry PICOW, comunicante via MQTT o WebSocket.
+    </li>
+</ul>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>

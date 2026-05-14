@@ -1,0 +1,252 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>Picow – Raspberry Pi PICOW: sonar HC-SR04 e firefly hardware</title>
+</head>
+
+<body>
+<div id="top">
+<h1>Progetto Picow – Raspberry Pi PICOW: sonar HC-SR04 e firefly hardware</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#section.23.7'>SISTEMA SPERIMENTALE DI N LUCCIOLE</a>
+<br>
+<b>Goal</b>: Portare il modello QAK fuori dalla simulazione e in <b>hardware reale</b> usando il microcontrollore <b>Raspberry Pi Pico W (PICOW)</b>. Tre famiglie di esempi:
+<ul>
+    <li>controllo di un sensore <b>sonar HC-SR04</b> per la rilevazione di ostacoli;</li>
+    <li>controllo di LED come <b>firefly hardware</b> (sostituzione del rendering simulato con luce fisica);</li>
+    <li>comunicazione WiFi tramite <b>TCP</b> e <b>MQTT</b> verso il sistema QAK su PC.</li>
+</ul>
+<p>
+    Il progetto e' il riferimento operativo della lezione del <b>14/05</b> (settimana 14) e materializza la chiusura del cerchio: dal modello formale QAK al firmware MicroPython sul microcontrollore.
+</p>
+
+<h2>Requirements</h2>
+<pre>
+R1  Utilizzare il Raspberry PICOW per attivare il sonar HC-SR04 e
+    ottenere misure di distanza in cm in modo continuativo.
+
+R2  Pubblicare le misure su un broker MQTT cosi' che il sistema QAK
+    su PC le possa consumare come Event.
+
+R3  Pilotare uno o piu' LED con pattern di flash che simulino il
+    comportamento di una lucciola, attivati da messaggi MQTT in arrivo
+    dal sistema QAK firefly.
+
+R4  Fornire un esempio di sistema sperimentale di N lucciole hardware
+    in cui ogni PICOW e' una lucciola e il pattern di sincronizzazione
+    e' lo stesso del modello fireflySynchCoreog.qaktt (coreografato).
+</pre>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p>
+    Il PICOW (RP2040 dual-core + WiFi/BLE) e' la naturale piattaforma di
+    embedded per progetti didattici: economico, programmabile in
+    MicroPython, dotato di WiFi nativo, supporta GPIO con tempi di
+    risposta deterministici per il sonar HC-SR04.
+</p>
+
+<p>
+    L'analisi distingue tre componenti software sul PICOW:
+</p>
+<ul>
+    <li>
+        <b>Acquisizione sensori</b> (<code>sonar0.py</code>, <code>dht22.py</code>): codice GPIO bare-metal per il sonar (Trig/Echo pin) e per sensori ambientali (DHT22).
+    </li>
+    <li>
+        <b>Comunicazione</b> (<code>wifi.py</code>, <code>tcp_client.py</code>, <code>claudeMqtt.py</code>): astrazione del WiFi e dei client TCP/MQTT. Il file <code>secrets.py</code> contiene le credenziali WiFi.
+    </li>
+    <li>
+        <b>Applicazioni composite</b> (<code>sonarMqtt.py</code>, <code>sonarWeb.py</code>, <code>firefly00Mqtt.py</code>): combinano sensore + comunicazione in scenari completi.
+    </li>
+</ul>
+
+<br>
+
+<h2>Problem analysis</h2>
+<p>
+    Il primo problema progettuale e' la <b>connettivita' WiFi</b>: il PICOW deve resettare e re-tentare la connessione in caso di fallimento. Il pattern adottato e':
+</p>
+
+<pre>
+import wifi
+wifi.connect()        # blocca fino a connessione, retry interno
+# da qui in poi, socket TCP/MQTT funzionano
+</pre>
+
+<p>
+    Il secondo problema e' la <b>scelta del protocollo</b> di trasporto:
+</p>
+
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Protocollo</th>
+        <th>Pro</th>
+        <th>Contro</th>
+        <th>File esempio</th>
+    </tr>
+    <tr>
+        <td><b>TCP raw</b></td>
+        <td>Latenza minima, full duplex</td>
+        <td>Senza broker: PC e PICOW si devono conoscere a vicenda</td>
+        <td><code>tcp_client.py</code>, <code>tcpServer.py</code></td>
+    </tr>
+    <tr>
+        <td><b>MQTT</b></td>
+        <td>Pub/sub disaccoppiato, riconnessione automatica</td>
+        <td>Latenza extra del broker, dipendenza esterna</td>
+        <td><code>claudeMqtt.py</code>, <code>sonarMqtt.py</code>, <code>firefly00Mqtt.py</code></td>
+    </tr>
+    <tr>
+        <td><b>HTTP server</b></td>
+        <td>Web dashboard direttamente sul PICOW</td>
+        <td>Modello request-response, no push</td>
+        <td><code>web_server.py</code>, <code>sonarWeb.py</code>, <code>indexSonar.html</code></td>
+    </tr>
+</table>
+
+<p>
+    Il terzo problema riguarda il <b>controllo temporale</b> del sonar:
+    HC-SR04 richiede un impulso Trig di 10 µs e misura il tempo di andata-ritorno dell'eco. La temporizzazione precisa (microsecondi) e' delegata alle primitive GPIO di MicroPython.
+</p>
+
+<br>
+
+<h2>Test plans</h2>
+<p>
+    Il piano di collaudo segue una scala di complessita' crescente:
+</p>
+
+<ol>
+    <li>
+        <b>Test base GPIO:</b> caricare <code>ledOnOff.py</code> sul PICOW; il LED on-board deve lampeggiare.
+    </li>
+    <li>
+        <b>Test sonar standalone:</b> caricare <code>sonar0.py</code>; il REPL deve stampare misure di distanza in cm.
+    </li>
+    <li>
+        <b>Test WiFi:</b> configurare <code>secrets.py</code> con le credenziali, caricare <code>wifi.py</code>, verificare che il PICOW ottenga IP DHCP.
+    </li>
+    <li>
+        <b>Test integrato sonar + MQTT:</b> avviare un broker MQTT (mosquitto), caricare <code>sonarMqtt.py</code>; il PC deve poter sottoscrivere al topic e ricevere le misure.
+    </li>
+    <li>
+        <b>Test firefly hardware:</b> caricare <code>firefly00Mqtt.py</code>; il sistema QAK <code>fireflySynchCoreog</code> su PC deve poter sincronizzare i lampeggi del LED PICOW emettendo eventi MQTT.
+    </li>
+</ol>
+
+<br>
+
+<h2>Project</h2>
+<p>
+    Il progetto e' una raccolta di script MicroPython da caricare sul PICOW. La struttura del filesystem PICOW dopo il deployment e' piatta (tutti i .py in /).
+</p>
+
+<h3>Boot e firmware</h3>
+<ul>
+    <li><code>RPI_PICO2_W-20260406-v1.28.0.uf2</code> — firmware MicroPython aggiornato (drag-and-drop in modalita' BOOTSEL).</li>
+</ul>
+
+<h3>Configurazione e librerie</h3>
+<ul>
+    <li><code>secrets.py</code> — credenziali WiFi (NON committare in repo pubblici se si modificano).</li>
+    <li><code>wifi.py</code> — connessione WiFi con retry automatico.</li>
+    <li><code>simple.py</code> — client MQTT minimalista (porting di umqtt.simple).</li>
+</ul>
+
+<h3>Esempi sonar</h3>
+<ul>
+    <li><code>sonar0.py</code> — lettura HC-SR04 base.</li>
+    <li><code>sonarMqtt.py</code> — sonar che pubblica su MQTT.</li>
+    <li><code>sonarWeb.py</code> + <code>indexSonar.html</code> — dashboard web del sonar.</li>
+</ul>
+
+<h3>Esempi firefly</h3>
+<ul>
+    <li><code>ledFF1.py</code> — pattern di flash su LED (singolo PICOW).</li>
+    <li><code>firefly00Mqtt.py</code> — lucciola PICOW che ascolta eventi flash via MQTT.</li>
+</ul>
+
+<h3>Esempi rete</h3>
+<ul>
+    <li><code>tcpConn.py</code>, <code>tcpServer.py</code>, <code>tcp_client.py</code>, <code>tcp_client_async.py</code> — varianti TCP.</li>
+    <li><code>claudeMqtt.py</code> — wrapper MQTT didattico.</li>
+    <li><code>web_server.py</code>, <code>index.html</code> — mini HTTP server.</li>
+</ul>
+
+<h3>Sensori aggiuntivi</h3>
+<ul>
+    <li><code>dht22.py</code> — sensore di temperatura/umidita' DHT22.</li>
+    <li><code>testFileRead.py</code> — test del filesystem flash del PICOW.</li>
+</ul>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+    Il testing avviene direttamente sul dispositivo tramite REPL MicroPython (Thonny IDE consigliato):
+</p>
+
+<pre>
+1. Collegare il PICOW al PC via USB
+2. Aprire Thonny e selezionare l'interprete "MicroPython (Raspberry Pi Pico)"
+3. Caricare i file .py necessari nel filesystem PICOW
+4. Eseguire dal REPL: import sonar0
+5. Osservare i print di debug sulla console di Thonny
+</pre>
+
+<p>
+    Per il test di integrazione con il sistema QAK su PC:
+</p>
+<ol>
+    <li>Avviare il broker mosquitto in locale o usare uno cloud (HiveMQ).</li>
+    <li>Modificare <code>BROKER</code> in <code>sonarMqtt.py</code> con l'IP del broker.</li>
+    <li>Sul PC, lanciare <code>fireflySynchCoreog</code> dal progetto <code>firefly</code> dopo aver modificato il broker MQTT nel contesto QAK.</li>
+    <li>Verificare la sincronizzazione dei lampeggi LED hardware con il modello simulato.</li>
+</ol>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+    Il progetto e' progettato per essere esteso facilmente verso scenari piu' complessi:
+</p>
+<ul>
+    <li>
+        <b>Sistema sperimentale N-lucciole hardware</b> (chap. 23.7 del Protobook): replicare il setup di <code>firefly00Mqtt.py</code> su N PICOW, ciascuno con LED proprio. Il modello QAK <code>fireflySynchCoreog</code> orchestrera' la sincronizzazione globale via MQTT.
+    </li>
+    <li>
+        <b>Sonar nel Boundary Walk</b>: integrare <code>sonarMqtt.py</code> come Radar virtuale nel progetto <code>vrUsage26</code>. Il VirtualRobot26 leggera' la distanza reale del sonar per la logica anti-intruso.
+    </li>
+    <li>
+        <b>OTA update</b>: aggiungere un meccanismo di aggiornamento via WiFi degli script MicroPython, evitando la necessita' di scollegare-ricollegare il PICOW.
+    </li>
+</ul>
+
+<p>
+    Il PICOW costituisce il <b>nodo edge</b> di un'architettura piu' ampia che vede al centro il sistema QAK come orchestratore/coreografo. La separazione netta fra firmware (MicroPython, GPIO, MQTT publisher) e modello (QAK, FSM, business logic) e' un caso esemplare di Clean Architecture applicata a sistemi cyber-fisici.
+</p>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>virtualRobot2026 – DDR formalizzato e ambiente WebGL</title>
+</head>
+
+<body>
+<div id="top">
+<h1>Progetto it.unibo.virtualRobot2026 – DDR formalizzato e ambiente WebGL</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.25'>VirtualRobot26 – Definizione formale del DDR</a>
+<br>
+<b>Goal</b>: Fornire un <b>Differential Drive Robot (DDR) virtuale</b> con una definizione formale del comportamento di basso livello, esposto via HTTP e WebSocket, e visualizzato in tempo reale in una scena <b>WebGL</b> (three.js) che simula l'ambiente fisico WEnv.
+
+<br><br>
+
+Il VirtualRobot26 e' lo strato di base su cui si appoggiano i progetti
+<code>vrUsage26</code> (settimana 13) e tutti gli sviluppi successivi
+del corso sulla robotica. La sua peculiarita' e' di essere
+<b>indistinguibile</b>, dal punto di vista del client, da un robot fisico:
+stessi messaggi, stessi vincoli temporali, stessa interfaccia.
+
+<h2>Requirements</h2>
+<pre>
+R1  Fornire un robot DDR virtuale che risponda ai comandi standard:
+        moveForward, moveBackward, turnLeft, turnRight, halt
+
+R2  Esporre il robot via due protocolli equivalenti:
+        - HTTP (request-response per comandi una tantum)
+        - WebSocket (full-duplex per controllo continuo + observability)
+
+R3  Visualizzare il robot e il suo ambiente in una scena WebGL nel
+    browser (WEnv = Web Environment), in modo che lo studente veda
+    in tempo reale gli effetti dei propri comandi.
+
+R4  Supportare l'iniezione di scenari (obstacles, perimetri, oggetti
+    interagibili) tramite file di configurazione caricabili a runtime.
+
+R5  Fornire client di esempio in molteplici tecnologie (Android, web,
+    Java) per documentare l'uso del protocollo.
+</pre>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p>
+    Un robot virtuale e' un'utility didattica preziosa: consente di
+    sviluppare e collaudare la logica applicativa <b>senza dover gestire
+    hardware fisico</b>, batterie, attriti reali. Tuttavia, perche'
+    sia utile, deve rispettare alcuni vincoli:
+</p>
+
+<ul>
+    <li>
+        <b>Determinismo "ragionevole"</b>: il robot virtuale non deve essere
+        istantaneo. Un <code>moveForward</code> deve impiegare tempo
+        realistico, in modo che il client debba gestire il problema
+        di sincronizzazione.
+    </li>
+    <li>
+        <b>Observability</b>: deve emettere eventi (cambio posizione,
+        collisione, fine movimento) che il client puo' osservare. Senza
+        observability il client deve fare polling.
+    </li>
+    <li>
+        <b>Trasporto neutrale</b>: HTTP e WebSocket espongono le stesse
+        primitive. Lo studente puo' scegliere il protocollo in base al
+        proprio caso d'uso.
+    </li>
+    <li>
+        <b>Ambiente caricabile</b>: gli scenari (mappa, ostacoli) sono
+        file JSON. Cambiare scenario non richiede ricompilare nulla.
+    </li>
+</ul>
+
+<br>
+
+<h2>Problem analysis</h2>
+<p>
+    L'architettura del VirtualRobot26 si articola in tre livelli:
+</p>
+
+<pre>
+   +---------------------------------+
+   |  Browser (WEnv)                  |
+   |   - three.js: scena 3D           |
+   |   - WebSocket client             |
+   |   - JS state machine             |
+   +-------------------+--------------+
+                       |
+                       | WebSocket (ws://localhost:8090)
+                       |
+   +-------------------+--------------+
+   |  Java Backend (Javalin)          |
+   |   - HTTP /robot/* endpoints      |
+   |   - WS message handler           |
+   |   - Robot state machine          |
+   +-------------------+--------------+
+                       |
+                       | observers
+                       v
+                +-----------------+
+                | Subscribers     |
+                | (vrUsage26 apps)|
+                +-----------------+
+</pre>
+
+<p>
+    Il problema piu' delicato e' la <b>coerenza dello stato</b> fra browser e
+    backend. La scena WebGL deve riflettere fedelmente lo stato logico del
+    robot, ma e' fisicamente <i>separata</i> dal motore di calcolo del movimento.
+    La soluzione adottata e':
+</p>
+<ol>
+    <li>il backend e' la <b>fonte unica di verita'</b>: lo stato del robot vive solo li';</li>
+    <li>la scena 3D e' una <b>vista derivata</b>: aggiorna mesh e position in base agli eventi WS in arrivo;</li>
+    <li>i comandi del browser sono <b>richieste</b> al backend, non modifiche dirette dello stato.</li>
+</ol>
+
+<br>
+
+<h2>Test plans</h2>
+<p>
+    Il piano di collaudo prevede tre macro-fasi:
+</p>
+<ol>
+    <li>
+        <b>Smoke test della scena WebGL:</b> aprire <code>node/WEnv/WebGLScene/indexOk.html</code> in un browser locale. Deve apparire la scena 3D con il robot in posizione HOME.
+    </li>
+    <li>
+        <b>Test movimento manuale:</b> nella pagina <code>indexOkWithNaiveGui.html</code> ci sono bottoni Forward/Back/Left/Right. Premerli e verificare il movimento.
+    </li>
+    <li>
+        <b>Test client programmatico:</b> dalla cartella <code>ClientExamples/AndroidClient</code> (o equivalente Java) inviare i comandi via TCP/WS e verificare la coerenza scena/log.
+    </li>
+</ol>
+
+<br>
+
+<h2>Project</h2>
+<p>
+    Il progetto e' un modulo Gradle con doppia natura: Java backend +
+    asset web (HTML/JS/Three.js).
+</p>
+
+<h3>Backend Java</h3>
+<ul>
+    <li><code>build.gradle</code>, <code>settings.gradle</code> — build Java/Kotlin</li>
+    <li>Sorgenti del server VirtualRobot26 (servlet HTTP + WebSocket + motore movimento)</li>
+</ul>
+
+<h3>Ambiente WebGL (WEnv)</h3>
+<ul>
+    <li>
+        <code>node/WEnv/WebGLScene/</code> — scena 3D del robot:
+        <ul>
+            <li><code>indexOk.html</code> — scena base funzionante</li>
+            <li><code>indexOkWithNaiveGui.html</code> — scena con bottoni di controllo</li>
+            <li><code>indexNoControl.html</code> — solo visualizzazione</li>
+            <li><code>indexOccupied.html</code> — scena con ostacoli</li>
+            <li><code>models/spaceship.json</code> — mesh 3D alternativa</li>
+        </ul>
+    </li>
+    <li><code>node/WEnv/README.md</code> — istruzioni di setup</li>
+</ul>
+
+<h3>Client di esempio</h3>
+<ul>
+    <li>
+        <code>node/WEnv/ClientExamples/AndroidClient/</code> — client Android (Kotlin) che si connette al VirtualRobot via TCP. Mostra:
+        <ul>
+            <li><code>TCPClient.kt</code>, <code>TCPEndPoint.kt</code> — astrazione del trasporto</li>
+            <li><code>OutputChannel.kt</code>, <code>ConnectionListener.kt</code> — pattern observer</li>
+            <li><code>MainActivity.kt</code> — UI di test</li>
+        </ul>
+    </li>
+</ul>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+    Il testing del VirtualRobot26 e' principalmente <b>integrazione</b>: il
+    backend Java + la scena WebGL + un client devono coordinarsi
+    coerentemente. La strategia adottata e':
+</p>
+<ul>
+    <li>
+        <b>Unit test</b> sulla state machine del robot (puramente Java,
+        senza GUI ne' rete).
+    </li>
+    <li>
+        <b>Integration test</b> con un client headless che invia una
+        sequenza di comandi e verifica gli eventi emessi.
+    </li>
+    <li>
+        <b>System test manuale</b> con la scena WebGL aperta per verificare
+        l'animazione e la corretta resa visiva di ogni comando.
+    </li>
+</ul>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+    Il VirtualRobot26 e' deliberatamente <b>generico</b>: non assume
+    nulla sull'applicazione che lo usa. Le evoluzioni naturali sono:
+</p>
+<ul>
+    <li>
+        <b>Sensori virtuali</b>: aggiungere camera virtuale, sonar
+        virtuale, accelerometro virtuale. La scena WebGL puo' calcolare
+        i dati e inviarli come stream sui WS.
+    </li>
+    <li>
+        <b>Multi-robot</b>: estendere il backend per supportare N robot
+        contemporanei, ciascuno con la propria sessione WS. La scena
+        WebGL li renderizza nello stesso ambiente.
+    </li>
+    <li>
+        <b>Twin digitale</b>: collegare il VirtualRobot26 a un robot
+        fisico in modo che le due entita' (virtuale + fisica) siano in
+        sync. Caso d'uso classico di Digital Twin.
+    </li>
+</ul>
+
+<p>
+    Il valore didattico del progetto risiede nella <b>separazione netta</b>
+    fra "intenzione" (cosa vuole fare l'applicazione: percorrere il
+    perimetro) e "esecuzione" (come il robot si muove fisicamente). Il
+    VirtualRobot26 e' il banco di prova ideale per studiare questa
+    separazione prima di passare al robot fisico (Picow + sonar HC-SR04).
+</p>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>

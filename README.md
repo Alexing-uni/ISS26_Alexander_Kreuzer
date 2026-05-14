@@ -33,3 +33,20 @@ Repository del corso Ingegneria dei Sistemi Software a.a. 2025/2026 - DISI - Uni
   * **Progetto griddisplay** — Comportamento orchestrato e visualizzazione su griglia | [Codice Sorgente](griddisplay/src) | 📄 [griddisplay.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/griddisplay/userDocs/griddisplay.html)
 
   **Analisi comparativa Javalin vs QAK** | 📄 [Lab2_Comparacion_Javalin_QAK.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/userDocs/Lab2_Comparacion_Javalin_QAK.html) | 📄 [Main.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/qakdemo26/userDocs/Main.html)
+
+# Parte C: Robotica e sistemi cyber-fisici (settimane 12-14)
+
+  * **Progetto it.unibo.virtualRobot2026** — DDR formalizzato + ambiente WebGL | [Codice Sorgente](it.unibo.virtualRobot2026) | 📄 [virtualRobot2026.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/it.unibo.virtualRobot2026/userDocs/virtualRobot2026.html)
+  * **Progetto vrUsage26** — Esempi d'uso del VirtualRobot26 (BoundaryWalk, Step, TuneSteptime) | [Codice Sorgente](vrUsage26/src) | 📄 [vrUsage26.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/vrUsage26/userDocs/vrUsage26.html)
+  * **Progetto Picow** — Raspberry Pi PICOW: sonar HC-SR04, LED firefly, WiFi/MQTT | [Codice Sorgente](Picow) | 📄 [Picow.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/Picow/userDocs/Picow.html)
+
+# Parte D: ConwayLife evolutivo
+
+  * **ConwayLife Sprint 3 GUI Alone** — ConwayLife con GUI HTML standalone (WS + MQTT, multi-client, Docker) | [Codice Sorgente](ConwayLife/Sprint3/conway26GuiAlone) | 📄 [conway26GuiAlone.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/ConwayLife/Sprint3/conway26GuiAlone/userDocs/conway26GuiAlone.html)
+
+# Materiali di supporto
+
+  * [it.unibo.kotlinIntro](it.unibo.kotlinIntro) — introduzione a Kotlin
+  * [SistemaSProtoactor](SistemaSProtoactor) — versione standalone del Sistema S a Protoattori
+  * [mqttdemo](mqttdemo) — demo MQTT
+  * [qakdemoresource](qakdemoresource) — esempi di Resource pattern in QAK
