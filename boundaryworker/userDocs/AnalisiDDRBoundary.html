@@ -2,405 +2,422 @@
 <html>
 <head>
 <link rel="stylesheet" type="text/css" href="css/mystyle.css">
-<title>Analisi DDRBoundary – Requisiti, Modello e Domande di Disambiguazione</title>
+<title>Analisi DDRBoundary – Formalizzazione dei Requisiti</title>
 </head>
 
 <body>
 <div id="top">
-<h1>Analisi del Problema DDRBoundary con Radar</h1>
+<h1>Analisi del problema DDRBoundary</h1>
 </div>
 
 <div class="body">
 
-<h2>Introduction</h2>
-
-<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.29'>DDRBoundary – Capitolo 29 del Protobook</a>
-<br>
-<b>Goal del documento</b>: Produrre l'analisi formale dei requisiti, le domande di disambiguazione e un primo modello concettuale del sistema DDRBoundary con interruzione da radar. Il documento e' inteso come <i>artefatto preliminare</i> da sottoporre al docente prima di procedere alla fase di progetto.
-
-<br><br>
-
-Il problema appartiene alla categoria dei sistemi di controllo reattivi: un Differential Drive Robot deve eseguire un compito autonomo (recorrer il perimetro di una stanza) tenendo conto di eventi esterni asincroni (intrusione rilevata da un radar). Si tratta del passaggio dal modello batch a un modello <b>Event-Driven</b> con interruzioni di alto livello.
-
-<h2>Requirements (specifica originale)</h2>
-<pre>
-Costruire un sistema di software che controlli un DDR in modo che:
-- partendo dalla posizione HOME, il robot percorra il perimetro di una
-  stanza rettangolare vuota;
-- il DDR si fermi al ritorno in HOME.
-
-Il sistema DDR e' sensibile ai dati rilevati da un radar.
-Quando il radar rileva un 'intruso' a distanza minore di una distanza
-prefissata DMIN:
-  - se il DDR e' in movimento, si ferma fino a quando il radar non
-    rileva piu' alcun intruso cosi' vicino;
-  - se il DDR e' fermo in HOME, ruota su se stesso fino a quando
-    l'intruso scompare.
-</pre>
-
-<br>
-
-<h2>Requirements formalizzati</h2>
+<h2>29.1 Requirements DDRBoundary</h2>
 <p>
-    La specifica testuale e' stata scomposta in <b>requisiti atomici</b>
-    identificabili univocamente, classificati per tipo:
+Costruire un sistema software che comanda un Differential Drive Robot (DDR) in modo che,
+partendo dalla posizione iniziale HOME, il robot si sposti lungo il perimetro di una stanza
+rettangolare vuota. Il DDR si deve fermare quando tornato in HOME.
 </p>
-
-<table style="margin-left:10px;">
-    <tr style="background:#e1f4d7;">
-        <th>ID</th>
-        <th>Requisito</th>
-        <th>Tipo</th>
-    </tr>
-    <tr>
-        <td><b>R1</b></td>
-        <td>Il DDR parte dalla posizione HOME e percorre il perimetro di una stanza rettangolare vuota.</td>
-        <td>Funzionale</td>
-    </tr>
-    <tr>
-        <td><b>R2</b></td>
-        <td>Il DDR si ferma quando rientra in HOME (rilevazione del completamento del giro).</td>
-        <td>Funzionale</td>
-    </tr>
-    <tr>
-        <td><b>R3</b></td>
-        <td>Il sistema e' sensibile in ogni istante ai dati del radar, indipendentemente dallo stato del DDR.</td>
-        <td>Funzionale (interrupt)</td>
-    </tr>
-    <tr>
-        <td><b>R4</b></td>
-        <td>Se DDR in movimento e D &lt; DMIN: arresto immediato del moto.</td>
-        <td>Comportamentale</td>
-    </tr>
-    <tr>
-        <td><b>R5</b></td>
-        <td>Se DDR fermo per intrusione e D ≥ DMIN: il moto riprende.</td>
-        <td>Comportamentale</td>
-    </tr>
-    <tr>
-        <td><b>R6</b></td>
-        <td>Se DDR in HOME (fermo a fine giro) e D &lt; DMIN: rotazione su se stesso.</td>
-        <td>Comportamentale</td>
-    </tr>
-    <tr>
-        <td><b>R7</b></td>
-        <td>Se DDR in HOME in rotazione e D ≥ DMIN: rotazione cessa e il DDR resta fermo in HOME.</td>
-        <td>Comportamentale</td>
-    </tr>
-    <tr>
-        <td><b>R8</b></td>
-        <td>Il sistema e' indipendente dalla tecnologia del DDR (virtuale o fisico via PICOW).</td>
-        <td>Non funzionale</td>
-    </tr>
-    <tr>
-        <td><b>R9</b></td>
-        <td>Il sistema espone primitive di alto livello (step, turn, halt) disaccoppiate dal trasporto sottostante.</td>
-        <td>Architetturale</td>
-    </tr>
-</table>
-
-<br>
-
-<h2>Domande di disambiguazione</h2>
 <p>
-    L'analisi della specifica ha evidenziato diversi punti che richiedono chiarimento prima della fase di modellazione. Le domande sono raggruppate per tema.
+Il DDR e' anche sensibile ai dati rilevati da un Radar. Quando il Radar rileva un 'intruso'
+a una distanza minore di una distanza prefissata DMIN:
 </p>
-
-<h3>Conoscenza della stanza</h3>
-<ol>
-    <li>
-        Il DDR conosce <b>a priori</b> le dimensioni della stanza
-        (mappa caricata) oppure le scopre dinamicamente tramite
-        sensori (sonar/encoder)?
-    </li>
-    <li>
-        La stanza si assume <b>strettamente rettangolare</b> oppure
-        si vuole supportare anche perimetri irregolari?
-    </li>
-</ol>
-
-<h3>Comportamento di interruzione e ripresa</h3>
-<ol start="3">
-    <li>
-        All'arrivo di un evento "intruso" durante il moto:
-        la sospensione e' un <b>halt netto</b> sul posto, oppure
-        si deve completare la mossa atomica in corso (es. un step) prima di fermarsi?
-    </li>
-    <li>
-        Alla ripresa del moto: il robot <b>continua nella stessa direzione</b>
-        oppure ricomincia il giro da capo? Se continua, come tiene traccia
-        del punto di interruzione?
-    </li>
-    <li>
-        Se durante la sospensione il robot perde la propria posizione (es. e' stato spostato fisicamente):
-        come si gestisce questa situazione?
-    </li>
-</ol>
-
-<h3>Comportamento di rotazione in HOME</h3>
-<ol start="6">
-    <li>
-        La rotazione "su se stesso" e' <b>continua</b> mentre l'intruso e' vicino,
-        oppure il robot ruota di un angolo fisso (es. 90&deg;) e poi attende?
-    </li>
-    <li>
-        Il senso di rotazione e' <b>fisso</b> (sempre orario) o si puo' variare?
-        Variandolo, ci sarebbe una semantica di "intimidazione" piu' realistica?
-    </li>
-    <li>
-        Una volta tornata la calma (R7), il DDR rimane in HOME oppure ricomincia il giro?
-        La specifica suggerisce che <b>rimane fermo</b> ma non lo dice esplicitamente.
-    </li>
-</ol>
-
-<h3>Natura del radar</h3>
-<ol start="9">
-    <li>
-        Il radar e' un componente <b>distinto</b> dal sensore di navigazione del DDR
-        (es. sonar HC-SR04), oppure puo' essere lo stesso device riusato?
-    </li>
-    <li>
-        Il radar e' <b>fisso</b> in un punto della stanza o segue il DDR?
-    </li>
-    <li>
-        La distanza D del radar misura la presenza di <b>qualunque oggetto</b>
-        oppure il radar distingue gia' a livello hardware "intruso" vs "ostacolo statico"?
-    </li>
-    <li>
-        Frequenza di campionamento del radar? Latenza accettabile tra rilevazione e reazione?
-    </li>
-</ol>
-
-<h3>Edge cases e priorita'</h3>
-<ol start="13">
-    <li>
-        Se l'intruso si avvicina e poi si allontana in tempi inferiori a un campionamento,
-        si genera un evento valido? Si applica un'isteresi?
-    </li>
-    <li>
-        Esiste un <b>timeout</b> oltre il quale il sistema considera un guasto del radar
-        e cambia comportamento?
-    </li>
-    <li>
-        Priorita' relativa: se durante la sospensione per intruso arriva un comando esterno
-        (es. terminazione), cosa prevale?
-    </li>
-</ol>
-
-<br>
-
-<h2>Requirement analysis</h2>
-<p>
-    L'analisi dei requisiti formalizzati mette in luce quattro proprieta' chiave del sistema:
-</p>
-
 <ul>
-    <li>
-        <b>Reattivita'</b>: il radar e' un produttore di eventi asincroni che
-        possono interrompere qualunque attivita' in corso. Questo esclude
-        un'architettura batch a polling.
-    </li>
-    <li>
-        <b>Statefulness</b>: la reazione al radar dipende dallo stato attuale
-        del DDR (in moto vs in HOME). Il sistema richiede una FSM esplicita.
-    </li>
-    <li>
-        <b>Idempotenza degli eventi</b>: l'evento "intruso vicino" puo' arrivare
-        ripetutamente. Il sistema deve gestirlo come <i>condizione</i>, non come
-        <i>impulso</i>.
-    </li>
-    <li>
-        <b>Separazione delle responsabilita'</b>: il controllo del moto, la lettura
-        del radar e l'interazione con il robot fisico devono risiedere in attori
-        distinti per garantire testabilita' e riuso.
-    </li>
+    <li>se il DDR si sta muovendo, il DDR si ferma fino a che il Radar non rileva piu' un intruso cosi' vicino;</li>
+    <li>se il DDR e' fermo in HOME, il DDR ruota su se stesso fino a che un intruso cosi' vicino scompare.</li>
 </ul>
 
 <br>
 
-<h2>Problem analysis – modello QAK</h2>
+<h2>29.2 Analisi dei requisiti</h2>
+<ul>
+    <li><b>Goal</b>: formalizzare i requisiti in modo da escludere le ambiguita' tipiche del linguaggio naturale.</li>
+    <li><b>Strategia</b>: concordare con il committente le proprieta' principali delle entita' del sistema ed esprimerle in un linguaggio comprensibile a un computer.</li>
+</ul>
 
-<h3>Identificazione degli attori</h3>
-<table style="margin-left:10px;">
-    <tr style="background:#e1f4d7;">
-        <th>Attore</th>
-        <th>Responsabilita'</th>
-        <th>Tipo</th>
-    </tr>
-    <tr>
-        <td><code>ddrController</code></td>
-        <td>Cervello del sistema. Implementa la FSM di alto livello (HOME, MOVING, PAUSED, ROTATING). Riceve eventi dal radar e produce comandi per il robot.</td>
-        <td>QActor (FSM)</td>
-    </tr>
-    <tr>
-        <td><code>radar</code></td>
-        <td>Produttore di eventi di intrusione. Misura la distanza D continuamente e emette eventi quando D supera la soglia DMIN (in entrambe le direzioni).</td>
-        <td>QActor (con sensore o mock)</td>
-    </tr>
-    <tr>
-        <td><code>ddrAdapter</code></td>
-        <td>Adapter tra <code>ddrController</code> e la tecnologia DDR concreta (VirtualRobot26 via WebSocket o PICOW via MQTT). Espone <code>IRobotBasicMoves</code>.</td>
-        <td>Java/POJO incapsulato</td>
-    </tr>
-    <tr>
-        <td><code>roomMap</code></td>
-        <td>Modello della stanza: dimensioni, posizione HOME, perimetro. Permette al controller di sapere quando torna in HOME.</td>
-        <td>POJO domain object</td>
-    </tr>
-</table>
+<div class="remark">
+<b>Ma non stiamo programmando?</b><br>
+Parlare un linguaggio comprensibile a un computer non significa sempre solo esprimere comportamenti,
+ma spesso vuol dire <i>denotare</i> e <i>specificare</i>. Esempi in Java:
+<pre>
+int x;                          //DICHIARO che intendo usare x per denotare un intero
+public interface IRobotBasicMoves {     //DICHIARO le mosse di un robot
+    void forward( int time )  throws Exception;
+    void backward( int time ) throws Exception;
+    void left( int time )     throws Exception;
+    void right( int time )    throws Exception;
+    void halt()               throws Exception;
+}
+</pre>
+</div>
 
-<h3>Tipi di messaggio</h3>
-<table style="margin-left:10px;">
-    <tr style="background:#e1f4d7;">
-        <th>Messaggio</th>
-        <th>Tipo QAK</th>
-        <th>Direzione</th>
-    </tr>
-    <tr>
-        <td><code>start</code></td>
-        <td>Dispatch</td>
-        <td>esterno → ddrController</td>
-    </tr>
-    <tr>
-        <td><code>intruderClose</code></td>
-        <td>Event</td>
-        <td>radar → ddrController (D &lt; DMIN)</td>
-    </tr>
-    <tr>
-        <td><code>intruderGone</code></td>
-        <td>Event</td>
-        <td>radar → ddrController (D ≥ DMIN)</td>
-    </tr>
-    <tr>
-        <td><code>moveStep</code></td>
-        <td>Request</td>
-        <td>ddrController → ddrAdapter</td>
-    </tr>
-    <tr>
-        <td><code>moveDone</code></td>
-        <td>Reply</td>
-        <td>ddrAdapter → ddrController</td>
-    </tr>
-    <tr>
-        <td><code>halt</code></td>
-        <td>Dispatch</td>
-        <td>ddrController → ddrAdapter</td>
-    </tr>
-    <tr>
-        <td><code>rotate</code></td>
-        <td>Dispatch</td>
-        <td>ddrController → ddrAdapter</td>
-    </tr>
-</table>
+<br>
 
-<h3>FSM dell'attore ddrController</h3>
+<h3>29.2.1 Sistema ddrboundary</h3>
+<ul>
+    <li><b>Sistema software</b>: diamo il nome <code>ddrboundary</code> al sistema software da costruire, per distinguerlo dalle entita' che lo compongono.</li>
+    <li><b>DDR</b>: un robot che puo' muoversi in avanti, indietro, ruotare su se stesso, fermarsi. Queste azioni sono da intendersi come <i>comandi</i>.</li>
+</ul>
 
 <pre>
-                start
-   [INIT] -------------&gt; [MOVING]
-                            |  ^
-                            |  |  intruderGone
-                            |  |
-                            v  |
-                            +-----+
-              intruderClose       |
-                            |     |
-                            v     |
-                         [PAUSED] |
-                            ^     |
-                            +-----+
+<b>Domanda al committente:</b> il software che rappresenta il DDR e' gia' disponibile o
+dobbiamo costruirlo noi?
 
-   in MOVING, backToHome  -&gt; [HOME_IDLE]
-
-   [HOME_IDLE]
-        |
-        | intruderClose
-        v
-   [ROTATING] --intruderGone--&gt; [HOME_IDLE]
+<b>Risposta:</b> e' disponibile il simulatore VirtualRobot26, che definisce un insieme
+di comandi-base per il robot in input. Questo simulatore si presenta come un servizio.
 </pre>
 
-<h3>Diagramma di interazione (caso felice + caso interrotto)</h3>
+<div class="remark">
+<b>Problematica DDR (per l'analista del problema)</b><br>
+Occorre esaminare se il servizio fornito:
+<ul>
+    <li>sia <b>sufficiente</b> per risolvere il problema;</li>
+    <li>sia <b>adeguato</b> per essere usato direttamente a livello di codice.</li>
+</ul>
+</div>
+
+<br>
+
+<h3>29.2.2 Stanza</h3>
+<p>
+<b>Stanza</b>: e' un ambiente chiuso, con forma rettangolare, con dimensioni note.
+</p>
+
 <pre>
-  Caso felice (nessun intruso):
+<b>Domanda al committente:</b> quali sono le dimensioni della stanza?
 
-   start  → MOVING → moveStep × N → backToHome → HOME_IDLE  → stop
+<b>Risposta:</b> lunghezza L e larghezza H, espresse in metri, con L &gt; H.
+</pre>
 
-  Caso interrotto durante il moto:
+<p>
+Il DDR si muove all'interno di questa stanza vuota, cioe' senza ostacoli al suo interno.
+Formalizziamo questa entita' come una matrice dichiarata entro la classe Java <code>Room</code>:
+</p>
 
-   start  → MOVING → moveStep → moveStep → intruderClose
-                                              ↓
-                                          PAUSED (halt)
-                                              ↓ intruderGone
-                                          MOVING (resume)
-                                              ↓
-                                          ... → backToHome → HOME_IDLE
-
-  Caso interrotto in HOME:
-
-   HOME_IDLE → intruderClose → ROTATING (rotate continua)
-                                  ↓ intruderGone
-                              HOME_IDLE (halt)
+<pre>
+public class Room {
+    int[][] room;       // matrice di celle di occupazione
+}
 </pre>
 
 <br>
 
-<h2>Test plans (anticipazione)</h2>
+<h3>29.2.3 HOME</h3>
 <p>
-    Sebbene la progettazione definitiva sia successiva al riscontro del docente,
-    si anticipano le linee guida di collaudo:
+<b>HOME</b>: una posizione specifica nella Room, che formalizziamo come un punto con coordinate (HOMEx, HOMEy).
+Sorge un problema di ambiguita': la posizione HOME non puo' essere un punto ma deve essere una <i>zona</i>,
+in qualche modo correlata alla dimensione del DDR.
 </p>
 
+<div class="remark">
+<b>Le dimensioni del robot</b><br>
+In VirtualRobot26, il committente dichiara che il robot virtuale (e in futuro anche quelli reali)
+viene considerato un oggetto inscrivibile in un cerchio di raggio R.<br><br>
+Denominiamo <code>DR</code> il diametro del cerchio, cioe' <code>DR = 2*R</code>.
+Possiamo definire la zona HOME come un 'punto' di coordinate
+<code>(HOMEx=0, HOMEy=0)</code>, scegliendo come unita' di misura la dimensione robotica DR.<br><br>
+La matrice <code>room</code> (di per se' una griglia logica) risulta cosi' divisa in una griglia
+di celle di dimensione DR x DR e rappresenta una mappa di occupazione perfetta per il robot,
+che puo' occupare esattamente una cella alla volta.
+</div>
+
+<pre>
+public class Room {
+    //private int DR = 10;        //in cm
+    private int nr = 0;           //nr*DR &lt; L &lt; nr*(DR+1)  lunghezza stanza
+    private int nc = 0;           //nc*DR &lt; H &lt; nc*(DR+1)  larghezza stanza
+    private int HOMEx = 0;
+    private int HOMEy = 0;
+}
+</pre>
+
+<br>
+
+<h3>29.2.4 Radar</h3>
+<p>
+<b>Radar</b>: e' un sensore che rileva la distanza da un ostacolo.
+</p>
+
+<pre>
+<b>Domanda al committente:</b> il software che rappresenta il Radar e' gia' disponibile o
+dobbiamo costruirlo noi?
+
+<b>Risposta:</b> in attesa di uno strumento piu' evoluto, viene fornito un dispositivo
+basato su un Raspberry PicoW, ma senza software di supporto.
+
+<b>Domanda al committente:</b> quali informazioni ci aspettiamo di ricevere dal Radar?
+
+<b>Risposta:</b> sono stringhe della forma:
+
+        distance( DIRECTION, D )
+
+dove:
+   - DIRECTION e' un valore da 0 a pi-greco, al momento fisso a pi/2,
+   - D e' il valore della distanza misurata, espresso come intero.
+</pre>
+
+<div class="remark">
+<b>Problematica Radar (per l'analista del problema)</b><br>
+Occorre esaminare se basti scrivere software sul PicoW per integrare compiutamente il radar nel sistema,
+oppure se sia necessario sviluppare un microservizio che si occupa di interfacciarsi con il PicoW e di
+fornire i dati al boundaryworker.
+</div>
+
+<br>
+
+<h3>29.2.5 Struttura del sistema DDRBoundary</h3>
+<p>
+Osserviamo che la responsabilita' di eseguire il codice applicativo non puo' essere data a qualche
+componente software che gira sul PicoW, ne' al servizio che realizza il DDR (che deve essere usato,
+ma non modificato).
+</p>
+<p>
+Il sistema da realizzare e' quindi <b>logicamente distribuito su tre nodi computazionali</b>:
+</p>
+<ul>
+    <li>il nodo che supporta l'esecuzione del servizio <code>VirtualRobot26</code> (o, in futuro, un DDR fisico);</li>
+    <li>il nodo che supporta l'esecuzione del componente che realizza l'applicazione richiesta, che denominiamo <code>boundaryworker</code>;</li>
+    <li>il PicoW che realizza il simulatore del Radar.</li>
+</ul>
+
+<pre>
+<b>Domanda al committente:</b> il boundaryworker puo' essere eseguito sul nodo
+computazionale associato al DDR?
+
+<b>Risposta:</b> in linea di principio si', ma anche nel caso di DDR fisico, si
+vuole usare un robot come un componente a se' stante e gia' compiutamente configurato.
+</pre>
+
+<p>
+Trattandosi di un sistema distribuito su tre nodi, in cui i componenti sono logicamente (micro)servizi,
+formalizziamo la struttura del sistema usando il linguaggio <b>qak</b>, appositamente introdotto per
+esprimere e formalizzare (mediante modelli eseguibili) sistemi i cui componenti operano a scambio
+di messaggi.
+</p>
+
+<br>
+
+<h2>29.3 Un modello dei requisiti</h2>
+<p>
+Il componente centrale della applicazione e' il <code>boundaryworker</code>, che si presenta come
+un componente proattivo (deve indurre il DDR a percorrere il perimetro) e reattivo (deve reagire
+ai dati del radar). Lo modelliamo come un QActor:
+</p>
+
+<pre>
+System ddrboundary
+
+Context ctxboundary ip [host="localhost" port=8125]
+
+QActor boundaryworker context ctxboundary
+              withobj room using "location/Room.java" {
+    //comportamento proattivo (perimeter walk) e reattivo (interrupt radar)
+    ...
+}
+</pre>
+
+<div class="remark">
+<b>Come usare il VirtualRobot (per l'analista del problema)</b><br>
+Il VirtualRobot26 e' un servizio utilizzabile via WebSocket. Per evitare di rendere la logica
+applicativa troppo dipendente dalle modalita' d'uso di uno specifico robot, sono disponibili
+<code>RobotObj26</code> (un POJO) e <code>RobotService26</code> (un servizio usabile mediante
+messaggi-comando).<br><br>
+L'uso di questi componenti puo' essere una alternativa vantaggiosa rispetto all'uso diretto
+del VirtualRobot26 nel codice applicativo.
+</div>
+
+<h3>29.3.1 Componenti come microservizi</h3>
+<p>
+L'uso di <code>RobotService26</code> implica la definizione esplicita nel modello applicativo
+dei messaggi-comando che l'applicazione puo' inviare (come <code>Dispatch</code> e come
+<code>Request</code>) al robot. Questo:
+</p>
+<ul>
+    <li>rende molto piu' evidente (rispetto all'uso di <code>RobotObj26</code>) la specifica delle possibili interazioni logiche tra applicazione e robot;</li>
+    <li>puo' introdurre ritardi nelle interazioni a causa della rete (che si annullano se RobotService26 gira nello stesso nodo);</li>
+    <li>colloca il sistema nell'alveo dei <b>Sistemi a Microservizi</b>.</li>
+</ul>
+
+<p>
+Anche il <b>Radar</b> potrebbe essere modellato come microservizio, con un proprio modello
+di interazione con l'applicazione, e con un proprio modello di interazione con il dispositivo
+fisico che lo realizza (il PicoW).
+</p>
+
+<h4>boundaryworker_sprint0Req.qak</h4>
+<pre>
+System ddrboundary
+
+Dispatch move      : move(M)                "M = l|r|a|d|h  mosse base ok"
+Request  cmd       : cmd(MOVE,T)            "MOVE = w|s mosse asynch"
+Reply    cmddone   : cmddone(R)             for cmd
+Reply    cmdfailed : cmdfailed(T,CAUSE)     for cmd
+Request  step      : step(TIME)
+Reply    stepdone  : stepdone(V)            for step
+Reply    stepfailed: stepfailed(DURATION,CAUSE) for step
+
+Event    intruderClose : intruderClose(D,DIR)     "emesso dal radar se D &lt; DMIN"
+Event    intruderGone  : intruderGone()           "emesso dal radar se D &ge; DMIN"
+
+Context ctxboundary       ip [host="localhost"  port=8120]
+Context ctxrobotservice26 ip [host="127.0.0.1"  port=8125]   //stesso nodo
+//Context ctxradar        ip [host="192.168.1.xxx" port=8135]
+
+ExternalQActor robotactor context ctxrobotservice26
+
+QActor boundaryworker context ctxboundary {
+    //comportamento proattivo (boundary walk) e reattivo (intruder events)
+    ...
+}
+
+QActor radaractor context ctxradar {
+    //Interazione con il PicoW per rilevare la distanza e inviare dati al boundaryworker
+}
+</pre>
+
+<div class="remark">
+<b>Il servizio Radar (per l'analista del problema)</b><br>
+Occorre esaminare se basti scrivere software sul PicoW per integrare compiutamente il radar
+nel sistema, o se sia necessario sviluppare un microservizio che si occupa di interfacciarsi
+con il PicoW e di fornire i dati al boundaryworker.<br><br>
+Al momento il radar e' modellato come un componente (nano-servizio) che fornisce dati al
+boundaryworker, ma non e' ancora chiaro se sia vantaggioso modellarlo come un microservizio
+a se' stante.
+</div>
+
+<br>
+
+<h2>29.4 Domande aperte al committente</h2>
+<p>
+Le seguenti domande emergono dalla formalizzazione e necessitano di risposta prima della fase
+di progetto definitivo:
+</p>
+
+<pre>
+<b>D1.</b> Comportamento di interruzione:
+
+   Domanda al committente: quando il DDR riceve intruderClose mentre e' in moto,
+   deve fermarsi <i>immediatamente</i> oppure deve completare la mossa atomica
+   (es. lo step) in corso?
+
+   Risposta:  ...
+
+<b>D2.</b> Ripresa del moto:
+
+   Domanda al committente: alla ricezione di intruderGone, il robot riprende
+   il percorso dalla posizione in cui si era fermato, oppure ripete da capo?
+
+   Risposta:  ...
+
+<b>D3.</b> Granularita' della rotazione in HOME:
+
+   Domanda al committente: la rotazione "su se stesso" e' continua finche'
+   c'e' intruso, oppure il DDR ruota di un angolo fisso (es. pi/4) e poi
+   attende un nuovo evento?
+
+   Risposta:  ...
+
+<b>D4.</b> Senso della rotazione:
+
+   Domanda al committente: senso della rotazione fisso (sempre orario) o
+   alternato? Ha rilevanza semantica?
+
+   Risposta:  ...
+
+<b>D5.</b> Conoscenza della stanza:
+
+   Domanda al committente: il DDR conosce le dimensioni della stanza
+   a priori (tramite mappa caricata) oppure le deduce dai sensori in
+   fase di esecuzione?
+
+   Risposta:  ...
+
+<b>D6.</b> Posizione del radar:
+
+   Domanda al committente: il radar e' fisso in un punto della stanza oppure
+   solidale al DDR e quindi anch'esso in movimento?
+
+   Risposta:  ...
+
+<b>D7.</b> Definizione di DMIN:
+
+   Domanda al committente: DMIN ha un valore fissato a priori, oppure puo'
+   essere configurato a runtime (es. da file)?
+
+   Risposta:  ...
+
+<b>D8.</b> Distinzione intruso vs ostacolo:
+
+   Domanda al committente: il radar distingue gia' a livello hardware un
+   intruso (corpo dinamico) da un ostacolo statico, oppure restituisce
+   semplicemente la distanza dell'oggetto piu' vicino?
+
+   Risposta:  ...
+
+<b>D9.</b> Comportamento a fine percorso:
+
+   Domanda al committente: dopo essere tornato in HOME e dopo la possibile
+   rotazione per intruso, il sistema termina (terminate 0) oppure rimane
+   in attesa di un nuovo comando di start?
+
+   Risposta:  ...
+
+<b>D10.</b> Frequenza di campionamento del radar:
+
+   Domanda al committente: a quale frequenza il radar campiona la distanza?
+   Esiste un'isteresi per evitare oscillazioni intorno a DMIN?
+
+   Risposta:  ...
+</pre>
+
+<br>
+
+<h2>29.5 Problematiche aperte (per l'analista del problema)</h2>
+
+<div class="remark">
+<b>P1 – Granularita' del moto</b><br>
+Conviene esporre <code>step(TIME)</code> come unita' atomica del moto, oppure usare direttamente
+i comandi-base (<code>w</code>, <code>s</code>) lasciando al boundaryworker la responsabilita'
+del timing?
+</div>
+
+<div class="remark">
+<b>P2 – Adapter o servizio</b><br>
+Per accedere al VirtualRobot26 conviene usare <code>RobotObj26</code> (POJO locale, nasconde
+il WS) oppure <code>RobotService26</code> (messaggi qak espliciti)? La scelta influenza la
+visibilita' delle interazioni e l'aderenza al modello a microservizi.
+</div>
+
+<div class="remark">
+<b>P3 – Modellazione del radar</b><br>
+Il radar puo' essere:
 <ol>
-    <li>
-        <b>Test del moto base (R1 + R2):</b> avviare il sistema senza radar attivo,
-        verificare che il robot percorra il perimetro e si fermi in HOME.
-    </li>
-    <li>
-        <b>Test interruzione (R3 + R4):</b> mentre il robot e' in moto, iniettare
-        un evento <code>intruderClose</code> dal mock del radar. Verificare halt immediato.
-    </li>
-    <li>
-        <b>Test ripresa (R5):</b> dopo il test 2, iniettare <code>intruderGone</code>.
-        Verificare ripresa del moto nella stessa direzione.
-    </li>
-    <li>
-        <b>Test rotazione in HOME (R6 + R7):</b> portare il robot in HOME (a fine giro),
-        iniettare intrusione. Verificare rotazione continua, e arresto al cessare dell'intrusione.
-    </li>
-    <li>
-        <b>Test condition vs impulse:</b> iniettare due <code>intruderClose</code> consecutivi
-        senza <code>intruderGone</code> intermedio. Il sistema deve restare in PAUSED, non oscillare.
-    </li>
+    <li>un attore <code>radaractor</code> che riceve direttamente lo stream dal PicoW e lo trasforma in eventi;</li>
+    <li>un microservizio autonomo con propria API, che intermedia tra PicoW e boundaryworker.</li>
 </ol>
+La soluzione (2) e' piu' aderente all'architettura a microservizi ma introduce un nodo aggiuntivo.
+</div>
+
+<div class="remark">
+<b>P4 – Gestione della perdita di posizione</b><br>
+Se durante la sospensione il DDR viene fisicamente spostato (caso del DDR fisico), come si
+gestisce la perdita di consapevolezza della posizione? Sono necessari sensori di odometria
+o ricalibrazione iniziale?
+</div>
 
 <br>
 
 <h2>Prossimi passi</h2>
 <p>
-    Il presente documento rappresenta la <b>Fase 1</b> del metodo (analisi dei requisiti
-    + prime tracce di modellazione). Il flusso di lavoro proposto e':
+Il presente documento rappresenta la <b>fase di analisi dei requisiti</b> secondo il metodo
+proposto. Il flusso di lavoro proseguira':
 </p>
-
 <ol>
-    <li>
-        Sottoporre al docente questo documento e la lista di domande di disambiguazione.
-    </li>
-    <li>
-        Recepire le risposte e raffinare i requisiti definitivi.
-    </li>
-    <li>
-        Completare il modello QAK dettagliato (.qak con tutti gli stati e transizioni).
-    </li>
-    <li>
-        Realizzazione del codice sul progetto <code>boundaryworker</code> esistente,
-        con verifica del test plan automatizzato.
-    </li>
+    <li>Sottoporre al docente le domande aperte (D1-D10) per riscontro;</li>
+    <li>Recepire le risposte e raffinare il modello qak <code>boundaryworker_sprint0Req.qak</code>;</li>
+    <li>Risolvere le problematiche P1-P4 in sede di progetto;</li>
+    <li>Realizzazione del codice nel progetto <code>boundaryworker</code> con test plan automatizzato.</li>
 </ol>
-
-<p>
-    Il documento e' inteso come <b>artefatto vivo</b>: verra' aggiornato man mano che
-    le domande aperte trovano risposta e che il modello si stabilizza.
-</p>
 
 <br><br>
 </div>
