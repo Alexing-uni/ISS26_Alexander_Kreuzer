@@ -29,11 +29,11 @@ class Firefly1 ( name: String, scope: CoroutineScope, isconfined: Boolean=false,
 	override fun getBody() : (ActorBasicFsm.() -> Unit){
 		//val interruptedStateTransitions = mutableListOf<Transition>()
 		//IF actor.withobj !== null val actor.withobj.name� = actor.withobj.method�ENDIF
-		 var FlashPeriod = 1000L  
+		 var shouldSync = false  
 		return { //this:ActionBasciFsm
 				state("s0") { //this:State
 					action { //it:State
-						CommUtils.outyellow("$name | Luciernaga inicializada. Periodo: ${FlashPeriod}ms")
+						CommUtils.outyellow("$name | fase 0ms")
 						//genTimer( actor, state )
 					}
 					//After Lenzi Aug2002
@@ -43,20 +43,50 @@ class Firefly1 ( name: String, scope: CoroutineScope, isconfined: Boolean=false,
 				}	 
 				state("charging") { //this:State
 					action { //it:State
-						CommUtils.outyellow("$name | cargando...")
+						 shouldSync = false  
+						discardMessages = false
 						//genTimer( actor, state )
 					}
 					//After Lenzi Aug2002
 					sysaction { //it:State
 				 	 		stateTimer = TimerActor("timer_charging", 
-				 	 					  scope, context!!, "local_tout_"+name+"_charging", FlashPeriod )  //OCT2023
+				 	 					  scope, context!!, "local_tout_"+name+"_charging", 1000.toLong() )  //OCT2023
 					}	 	 
 					 transition(edgeName="t00",targetState="doFlash",cond=whenTimeout("local_tout_"+name+"_charging"))   
+					transition(edgeName="t01",targetState="perceiveFlash",cond=whenEvent("flash"))
+				}	 
+				state("perceiveFlash") { //this:State
+					action { //it:State
+						if( checkMsgContent( Term.createTerm("flash(ID)"), Term.createTerm("flash(ID)"), 
+						                        currentMsg.msgContent()) ) { //set msgArgList
+								 shouldSync = payloadArg(0) != name  
+						}
+						//genTimer( actor, state )
+					}
+					//After Lenzi Aug2002
+					sysaction { //it:State
+					}	 	 
+					 transition( edgeName="goto",targetState="doFlash", cond=doswitchGuarded({ shouldSync  
+					}) )
+					transition( edgeName="goto",targetState="charging", cond=doswitchGuarded({! ( shouldSync  
+					) }) )
 				}	 
 				state("doFlash") { //this:State
 					action { //it:State
 						CommUtils.outyellow("$name | *** FLASH! ***")
 						emit("flash", "flash(firefly1)" ) 
+						discardMessages = true
+						//genTimer( actor, state )
+					}
+					//After Lenzi Aug2002
+					sysaction { //it:State
+					}	 	 
+					 transition( edgeName="goto",targetState="refractory", cond=doswitch() )
+				}	 
+				state("refractory") { //this:State
+					action { //it:State
+						delay(200) 
+						discardMessages = false
 						//genTimer( actor, state )
 					}
 					//After Lenzi Aug2002
