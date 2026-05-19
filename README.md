@@ -39,6 +39,7 @@ Repository del corso Ingegneria dei Sistemi Software a.a. 2025/2026 - DISI - Uni
   * **Progetto it.unibo.virtualRobot2026** — DDR formalizzato + ambiente WebGL | [Codice Sorgente](it.unibo.virtualRobot2026) | 📄 [virtualRobot2026.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/it.unibo.virtualRobot2026/userDocs/virtualRobot2026.html)
   * **Progetto vrUsage26** — Esempi d'uso del VirtualRobot26 (BoundaryWalk, Step, TuneSteptime) | [Codice Sorgente](vrUsage26/src) | 📄 [vrUsage26.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/vrUsage26/userDocs/vrUsage26.html)
   * **Progetto Picow** — Raspberry Pi PICOW: sonar HC-SR04, LED firefly, WiFi/MQTT | [Codice Sorgente](Picow) | 📄 [Picow.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/Picow/userDocs/Picow.html)
+  * **Progetto boundaryworker** — DDRBoundary autonomo con mappa (base TemaFinale25) | [Codice Sorgente](boundaryworker/src) | 📄 [boundaryworker.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/boundaryworker/userDocs/boundaryworker.html)
 
 # Parte D: ConwayLife evolutivo
 

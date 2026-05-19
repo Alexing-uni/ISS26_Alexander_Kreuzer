@@ -1,0 +1,278 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>boundaryworker – DDRBoundary: perimetro autonomo con mappa</title>
+</head>
+
+<body>
+<div id="top">
+<h1>Progetto boundaryworker – DDRBoundary: perimetro autonomo con mappa</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.29'>DDRBoundary – Capitolo 29 del Protobook</a>
+<br>
+<b>Goal</b>: Realizzare un <b>worker QAK</b> che pilota un Differential Drive Robot (DDR, virtuale o fisico via PICOW) lungo il perimetro di una stanza rettangolare, partendo da HOME e fermandosi al ritorno a HOME. Il robot conosce la stanza tramite una <b>mappa</b> (RoomMap) e usa primitive di movimento di alto livello (step) anziche' comandi diretti del trasporto.
+
+<br><br>
+
+Il progetto e' il riferimento operativo della lezione del <b>19/05</b> ed e' la base concettuale del <b>TemaFinale25</b>: il cargorobot del progetto finale deve muoversi nella bodega seguendo logica analoga (HOME, riconoscimento posizione, ritorno autonomo).
+
+<h2>Requirements</h2>
+<pre>
+R1  Realizzare un componente software (boundaryworker) che, attivato da
+    un comando esterno, faccia percorrere al DDR il perimetro di una
+    stanza rettangolare vuota, fermandosi al ritorno a HOME.
+
+R2  Il sistema deve essere indipendente dalla tecnologia del DDR:
+    deve supportare sia il VirtualRobot26 (WebSocket) sia il robot
+    fisico controllato via Raspberry PICOW.
+
+R3  Il sistema deve disporre di una mappa interna della stanza
+    (RoomMap) caricata da file (tf25map.txt) che descrive ostacoli
+    e geometria.
+
+R4  Il sistema deve esporre un'interfaccia di alto livello
+    (IRobotBasicMoves: step, turn, halt) che nasconda i dettagli
+    del trasporto.
+
+R5  Il sistema deve essere collaudabile per fasi (sprint 0, requisiti,
+    map test, mappa finale) tramite quattro modelli .qaktt distinti.
+</pre>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p>
+    L'analisi parte dal requisito di <b>indipendenza dalla tecnologia</b>:
+    il worker non deve sapere se sotto c'e' un VirtualRobot o un PICOW.
+    Questo si ottiene introducendo un livello di adapter:
+</p>
+
+<ul>
+    <li>
+        <b><code>IRobotBasicMoves</code></b> — interfaccia comune (step,
+        turn, halt, ecc.).
+    </li>
+    <li>
+        <b><code>RobotObjForQak</code></b> — implementazione che incapsula
+        <code>RobotObj26</code> (WebSocket verso VirtualRobot) ed espone
+        l'interfaccia.
+    </li>
+    <li>
+        <b><code>PicoAdapter</code></b> — implementazione che traduce
+        comandi step/turn in messaggi MQTT verso il robot fisico PICOW.
+    </li>
+</ul>
+
+<p>
+    Un secondo aspetto e' la <b>conoscenza della stanza</b>: il worker
+    deve sapere quanto e' lunga ogni parete, dove sono gli ostacoli,
+    dove si trova HOME. Da qui le classi:
+</p>
+
+<ul>
+    <li><code>IRoomMap</code> — interfaccia della mappa</li>
+    <li><code>RoomMap</code> — implementazione (legge <code>tf25map.txt</code>)</li>
+    <li><code>Room</code> — POJO che rappresenta la stanza</li>
+    <li><code>MapUtil</code> — utility per parsing e indicizzazione</li>
+</ul>
+
+<br>
+
+<h2>Problem analysis</h2>
+<p>
+    Il problema progettuale principale e' la <b>scomposizione del comportamento</b>
+    in fasi crescenti di complessita'. Il progetto contiene quattro modelli QAK
+    che documentano operativamente il percorso di sviluppo:
+</p>
+
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Modello</th>
+        <th>Sprint</th>
+        <th>Cosa modella</th>
+    </tr>
+    <tr>
+        <td><code>boundaryworker_sprint0.qaktt</code></td>
+        <td>0</td>
+        <td>Comportamento base senza mappa: avvio, movimento ciclico, terminazione</td>
+    </tr>
+    <tr>
+        <td><code>boundaryworker_sprint0Req.qaktt</code></td>
+        <td>0+req</td>
+        <td>Sprint0 raffinato con requisiti formalizzati (whenEvent, transizioni)</td>
+    </tr>
+    <tr>
+        <td><code>boundaryworker_guimaptest.qaktt</code></td>
+        <td>map test</td>
+        <td>Integrazione con GUI per testare il caricamento della mappa</td>
+    </tr>
+    <tr>
+        <td><code>boundaryworker_finalmap.qaktt</code></td>
+        <td>finale</td>
+        <td>Soluzione finale che usa <code>tf25map.txt</code> e gestisce HOME</td>
+    </tr>
+</table>
+
+<p>
+    Un secondo problema e' il <b>messaging</b> tra worker e robot fisico
+    (quando si usa PICOW). Il worker emette eventi di alto livello
+    (<code>step</code>, <code>turn</code>) che <code>PicoAdapter</code>
+    traduce in messaggi <code>VrobotMsgs</code> trasportati via MQTT.
+</p>
+
+<pre>
+   +-------------------+      step/turn      +---------------+      MQTT      +--------+
+   |  boundaryworker   | -----------------&gt;  |  PicoAdapter  | -------------&gt; | PICOW  |
+   |     (QActor)      | &lt;-----------------  |               | &lt;------------- | + motor|
+   +-------------------+    done/blocked     +---------------+    sensor      +--------+
+                                                                 readings
+</pre>
+
+<br>
+
+<h2>Test plans</h2>
+<p>
+    Il collaudo procede in modo incrementale, sprint per sprint:
+</p>
+
+<ol>
+    <li>
+        <b>Sprint 0 (sprint0.qaktt):</b> avviare il worker con il
+        VirtualRobot26 attivo. Verificare che il DDR esegua 4 lati e
+        ritorni a HOME senza usare mappa (dimensioni hard-coded).
+    </li>
+    <li>
+        <b>Sprint 0 req (sprint0Req.qaktt):</b> verificare che gli stati
+        della FSM corrispondano formalmente ai requisiti scritti. Controllo
+        di copertura: ogni requisito deve essere implementato da almeno
+        una transizione.
+    </li>
+    <li>
+        <b>Map test (guimaptest.qaktt):</b> aprire <code>AdapterGui</code>;
+        caricare diverse versioni di <code>tf25map.txt</code> e verificare
+        che la mappa visualizzata corrisponda.
+    </li>
+    <li>
+        <b>Final map (finalmap.qaktt):</b> esecuzione completa con mappa
+        TemaFinale25, ritorno a HOME garantito.
+    </li>
+</ol>
+
+<br>
+
+<h2>Project</h2>
+
+<h3>Modelli QAK (src/)</h3>
+<ul>
+    <li><code>boundaryworker_sprint0.qaktt</code> — base senza mappa</li>
+    <li><code>boundaryworker_sprint0Req.qaktt</code> — versione con requisiti formalizzati</li>
+    <li><code>boundaryworker_guimaptest.qaktt</code> — test mappa con GUI</li>
+    <li><code>boundaryworker_finalmap.qaktt</code> — versione finale con tf25map</li>
+</ul>
+
+<h3>Adapter (utils/adapters/)</h3>
+<ul>
+    <li><code>AdapterGui.java</code> — adapter verso GUI di visualizzazione</li>
+    <li><code>OutInWs.java</code> — adapter WebSocket bidirezionale</li>
+    <li><code>PicoAdapter.java</code> — adapter MQTT verso Raspberry PICOW</li>
+</ul>
+
+<h3>Modello dominio (utils/location/, utils/robots/)</h3>
+<ul>
+    <li><code>IRoomMap.java</code>, <code>RoomMap.java</code> — interfaccia e implementazione mappa</li>
+    <li><code>Room.java</code>, <code>MapUtil.java</code> — geometria stanza</li>
+    <li><code>IRobotBasicMoves.java</code> — interfaccia comune ai DDR</li>
+    <li><code>RobotObj26.java</code> — wrapper VirtualRobot26</li>
+    <li><code>RobotObjForQak.java</code> — wrapper per uso in QAK</li>
+    <li><code>VrobotMsgs.java</code> — costanti messaggi</li>
+</ul>
+
+<h3>Configurazione</h3>
+<ul>
+    <li><code>tf25map.txt</code> — mappa stanza TemaFinale25 (cargo hold)</li>
+    <li><code>ddrboundary.pl</code>, <code>boundaryworker.pl</code> — sistemi Prolog</li>
+    <li><code>boundaryworkerarch.png</code>, <code>ddrboundaryarch.png</code> — diagrammi architetturali</li>
+</ul>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+    Il testing del worker si avvale di tre canali:
+</p>
+<ul>
+    <li>
+        <b>Test con VirtualRobot:</b> rapido, riproducibile. Si avvia la
+        scena WebGL e si lancia il worker. Il movimento appare in tempo
+        reale nel browser.
+    </li>
+    <li>
+        <b>Test con AdapterGui:</b> visualizza la mappa interna del worker.
+        Utile per debug della logica di RoomMap.
+    </li>
+    <li>
+        <b>Test con PICOW:</b> simile ma con robot fisico. Permette di
+        rilevare problemi reali (slittamento, derivazione, batteria).
+    </li>
+</ul>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+    Il progetto e' la <b>base di partenza per il TemaFinale25</b>. Le evoluzioni
+    naturali necessarie per soddisfare le specifiche TF25 sono:
+</p>
+<ul>
+    <li>
+        <b>Slot navigation:</b> sostituire il perimeter walk con una mossa
+        guidata verso uno dei 4 slot del cargo hold, leggendo la posizione
+        target dalla mappa.
+    </li>
+    <li>
+        <b>Pickup &amp; place:</b> aggiungere comandi <code>pickup</code> e
+        <code>place</code> al protocollo IRobotBasicMoves. Modellati come
+        operazioni atomiche (con stato di errore in caso di fallimento).
+    </li>
+    <li>
+        <b>Sonar integration:</b> il PicoAdapter espone gia' la primitiva
+        per ricevere letture del sonar HC-SR04. Va integrato come Event
+        all'interno del worker per gestire le interruzioni richieste dal TF25.
+    </li>
+    <li>
+        <b>Integration con cargoservice:</b> il boundaryworker diventa il
+        livello "movimento" del cargoservice, che invece gestisce request
+        di carico, stato della stanza, GUI web e fault management.
+    </li>
+</ul>
+
+<p>
+    Il valore di questo progetto e' che presenta in forma <b>didatticamente
+    pulita</b> la separazione fra modello QAK del comportamento e
+    realizzazione tecnologica del movimento. Riusarlo come componente
+    nel TemaFinale25 e' molto piu' efficace che reimplementare il
+    movimento da zero.
+</p>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>
