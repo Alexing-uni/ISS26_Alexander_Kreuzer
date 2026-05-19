@@ -1,0 +1,420 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>Analisi DDRBoundary – Requisiti, Modello e Domande di Disambiguazione</title>
+</head>
+
+<body>
+<div id="top">
+<h1>Analisi del Problema DDRBoundary con Radar</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.29'>DDRBoundary – Capitolo 29 del Protobook</a>
+<br>
+<b>Goal del documento</b>: Produrre l'analisi formale dei requisiti, le domande di disambiguazione e un primo modello concettuale del sistema DDRBoundary con interruzione da radar. Il documento e' inteso come <i>artefatto preliminare</i> da sottoporre al docente prima di procedere alla fase di progetto.
+
+<br><br>
+
+Il problema appartiene alla categoria dei sistemi di controllo reattivi: un Differential Drive Robot deve eseguire un compito autonomo (recorrer il perimetro di una stanza) tenendo conto di eventi esterni asincroni (intrusione rilevata da un radar). Si tratta del passaggio dal modello batch a un modello <b>Event-Driven</b> con interruzioni di alto livello.
+
+<h2>Requirements (specifica originale)</h2>
+<pre>
+Costruire un sistema di software che controlli un DDR in modo che:
+- partendo dalla posizione HOME, il robot percorra il perimetro di una
+  stanza rettangolare vuota;
+- il DDR si fermi al ritorno in HOME.
+
+Il sistema DDR e' sensibile ai dati rilevati da un radar.
+Quando il radar rileva un 'intruso' a distanza minore di una distanza
+prefissata DMIN:
+  - se il DDR e' in movimento, si ferma fino a quando il radar non
+    rileva piu' alcun intruso cosi' vicino;
+  - se il DDR e' fermo in HOME, ruota su se stesso fino a quando
+    l'intruso scompare.
+</pre>
+
+<br>
+
+<h2>Requirements formalizzati</h2>
+<p>
+    La specifica testuale e' stata scomposta in <b>requisiti atomici</b>
+    identificabili univocamente, classificati per tipo:
+</p>
+
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>ID</th>
+        <th>Requisito</th>
+        <th>Tipo</th>
+    </tr>
+    <tr>
+        <td><b>R1</b></td>
+        <td>Il DDR parte dalla posizione HOME e percorre il perimetro di una stanza rettangolare vuota.</td>
+        <td>Funzionale</td>
+    </tr>
+    <tr>
+        <td><b>R2</b></td>
+        <td>Il DDR si ferma quando rientra in HOME (rilevazione del completamento del giro).</td>
+        <td>Funzionale</td>
+    </tr>
+    <tr>
+        <td><b>R3</b></td>
+        <td>Il sistema e' sensibile in ogni istante ai dati del radar, indipendentemente dallo stato del DDR.</td>
+        <td>Funzionale (interrupt)</td>
+    </tr>
+    <tr>
+        <td><b>R4</b></td>
+        <td>Se DDR in movimento e D &lt; DMIN: arresto immediato del moto.</td>
+        <td>Comportamentale</td>
+    </tr>
+    <tr>
+        <td><b>R5</b></td>
+        <td>Se DDR fermo per intrusione e D ≥ DMIN: il moto riprende.</td>
+        <td>Comportamentale</td>
+    </tr>
+    <tr>
+        <td><b>R6</b></td>
+        <td>Se DDR in HOME (fermo a fine giro) e D &lt; DMIN: rotazione su se stesso.</td>
+        <td>Comportamentale</td>
+    </tr>
+    <tr>
+        <td><b>R7</b></td>
+        <td>Se DDR in HOME in rotazione e D ≥ DMIN: rotazione cessa e il DDR resta fermo in HOME.</td>
+        <td>Comportamentale</td>
+    </tr>
+    <tr>
+        <td><b>R8</b></td>
+        <td>Il sistema e' indipendente dalla tecnologia del DDR (virtuale o fisico via PICOW).</td>
+        <td>Non funzionale</td>
+    </tr>
+    <tr>
+        <td><b>R9</b></td>
+        <td>Il sistema espone primitive di alto livello (step, turn, halt) disaccoppiate dal trasporto sottostante.</td>
+        <td>Architetturale</td>
+    </tr>
+</table>
+
+<br>
+
+<h2>Domande di disambiguazione</h2>
+<p>
+    L'analisi della specifica ha evidenziato diversi punti che richiedono chiarimento prima della fase di modellazione. Le domande sono raggruppate per tema.
+</p>
+
+<h3>Conoscenza della stanza</h3>
+<ol>
+    <li>
+        Il DDR conosce <b>a priori</b> le dimensioni della stanza
+        (mappa caricata) oppure le scopre dinamicamente tramite
+        sensori (sonar/encoder)?
+    </li>
+    <li>
+        La stanza si assume <b>strettamente rettangolare</b> oppure
+        si vuole supportare anche perimetri irregolari?
+    </li>
+</ol>
+
+<h3>Comportamento di interruzione e ripresa</h3>
+<ol start="3">
+    <li>
+        All'arrivo di un evento "intruso" durante il moto:
+        la sospensione e' un <b>halt netto</b> sul posto, oppure
+        si deve completare la mossa atomica in corso (es. un step) prima di fermarsi?
+    </li>
+    <li>
+        Alla ripresa del moto: il robot <b>continua nella stessa direzione</b>
+        oppure ricomincia il giro da capo? Se continua, come tiene traccia
+        del punto di interruzione?
+    </li>
+    <li>
+        Se durante la sospensione il robot perde la propria posizione (es. e' stato spostato fisicamente):
+        come si gestisce questa situazione?
+    </li>
+</ol>
+
+<h3>Comportamento di rotazione in HOME</h3>
+<ol start="6">
+    <li>
+        La rotazione "su se stesso" e' <b>continua</b> mentre l'intruso e' vicino,
+        oppure il robot ruota di un angolo fisso (es. 90&deg;) e poi attende?
+    </li>
+    <li>
+        Il senso di rotazione e' <b>fisso</b> (sempre orario) o si puo' variare?
+        Variandolo, ci sarebbe una semantica di "intimidazione" piu' realistica?
+    </li>
+    <li>
+        Una volta tornata la calma (R7), il DDR rimane in HOME oppure ricomincia il giro?
+        La specifica suggerisce che <b>rimane fermo</b> ma non lo dice esplicitamente.
+    </li>
+</ol>
+
+<h3>Natura del radar</h3>
+<ol start="9">
+    <li>
+        Il radar e' un componente <b>distinto</b> dal sensore di navigazione del DDR
+        (es. sonar HC-SR04), oppure puo' essere lo stesso device riusato?
+    </li>
+    <li>
+        Il radar e' <b>fisso</b> in un punto della stanza o segue il DDR?
+    </li>
+    <li>
+        La distanza D del radar misura la presenza di <b>qualunque oggetto</b>
+        oppure il radar distingue gia' a livello hardware "intruso" vs "ostacolo statico"?
+    </li>
+    <li>
+        Frequenza di campionamento del radar? Latenza accettabile tra rilevazione e reazione?
+    </li>
+</ol>
+
+<h3>Edge cases e priorita'</h3>
+<ol start="13">
+    <li>
+        Se l'intruso si avvicina e poi si allontana in tempi inferiori a un campionamento,
+        si genera un evento valido? Si applica un'isteresi?
+    </li>
+    <li>
+        Esiste un <b>timeout</b> oltre il quale il sistema considera un guasto del radar
+        e cambia comportamento?
+    </li>
+    <li>
+        Priorita' relativa: se durante la sospensione per intruso arriva un comando esterno
+        (es. terminazione), cosa prevale?
+    </li>
+</ol>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p>
+    L'analisi dei requisiti formalizzati mette in luce quattro proprieta' chiave del sistema:
+</p>
+
+<ul>
+    <li>
+        <b>Reattivita'</b>: il radar e' un produttore di eventi asincroni che
+        possono interrompere qualunque attivita' in corso. Questo esclude
+        un'architettura batch a polling.
+    </li>
+    <li>
+        <b>Statefulness</b>: la reazione al radar dipende dallo stato attuale
+        del DDR (in moto vs in HOME). Il sistema richiede una FSM esplicita.
+    </li>
+    <li>
+        <b>Idempotenza degli eventi</b>: l'evento "intruso vicino" puo' arrivare
+        ripetutamente. Il sistema deve gestirlo come <i>condizione</i>, non come
+        <i>impulso</i>.
+    </li>
+    <li>
+        <b>Separazione delle responsabilita'</b>: il controllo del moto, la lettura
+        del radar e l'interazione con il robot fisico devono risiedere in attori
+        distinti per garantire testabilita' e riuso.
+    </li>
+</ul>
+
+<br>
+
+<h2>Problem analysis – modello QAK</h2>
+
+<h3>Identificazione degli attori</h3>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Attore</th>
+        <th>Responsabilita'</th>
+        <th>Tipo</th>
+    </tr>
+    <tr>
+        <td><code>ddrController</code></td>
+        <td>Cervello del sistema. Implementa la FSM di alto livello (HOME, MOVING, PAUSED, ROTATING). Riceve eventi dal radar e produce comandi per il robot.</td>
+        <td>QActor (FSM)</td>
+    </tr>
+    <tr>
+        <td><code>radar</code></td>
+        <td>Produttore di eventi di intrusione. Misura la distanza D continuamente e emette eventi quando D supera la soglia DMIN (in entrambe le direzioni).</td>
+        <td>QActor (con sensore o mock)</td>
+    </tr>
+    <tr>
+        <td><code>ddrAdapter</code></td>
+        <td>Adapter tra <code>ddrController</code> e la tecnologia DDR concreta (VirtualRobot26 via WebSocket o PICOW via MQTT). Espone <code>IRobotBasicMoves</code>.</td>
+        <td>Java/POJO incapsulato</td>
+    </tr>
+    <tr>
+        <td><code>roomMap</code></td>
+        <td>Modello della stanza: dimensioni, posizione HOME, perimetro. Permette al controller di sapere quando torna in HOME.</td>
+        <td>POJO domain object</td>
+    </tr>
+</table>
+
+<h3>Tipi di messaggio</h3>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Messaggio</th>
+        <th>Tipo QAK</th>
+        <th>Direzione</th>
+    </tr>
+    <tr>
+        <td><code>start</code></td>
+        <td>Dispatch</td>
+        <td>esterno → ddrController</td>
+    </tr>
+    <tr>
+        <td><code>intruderClose</code></td>
+        <td>Event</td>
+        <td>radar → ddrController (D &lt; DMIN)</td>
+    </tr>
+    <tr>
+        <td><code>intruderGone</code></td>
+        <td>Event</td>
+        <td>radar → ddrController (D ≥ DMIN)</td>
+    </tr>
+    <tr>
+        <td><code>moveStep</code></td>
+        <td>Request</td>
+        <td>ddrController → ddrAdapter</td>
+    </tr>
+    <tr>
+        <td><code>moveDone</code></td>
+        <td>Reply</td>
+        <td>ddrAdapter → ddrController</td>
+    </tr>
+    <tr>
+        <td><code>halt</code></td>
+        <td>Dispatch</td>
+        <td>ddrController → ddrAdapter</td>
+    </tr>
+    <tr>
+        <td><code>rotate</code></td>
+        <td>Dispatch</td>
+        <td>ddrController → ddrAdapter</td>
+    </tr>
+</table>
+
+<h3>FSM dell'attore ddrController</h3>
+
+<pre>
+                start
+   [INIT] -------------&gt; [MOVING]
+                            |  ^
+                            |  |  intruderGone
+                            |  |
+                            v  |
+                            +-----+
+              intruderClose       |
+                            |     |
+                            v     |
+                         [PAUSED] |
+                            ^     |
+                            +-----+
+
+   in MOVING, backToHome  -&gt; [HOME_IDLE]
+
+   [HOME_IDLE]
+        |
+        | intruderClose
+        v
+   [ROTATING] --intruderGone--&gt; [HOME_IDLE]
+</pre>
+
+<h3>Diagramma di interazione (caso felice + caso interrotto)</h3>
+<pre>
+  Caso felice (nessun intruso):
+
+   start  → MOVING → moveStep × N → backToHome → HOME_IDLE  → stop
+
+  Caso interrotto durante il moto:
+
+   start  → MOVING → moveStep → moveStep → intruderClose
+                                              ↓
+                                          PAUSED (halt)
+                                              ↓ intruderGone
+                                          MOVING (resume)
+                                              ↓
+                                          ... → backToHome → HOME_IDLE
+
+  Caso interrotto in HOME:
+
+   HOME_IDLE → intruderClose → ROTATING (rotate continua)
+                                  ↓ intruderGone
+                              HOME_IDLE (halt)
+</pre>
+
+<br>
+
+<h2>Test plans (anticipazione)</h2>
+<p>
+    Sebbene la progettazione definitiva sia successiva al riscontro del docente,
+    si anticipano le linee guida di collaudo:
+</p>
+
+<ol>
+    <li>
+        <b>Test del moto base (R1 + R2):</b> avviare il sistema senza radar attivo,
+        verificare che il robot percorra il perimetro e si fermi in HOME.
+    </li>
+    <li>
+        <b>Test interruzione (R3 + R4):</b> mentre il robot e' in moto, iniettare
+        un evento <code>intruderClose</code> dal mock del radar. Verificare halt immediato.
+    </li>
+    <li>
+        <b>Test ripresa (R5):</b> dopo il test 2, iniettare <code>intruderGone</code>.
+        Verificare ripresa del moto nella stessa direzione.
+    </li>
+    <li>
+        <b>Test rotazione in HOME (R6 + R7):</b> portare il robot in HOME (a fine giro),
+        iniettare intrusione. Verificare rotazione continua, e arresto al cessare dell'intrusione.
+    </li>
+    <li>
+        <b>Test condition vs impulse:</b> iniettare due <code>intruderClose</code> consecutivi
+        senza <code>intruderGone</code> intermedio. Il sistema deve restare in PAUSED, non oscillare.
+    </li>
+</ol>
+
+<br>
+
+<h2>Prossimi passi</h2>
+<p>
+    Il presente documento rappresenta la <b>Fase 1</b> del metodo (analisi dei requisiti
+    + prime tracce di modellazione). Il flusso di lavoro proposto e':
+</p>
+
+<ol>
+    <li>
+        Sottoporre al docente questo documento e la lista di domande di disambiguazione.
+    </li>
+    <li>
+        Recepire le risposte e raffinare i requisiti definitivi.
+    </li>
+    <li>
+        Completare il modello QAK dettagliato (.qak con tutti gli stati e transizioni).
+    </li>
+    <li>
+        Realizzazione del codice sul progetto <code>boundaryworker</code> esistente,
+        con verifica del test plan automatizzato.
+    </li>
+</ol>
+
+<p>
+    Il documento e' inteso come <b>artefatto vivo</b>: verra' aggiornato man mano che
+    le domande aperte trovano risposta e che il modello si stabilizza.
+</p>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>
