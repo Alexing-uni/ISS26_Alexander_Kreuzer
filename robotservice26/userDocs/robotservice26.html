@@ -1,0 +1,248 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>robotservice26 – Il robot come microservizio</title>
+</head>
+
+<body>
+<div id="top">
+<h1>Progetto robotservice26 – Il robot come microservizio</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.27'>Robot-as-a-Service – Capitolo 27 del Protobook</a>
+<br>
+<b>Goal</b>: Esporre il Differential Drive Robot (VirtualRobot26) come un <b>microservizio</b> raggiungibile via rete e osservabile via eventi. Il componente <code>robotservice26</code> incapsula il POJO <code>RobotObj26</code> dentro un QActor (<code>robotactor</code>) e definisce esplicitamente i messaggi-comando (Dispatch e Request) che un'applicazione puo' inviare al robot.
+
+<br><br>
+
+Il progetto e' il riferimento operativo della lezione del <b>20/05</b> ed e' la risposta alla problematica <b>P1</b> sollevata nell'analisi del DDRBoundary: "conviene usare RobotObj26 (POJO) o RobotService26 (servizio a messaggi)?". Questo progetto realizza la seconda alternativa, collocando il sistema nell'alveo dei <b>Sistemi a Microservizi</b>.
+
+<h2>Requirements</h2>
+<pre>
+R1  Esporre il VirtualRobot26 come servizio raggiungibile via rete,
+    in modo che client diversi possano comandarlo senza conoscere
+    i dettagli del trasporto WebSocket.
+
+R2  Definire esplicitamente i messaggi-comando del robot:
+       - move(M)      : mosse sincrone (l|r|a|d|h)
+       - cmd(MOVE,T)  : mosse asincrone (w|s) con reply
+       - step(TIME)   : mossa atomica di durata TIME
+
+R3  Rendere il robot OSSERVABILE: emettere eventi (vrinfo, sonardata,
+    sonaralarm) che i client di sistema possono sottoscrivere.
+
+R4  Disaccoppiare la logica applicativa (boundaryworker) dalla
+    tecnologia del robot tramite messaggi qak tipati.
+</pre>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p>
+    L'uso di <code>RobotService26</code> rispetto all'uso diretto di <code>RobotObj26</code>:
+</p>
+<ul>
+    <li>
+        <b>rende esplicite</b> le interazioni logiche tra applicazione e robot
+        (ogni comando e' un messaggio dichiarato nel modello qak);
+    </li>
+    <li>
+        <b>puo' introdurre ritardi</b> di rete, che pero' si annullano se il
+        servizio gira sullo stesso nodo dell'applicazione;
+    </li>
+    <li>
+        <b>colloca il sistema</b> nell'architettura a microservizi, dove ogni
+        componente e' un servizio autonomo a scambio di messaggi.
+    </li>
+</ul>
+
+<p>
+    Il <code>robotactor</code> e' al tempo stesso:
+</p>
+<ul>
+    <li><b>server di comandi</b>: riceve move/cmd/step ed agisce sul robot;</li>
+    <li><b>produttore di eventi</b>: si iscrive a se stesso (<code>subscribeTo robotactor for sonardata</code>) e ridistribuisce gli eventi del robot ai client di sistema.</li>
+</ul>
+
+<br>
+
+<h2>Problem analysis</h2>
+<p>
+    Il modello qak distingue tre semantiche di comando:
+</p>
+
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Messaggio</th>
+        <th>Tipo</th>
+        <th>Semantica</th>
+    </tr>
+    <tr>
+        <td><code>move(M)</code></td>
+        <td>Dispatch</td>
+        <td>Mossa sincrona fire-and-forget (l=left, r=right, a=avanti, d=dietro, h=halt)</td>
+    </tr>
+    <tr>
+        <td><code>cmd(MOVE,T)</code></td>
+        <td>Request/Reply</td>
+        <td>Mossa asincrona (w=walk, s=stop) con conferma <code>cmddone</code> o <code>cmdfailed</code></td>
+    </tr>
+    <tr>
+        <td><code>step(TIME)</code></td>
+        <td>Request/Reply</td>
+        <td>Mossa atomica di durata TIME ms con reply <code>stepdone</code>/<code>stepfailed</code></td>
+    </tr>
+</table>
+
+<p>
+    Gli eventi prodotti dal servizio:
+</p>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Evento</th>
+        <th>Origine</th>
+        <th>Uso</th>
+    </tr>
+    <tr>
+        <td><code>vrinfo(SOURCE,INFO)</code></td>
+        <td>VirtualRobot</td>
+        <td>Stream di stato del robot</td>
+    </tr>
+    <tr>
+        <td><code>sonardata(DISTANCE)</code></td>
+        <td>Sonar</td>
+        <td>Lettura grezza del sonar</td>
+    </tr>
+    <tr>
+        <td><code>sonaralarm(DISTANCE)</code></td>
+        <td>robotactor</td>
+        <td>Allarme per i client di sistema (es. boundaryworker)</td>
+    </tr>
+</table>
+
+<p>
+    Il POJO <code>RobotObjForQak</code> e' incapsulato nel QActor tramite la clausola
+    <code>withobj robot using "robots.RobotObjForQak(...)"</code>: questo e' il pattern QAK
+    per inserire oggetti Java dentro un attore (cap. 22.7 del Protobook).
+</p>
+
+<pre>
+QActor robotactor context ctxrobotservice26
+        withobj robot using "robots.RobotObjForQak(\"localhost\",myself,\"logs/robotactor.log\")" {
+    State s0 initial {
+        subscribeTo robotactor for sonardata
+        subscribeTo robotactor for vrinfo
+    }
+    Goto work
+    State work { }
+    Transition t0
+        whenMsg     move -> domove
+        whenRequest cmd  -> docmdreq
+        whenRequest step -> handleAsynchStep
+    ...
+}
+</pre>
+
+<br>
+
+<h2>Test plans</h2>
+<ol>
+    <li>
+        <b>Test del servizio standalone:</b> avviare il VirtualRobot26 (Node), poi
+        <code>robotservice26</code>. Verificare che il servizio si connetta al robot
+        (porta 8091) e si metta in attesa di comandi sulla porta 8125.
+    </li>
+    <li>
+        <b>Test comando sincrono:</b> inviare <code>move(a)</code> da un client.
+        Verificare che il robot avanzi nella scena 3D.
+    </li>
+    <li>
+        <b>Test comando asincrono con reply:</b> inviare <code>cmd(w,1000)</code>.
+        Verificare la ricezione di <code>cmddone</code>.
+    </li>
+    <li>
+        <b>Test step atomico:</b> inviare <code>step(345)</code> e verificare
+        <code>stepdone</code> con la durata effettiva.
+    </li>
+    <li>
+        <b>Test observability:</b> un client si iscrive a <code>vrinfo</code> e
+        <code>sonardata</code>; verificare la ricezione degli eventi in streaming.
+    </li>
+</ol>
+
+<br>
+
+<h2>Project</h2>
+<ul>
+    <li><code>src/robotservice26.qak</code> — modello QAK del servizio (robotactor)</li>
+    <li><code>src/it/unibo/robotactor/Robotactor.kt</code> — codice generato</li>
+    <li><code>src/it/unibo/ctxrobotservice26/MainCtxrobotservice26.kt</code> — entry point</li>
+    <li><code>utils/robots/RobotObjForQak.java</code> — POJO incapsulato nell'attore</li>
+    <li><code>utils/robots/RobotObj26.java</code> — wrapper del VirtualRobot26 (WebSocket 8091)</li>
+    <li><code>utils/robots/IRobotBasicMoves.java</code> — interfaccia comune delle mosse</li>
+    <li><code>utils/robots/VrobotMsgs.java</code> — costanti dei messaggi</li>
+    <li><code>robotservice26.pl</code>, <code>sysRules.pl</code> — sistema Prolog</li>
+    <li><code>Dockerfile</code> — deployment containerizzato del servizio</li>
+</ul>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+    Il servizio si avvia con <code>gradlew run</code> dopo aver acceso il VirtualRobot26.
+    Per il collaudo dei comandi si puo' usare un client qak (es. il <code>boundaryworker</code>
+    che dichiara <code>ExternalQActor robotactor context ctxrobotservice26</code>) oppure un
+    client WebSocket/HTTP diretto.
+</p>
+<p>
+    Il vantaggio rispetto a RobotObj26 e' che il contratto di interazione (i messaggi)
+    e' esplicito e verificabile: si puo' testare ogni comando in isolamento e osservare
+    la sequenza di eventi prodotta.
+</p>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+    <code>robotservice26</code> e' il livello di accesso al robot per il
+    <b>TemaFinale25</b>: il <code>cargoservice</code> comandera' il
+    <code>cargorobot</code> inviando esattamente questi messaggi (move, cmd, step)
+    e osservando gli eventi (vrinfo, sonardata).
+</p>
+<ul>
+    <li>
+        <b>Estensione comandi:</b> aggiungere <code>pickup</code> e <code>place</code>
+        come nuove Request per il caricamento dei container del TemaFinale.
+    </li>
+    <li>
+        <b>Deployment distribuito:</b> grazie al Dockerfile, il servizio puo' girare
+        su un nodo separato; basta cambiare l'<code>host</code> nel Context dei client.
+    </li>
+    <li>
+        <b>Integrazione sonar reale:</b> sostituire la sorgente di <code>sonardata</code>
+        con il PicoW fisico (o il mock <code>mockPicowRadar.py</code>) senza modificare
+        i client che consumano gli eventi.
+    </li>
+</ul>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>
