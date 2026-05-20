@@ -45,8 +45,7 @@ public class OutInWs implements IObserver{
     }
     
     private static final int MAX_RETRIES = 5;
-    private static final long RETRY_DELAY_MS = 2000;
-
+    private static final int RETRY_DELAY_MS = 2000;
     public void connectToRobotMind(String port) {
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
