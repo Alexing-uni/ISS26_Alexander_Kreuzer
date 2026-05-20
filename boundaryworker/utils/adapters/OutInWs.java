@@ -44,33 +44,42 @@ public class OutInWs implements IObserver{
         }    	   	
     }
     
+    private static final int MAX_RETRIES = 5;
+    private static final long RETRY_DELAY_MS = 2000;
+
     public void connectToRobotMind(String port) {
-    	try {
-        	
-//        	CommUtils.outcyan("OutInWs connectToRobotMind STARTED ---------------------------- " + port);
-        	//conn = ConnectionFactory.createClientSupport(ProtocolType.ws, "localhost:"+port, "wsupdates");
-        	if( CommUtils.getEnvvarValue("VIRTUAL_ENV") != null) { //In docker ...
-        		CommUtils.delay(4000); //Gve time to start the gui
-        		conn = WsConnection.create("robotoutgui25:"+port,"wsupdates");
-        	}
-        	else{
-        		conn = WsConnection.create("localhost:"+port,"wsupdates");
-        	}
-	        CommUtils.outcyan("               OutInWs connected to " + port);	        
-	        ((WsConnection) conn).addObserver(this); 		
-        } catch (Exception e) {
-        	CommUtils.outred("               connectToRobotMind | ERROR:" +e.getMessage());
-        	connectToRobotMind(  port );
-        }    	   	
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                if (CommUtils.getEnvvarValue("VIRTUAL_ENV") != null) { // In docker
+                    CommUtils.delay(4000);
+                    conn = WsConnection.create("robotoutgui25:" + port, "wsupdates");
+                } else {
+                    conn = WsConnection.create("localhost:" + port, "wsupdates");
+                }
+                CommUtils.outcyan("               OutInWs connected to " + port);
+                ((WsConnection) conn).addObserver(this);
+                return; // success
+            } catch (Exception e) {
+                CommUtils.outred("               connectToRobotMind | attempt " + attempt + "/" + MAX_RETRIES
+                        + " ERROR:" + e.getMessage());
+                if (attempt < MAX_RETRIES) {
+                    CommUtils.delay(RETRY_DELAY_MS);
+                }
+            }
+        }
+        CommUtils.outred("               connectToRobotMind | GIVE UP after " + MAX_RETRIES
+                + " attempts – GUI disabled (robotoutgui25 not available)");
+        conn = null; // GUI not available; send() will be a no-op
     }
     
     public void send(String msg) {
+        if (conn == null) return; // GUI not available – silently skip
         try {
-        	//CommUtils.outyellow("		OutInWs send " + msg );	   
-        	conn.forward(msg);   
+        	//CommUtils.outyellow("		OutInWs send " + msg );
+        	conn.forward(msg);
         } catch (Exception e) {
         	CommUtils.outred("               OutInWs | ERROR:" +e.getMessage());
-        }     	
+        }
     }
 
      
