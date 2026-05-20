@@ -89,7 +89,13 @@ def main():
     parser.add_argument("--period", type=float, default=PERIOD_S, help="intervallo tra campioni (secondi)")
     args = parser.parse_args()
 
-    client = mqtt.Client(client_id=CLIENT_ID)
+    # Compatibilita' paho-mqtt 1.x e 2.x:
+    # in 2.x il primo argomento e' CallbackAPIVersion
+    try:
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, client_id=CLIENT_ID)
+    except (AttributeError, TypeError):
+        client = mqtt.Client(client_id=CLIENT_ID)   # paho-mqtt 1.x
+
     try:
         client.connect(args.broker, args.port, keepalive=60)
     except Exception as e:
