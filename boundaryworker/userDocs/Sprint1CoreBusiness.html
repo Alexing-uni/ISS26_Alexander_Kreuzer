@@ -1,0 +1,195 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>DDRBoundary – Core Business e Piano di Testing (Sprint1)</title>
+</head>
+
+<body>
+<div id="top">
+<h1>DDRBoundary – Core Business e Piano di Testing (Sprint1)</h1>
+</div>
+
+<div class="body">
+
+<h2>Individuazione del Core Business</h2>
+
+<pre>
+<b>Domanda al committente:</b> e' corretto concordare che il 'core business' del
+sistema consiste in primo luogo nel far muovere il DDR lungo il perimetro
+della stanza, mentre il farlo reagire ai dati del radar e' secondario?
+
+<b>Risposta:</b> si', e' corretto. Ed e' anche corretto produrre in primo luogo
+un prototipo che si concentri solo sulla prima parte del problema (far muovere
+il DDR lungo il perimetro), lasciando la reazione ai dati del radar a una
+evoluzione successiva del primo prototipo.
+</pre>
+
+<h3>Goal dello Sprint1</h3>
+<div class="req">
+Realizzare il componente <b>boundaryworker</b> che, usando il servizio
+<b>RobotService26</b>, comandi il DDR a muoversi lungo il perimetro della stanza,
+partendo da HOME e fermandosi quando torna in HOME.<br><br>
+Si ignora, per ora, la presenza del radar e il requisito di reazione ai suoi dati.
+</div>
+
+<br>
+
+<h2>Piano di testing del Core Business</h2>
+<p>
+Limitando l'attenzione ai requisiti dello Sprint1, occorre definire un piano di
+testing che verifichi se il prototipo soddisfa tali requisiti. Il problema e':
+come specificare formalmente che, al termine dell'esecuzione, il boundaryworker
+ha effettivamente mosso il DDR lungo il perimetro?
+</p>
+<p>
+Si puo' eseguire il prototipo e <i>osservare</i> il movimento, ma serve un modo
+piu' <b>formale</b> che consenta un <b>test automatico</b>. L'esecuzione
+automatizzata dei test e' un requisito implicito nello sviluppo di ogni sistema software.
+</p>
+
+<h3>Una 'mappa mentale' della stanza</h3>
+<p>
+Per formalizzare il requisito di movimento serve una rappresentazione piu' ricca
+della matrice <code>room</code> (che e' solo una griglia logica, ma non rappresenta
+i movimenti). Serve una <b>mappa mentale</b>: una rappresentazione che il
+boundaryworker costruisce e aggiorna in conseguenza ai movimenti che comanda al DDR.
+</p>
+
+<div class="remark">
+<b>Perche' 'mentale'?</b><br>
+Perche' non e' direttamente collegata alla realta' fisica: e' cio' che il
+boundaryworker <i>pensa</i> sia lo stato della stanza in base ai comandi che ha dato.
+Il test verifica se questa convinzione corrisponde alla realta'.
+</div>
+
+<p>Significato dei simboli della mappa:</p>
+<pre>
+0 : cella mai esplorata dal robot
+X : cella impegnata da un ostacolo
+1 : cella percorsa dal robot e trovata libera
+r : cella occupata dal robot (posizione attuale)
+</pre>
+
+<p><b>Mappa mentale attesa</b> al termine di un giro completo del perimetro
+(stanza 6x5, robot tornato in HOME):</p>
+<pre>
+r 1 1 1 1
+1 0 0 0 1
+1 0 0 0 1
+1 0 0 0 1
+1 0 0 0 1
+1 1 1 1 1
+DIR -> DOWN
+</pre>
+
+<h3>Piano di testing informale</h3>
+<p>1. Il boundaryworker parte con la mappa mentale iniziale (tutto inesplorato, robot in HOME):</p>
+<pre>
+r 0 0 0 0
+0 0 0 0 0
+0 0 0 0 0
+0 0 0 0 0
+0 0 0 0 0
+0 0 0 0 0
+DIR -> DOWN
+</pre>
+
+<p>2. Il boundaryworker esegue uno step elementare in avanti. 'Pensa' che lo step
+lo porti a occupare la cella sottostante. La mappa mentale evolve cosi' (e deve
+corrispondere alla mossa effettiva del DDR, spostato di una cella in basso):</p>
+<pre>
+1 0 0 0 0
+r 0 0 0 0
+0 0 0 0 0
+0 0 0 0 0
+0 0 0 0 0
+0 0 0 0 0
+DIR -> DOWN
+</pre>
+
+<p>3. Ripetendo step e turn lungo i 4 lati, al ritorno in HOME la mappa mentale
+finale deve coincidere con la <b>mappa attesa</b> mostrata sopra. Il test e'
+<b>superato</b> se e solo se:</p>
+<pre>
+mappaMentaleFinale  ==  mappaAttesa
+</pre>
+
+<br>
+
+<h2>Strumenti di supporto</h2>
+
+<h3>Utility robotoutgui25</h3>
+<p>
+Il progetto <b>robotoutgui25</b> (distribuito come immagine Docker
+<code>natbodocker/robotoutgui25:1.0</code>) fornisce una GUI che affianca:
+</p>
+<ul>
+    <li>a sinistra: la <b>scena del robot</b> (VirtualRobot26);</li>
+    <li>a destra: una <b>griglia di celle</b> che rappresenta la mappa mentale corrente.</li>
+</ul>
+<p>
+Ogni movimento che il boundaryworker comanda al DDR aggiorna anche la mappa mentale
+(e quindi la GUI). Questo consente:
+</p>
+<ul>
+    <li>un feedback visivo immediato della corrispondenza movimento DDR &harr; evoluzione mappa;</li>
+    <li>il confronto tra mappa mentale finale e mappa attesa, per stabilire se il test e' superato.</li>
+</ul>
+
+<h3>Attivazione con vrWithGui26.yaml</h3>
+<p>
+Il file DockerCompose <code>vrWithGui26.yaml</code> avvia insieme il servizio
+VirtualRobot26 e la GUI robotoutgui25:
+</p>
+<pre>
+services:
+  wenv:                                   # VirtualRobot26
+    image: docker.io/natbodocker/virtualrobotdisi26:1.0
+    ports: [ 8090:8090, 8091:8091 ]
+  robotoutgui25:                          # GUI mappa mentale
+    image: docker.io/natbodocker/robotoutgui25:1.0
+    ports: [ 8085:8085 ]
+networks:
+  iss-network:
+    external: true
+</pre>
+<pre>
+docker network create iss-network
+docker-compose -f vrWithGui26.yaml up
+...
+docker-compose down
+</pre>
+
+<br>
+
+<h2>Verso il test automatico</h2>
+<p>
+La mappa mentale rende il test <b>automatizzabile</b>: invece di osservare a occhio
+il movimento, il boundaryworker costruisce la matrice durante l'esecuzione e, al
+termine, la confronta programmaticamente con quella attesa. Il risultato e' un
+booleano (<code>PASS</code>/<code>FAIL</code>) integrabile in JUnit o nel log di
+collaudo.
+</p>
+<p>
+Questo soddisfa il requisito implicito di <b>testing automatizzabile</b> richiesto
+nello sviluppo di ogni sistema software, e prepara il terreno allo Sprint2
+(reazione ai dati del radar).
+</p>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>
