@@ -14,39 +14,42 @@
 
 <h2>Requirements</h2>
 <p>
-Una compagnia di trasporto marittimo (<i>company</i>) intende automatizzare le operazioni di
-carico dei prodotti nella stiva (<i>hold</i>) di una nave. A questo scopo intende utilizzare un
-<b>Differential Drive Robot</b> (<i>cargorobot</i>) per il carico di prodotti, contenuti in
-container di dimensioni predefinite.
+Una compagnia di trasporto marittimo (<i>company</i>) intende automatizzare il carico
+di prodotti nella stiva (<i>hold</i>) di una nave, impiegando un
+<b>Differential Drive Robot</b> (<i>cargorobot</i>).
 </p>
 <p>
-I prodotti sono registrati in un servizio esterno (<i>productservice</i>), che ne memorizza il
-<b>peso</b> e restituisce un identificatore univoco <code>PID</code> (intero positivo).
+I prodotti vanno posti in container di dimensioni predefinite e registrati &mdash; specificando
+il peso &mdash; in un database tramite un servizio dedicato (<i>productservice</i>), che
+restituisce un identificatore univoco <code>PID</code> (numero naturale, <code>PID &gt; 0</code>).
 </p>
 <p>
 La stiva e' un'area rettangolare piatta con una porta di input/output (<i>IOPort</i>) e
-<b>4 slot</b> per i container, piu' un'area aggiuntiva (<i>slot5</i>) <b>permanentemente occupata</b>.
-Di fronte all'IOPort un <b>sonar</b> rileva l'arrivo di un container quando misura una distanza
-<code>D &lt; DFREE/2</code> per un tempo ragionevole (es. 3 secondi).
+<b>4 slot</b> per i container; l'area <i>slot5</i> e' permanentemente occupata, gli altri
+slot sono inizialmente vuoti. Di fronte all'IOPort un <b>sonar</b> rileva la presenza di un
+container quando misura una distanza <code>D &lt; DFREE/2</code> per un tempo ragionevole
+(es. 3 secondi).
 </p>
 
-<p>La compagnia richiede un sistema software (<b>cargoservice</b>) che:</p>
+<p>La compagnia chiede di costruire un sistema software (<b>cargoservice</b>) che:</p>
 <ol>
-<li>Riceva richieste di carico (<code>loadRequest</code>) per un PID gia' registrato.
-    La richiesta viene <b>rifiutata</b> se:
+<li>riceva la richiesta di caricare nella stiva un container con prodotto gia' registrato
+    nel productservice. La richiesta e' rifiutata se:
     <ul>
-        <li>il peso del prodotto supera la capacita' residua (<code>MaxLoad</code>);</li>
-        <li>tutti i 4 slot sono occupati.</li>
+        <li>il peso del prodotto e' troppo alto rispetto al carico massimo della nave
+            <code>MaxLoad &gt; 0</code> kg;</li>
+        <li>la stiva e' gia' piena (4 slot occupati).</li>
     </ul>
-    Se accettata, il cargoservice riserva uno slot, restituisce il suo nome,
-    e attende che il container arrivi al IOPort. Nel frattempo non elabora altre richieste.
-</li>
-<li>Rilevi la presenza del container al IOPort tramite il sonar.</li>
-<li>Garantisca che il cargorobot porti il container nello slot riservato.
-    Al termine: cargorobot torna a HOME, cargoservice pronto per la prossima richiesta.</li>
-<li>Mostri lo stato corrente della stiva in una <b>web-gui</b> aggiornata dinamicamente.</li>
-<li><b>Interrompa ogni attivita'</b> e accenda un <b>LED</b> se il sonar misura <code>D &gt; DFREE</code>
-    per almeno 3 secondi (sospetto guasto sonar). Il servizio riprende quando <code>D &le; DFREE</code>.</li>
+    Se accettata, il cargoservice associa uno slot al PID e ne restituisce il nome; attende
+    quindi che il container venga consegnato all'IOPort. Nel frattempo, le altre richieste
+    non vengono elaborate.</li>
+<li>rilevi (tramite il sonar) la presenza del container all'IOPort;</li>
+<li>garantisca che il container sia depositato dal cargorobot nello slot riservato.
+    Al termine il cargorobot torna a HOME e il cargoservice puo' elaborare un'altra richiesta;</li>
+<li>mostri lo stato corrente della stiva in una <b>web-gui</b> aggiornata dinamicamente;</li>
+<li>interrompa ogni attivita' e accenda un <b>LED</b> se il sonar misura <code>D &gt; DFREE</code>
+    per almeno 3 secondi (sospetto guasto sonar). Le attivita' riprendono non appena
+    <code>D &le; DFREE</code>.</li>
 </ol>
 
 <br>
