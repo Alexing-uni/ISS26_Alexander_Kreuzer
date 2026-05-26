@@ -44,6 +44,148 @@ presenta un 'abstraction gap' rispetto a quanto sviluppato fino ad ora.
 
 <br>
 
+<h2>Componenti necessari per il sistema (HW + SW)</h2>
+
+<p>
+    Prima di analizzare l'abstraction gap conviene censire <i>tutti</i> i
+    componenti coinvolti, distinguendo HW, infrastruttura SW, progetti
+    gia' importati e progetti ancora da creare.
+</p>
+
+<h3>Hardware (o sostituibile con mock)</h3>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Componente</th>
+        <th>Ruolo nel TF25</th>
+        <th>Stato</th>
+    </tr>
+    <tr>
+        <td>Raspberry Pi <b>PicoW</b></td>
+        <td>MCU del sonar IOPort + comando LED di failure</td>
+        <td>Sostituibile con <code>mockPicowRadar.py</code></td>
+    </tr>
+    <tr>
+        <td>Sonar <b>HC-SR04</b></td>
+        <td>Misura distanza <code>D</code> dal container in arrivo</td>
+        <td>Mock disponibile (genera D ciclica 8-120 cm)</td>
+    </tr>
+    <tr>
+        <td><b>LED</b> (GPIO Picow)</td>
+        <td>Indicatore di sospetto guasto sonar (D &gt; DFREE per 3s)</td>
+        <td>Da integrare nel firmware Picow + topic MQTT dedicato</td>
+    </tr>
+    <tr>
+        <td>Rete Wi-Fi</td>
+        <td>Connessione PicoW &harr; broker MQTT</td>
+        <td>Qualsiasi rete locale</td>
+    </tr>
+    <tr>
+        <td>PC host</td>
+        <td>Esecuzione di tutti i servizi (Docker + JVM + broker)</td>
+        <td>Il tuo</td>
+    </tr>
+</table>
+
+<h3>Infrastruttura software (sul PC host)</h3>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Software</th>
+        <th>A cosa serve</th>
+        <th>Stato</th>
+    </tr>
+    <tr>
+        <td><b>Docker Desktop</b></td>
+        <td>Esecuzione di VirtualRobot26 e robotoutgui25</td>
+        <td>Installato e attivo</td>
+    </tr>
+    <tr>
+        <td>Java JDK 17+ + <b>Gradle</b></td>
+        <td>Compilazione ed esecuzione dei progetti QAK (gradlew)</td>
+        <td>Funzionante (4/4 progetti compilano)</td>
+    </tr>
+    <tr>
+        <td>Node.js (opzionale)</td>
+        <td>Esecuzione del VirtualRobot senza Docker</td>
+        <td>Installato</td>
+    </tr>
+    <tr>
+        <td>Python 3 + <code>paho-mqtt</code></td>
+        <td>Esecuzione del mock PicoW Radar</td>
+        <td>Configurato</td>
+    </tr>
+    <tr>
+        <td><b>Mosquitto</b> MQTT broker</td>
+        <td>Trasporto degli eventi sonardata e dei comandi qak via MQTT</td>
+        <td>Da avviare (<code>mosquitto -p 1883</code>)</td>
+    </tr>
+</table>
+
+<h3>Progetti gia' presenti nel repo</h3>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Progetto</th>
+        <th>A cosa serve nel TF25</th>
+    </tr>
+    <tr>
+        <td><code>it.unibo.virtualRobot2026</code> (immagine Docker)</td>
+        <td>Sara' il <b>cargorobot</b> virtuale per lo sviluppo</td>
+    </tr>
+    <tr>
+        <td><code>robotservice26</code></td>
+        <td>Capa a basso livello del robot (move, cmd, step)</td>
+    </tr>
+    <tr>
+        <td><code>robotsmart26</code></td>
+        <td>Capa di pianificazione del cargorobot (moverobot TX,TY con A*)</td>
+    </tr>
+    <tr>
+        <td><code>robotsmart26usage</code></td>
+        <td>Pattern di interazione che il cargoservice riusera'</td>
+    </tr>
+    <tr>
+        <td><code>boundaryworker</code> (incl. <code>Radaractor.kt</code>)</td>
+        <td>Prototipo di reazione al sonar (Sprint2 boundary + radar)</td>
+    </tr>
+    <tr>
+        <td><code>Picow</code> + <code>mockPicowRadar.py</code></td>
+        <td>Sorgente di eventi sonardata (HW o mock)</td>
+    </tr>
+    <tr>
+        <td><code>robotoutgui25</code> (immagine Docker)</td>
+        <td>Base per la web-gui dello stato hold</td>
+    </tr>
+</table>
+
+<h3>Da creare per completare il TF25</h3>
+<table style="margin-left:10px;">
+    <tr style="background:#fde6e0;">
+        <th>Nuovo progetto / componente</th>
+        <th>Cosa fa</th>
+    </tr>
+    <tr>
+        <td><code>cargoservice26</code></td>
+        <td>FSM principale: gestisce loadRequest, vincoli MaxLoad/slot, orchestra il cargorobot</td>
+    </tr>
+    <tr>
+        <td><code>productservice26</code> (mock o reale)</td>
+        <td>DB di prodotti: dato un PID restituisce il peso (REST/CoAP/MQTT)</td>
+    </tr>
+    <tr>
+        <td>Estensione di <code>robotsmart26</code></td>
+        <td>Aggiungere comandi <code>pickup(PID)</code> e <code>place(SLOT)</code></td>
+    </tr>
+    <tr>
+        <td>Estensione GUI (o <code>cargogui</code>)</td>
+        <td>Vista a 4 slot etichettati con PID/peso + indicatore LED</td>
+    </tr>
+    <tr>
+        <td>Watchdog sonar</td>
+        <td>Timer su D &gt; DFREE per 3s &rarr; comando LED on + sospensione</td>
+    </tr>
+</table>
+
+<br>
+
 <h2>Cosa abbiamo gia' &ndash; mapping verso i requisiti TF25</h2>
 
 <table style="margin-left:10px;">
