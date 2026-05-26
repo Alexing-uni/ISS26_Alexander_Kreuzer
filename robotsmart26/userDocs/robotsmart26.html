@@ -1,0 +1,258 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>robotsmart26 &ndash; Robot intelligente con pianificazione A*</title>
+</head>
+
+<body>
+<div id="top">
+<h1>Progetto robotsmart26 &ndash; Robot intelligente con pianificazione A*</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.30'>Robotsmart &ndash; Capitolo 30 del Protobook</a>
+<br>
+<b>Goal</b>: Evoluzione del <code>boundaryworker</code> verso un <b>robot intelligente</b> capace di pianificare e seguire un percorso da una posizione corrente a una posizione obiettivo, evitando ostacoli. Il sistema usa l'algoritmo <b>A*</b> per la pianificazione, mantiene una <b>mappa mentale</b> dell'ambiente e gestisce in modo robusto interruzioni dovute al sonar o a collisioni.
+
+<br><br>
+
+Il progetto e' il riferimento operativo della lezione del <b>26/05</b>. Estende il modello visto nel <code>boundaryworker</code> (che si limitava a percorrere il perimetro) introducendo:
+<ul>
+    <li>un <b>pianificatore</b> A* che produce piani come stringhe di mosse <code>w/l/r</code>;</li>
+    <li>una <b>memoria</b> del robot (<code>robotmnemo</code>) che incapsula il VirtualRobot e mantiene aggiornata la posa;</li>
+    <li>un <b>esecutore di piani</b> (<code>planexec</code>) che traduce un piano in richieste step/move e gestisce le interruzioni.</li>
+</ul>
+
+<h2>Requirements</h2>
+<pre>
+R1  Dato uno stato corrente (X,Y,DIR) e un obiettivo (TX,TY), il sistema
+    deve produrre un piano di mosse atomiche (w=walk, l=left, r=right)
+    che porti il robot da (X,Y) a (TX,TY) evitando gli ostacoli della
+    mappa.
+
+R2  Il sistema deve eseguire un piano richiedendo al VirtualRobot le
+    mosse atomiche e aggiornare la mappa mentale ad ogni step.
+
+R3  Se durante l'esecuzione si verifica un fallimento (stepfailed) o un
+    allarme (sonardata), il sistema deve interrompere il piano e
+    rispondere al chiamante con il piano gia' eseguito e quello rimasto.
+
+R4  Il sistema deve essere comandabile via messaggi qak:
+       - moverobot(TX,TY,T)  : muove dal corrente al target
+       - buildPlan(PX,PY,TX,TY) : solo costruisce il piano (no esecuzione)
+       - doplan(PLAN,T)      : esegue un piano gia' costruito
+</pre>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p>
+    L'evoluzione rispetto al <code>boundaryworker</code> richiede di
+    separare tre responsabilita' distinte:
+</p>
+<ul>
+    <li>
+        <b>Strategia</b> (cosa fare): scegliere il percorso da seguire.
+        Questa e' la <i>componente cognitiva</i> del robot, realizzata con A*.
+    </li>
+    <li>
+        <b>Esecuzione</b> (come farlo): tradurre il piano in mosse
+        elementari e iterare finche' il piano e' completato.
+    </li>
+    <li>
+        <b>Effettuazione</b> (farlo davvero): inviare comandi al
+        VirtualRobot e mantenere coerente la mappa mentale.
+    </li>
+</ul>
+
+<p>
+    Ognuna di queste responsabilita' diventa un <b>QActor distinto</b>, con
+    interazioni esplicite tramite messaggi tipati. La separazione e' importante
+    perche':
+</p>
+<ul>
+    <li>permette di sostituire il pianificatore (A* &rarr; altro) senza toccare l'esecuzione;</li>
+    <li>permette di sostituire il robot fisico senza toccare la strategia;</li>
+    <li>rende il sistema testabile per parti.</li>
+</ul>
+
+<br>
+
+<h2>Problem analysis</h2>
+<p>
+    L'architettura e' a <b>tre QActor</b> nel contesto <code>ctxrobotsmart</code> (porta 8020):
+</p>
+
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>QActor</th>
+        <th>Ruolo</th>
+        <th>Stato interno principale</th>
+    </tr>
+    <tr>
+        <td><code>robotsmart</code></td>
+        <td>Front-end intelligente. Riceve moverobot/buildPlan, calcola piano con A* e delega l'esecuzione.</td>
+        <td><code>planner: AStarPathfinding</code>, target corrente</td>
+    </tr>
+    <tr>
+        <td><code>robotmnemo</code></td>
+        <td>Memoria + accesso al robot. Incapsula VRObjForQak e RobotPosUtils, esegue mosse atomiche, mantiene la posa.</td>
+        <td><code>robot: VRObjForQak</code>, <code>rpos: RobotPosUtils</code></td>
+    </tr>
+    <tr>
+        <td><code>planexec</code></td>
+        <td>Esecutore di piani. Itera sulle mosse w/l/r, sospende su allarme/fallimento.</td>
+        <td><code>Plan</code>, <code>PlanOrig</code>, <code>CurMoveTodo</code></td>
+    </tr>
+</table>
+
+<p>
+    I tre attori comunicano tramite messaggi <b>delegati</b> (clausola <code>delegate</code> in <code>robotsmart</code>):
+</p>
+
+<pre>
+delegate step, move, tuneAtHome, getrobotstate to robotmnemo
+delegate doplan                                to planexec
+</pre>
+
+<p>
+    Il flusso tipico di un <code>moverobot(TX,TY,T)</code>:
+</p>
+
+<pre>
+client &mdash;&gt; robotsmart : moverobot(TX,TY,T)
+robotsmart &mdash;&gt; robotmnemo : setdirection(down)  // riallinea
+robotmnemo &mdash;&gt; robotsmart : setdirectiondone(pos(PX,PY))
+robotsmart : Plan = planner.planForGoal(PX,PY,TX,TY)
+robotsmart &mdash;&gt; planexec : doplan(Plan,T)
+loop:
+   planexec &mdash;&gt; robotmnemo : step(T) | move(l|r)
+   robotmnemo &mdash;&gt; planexec : stepdone | (stepfailed -&gt; planinterruptedobstacle)
+planexec &mdash;&gt; robotsmart : doplandone(PlanOrig) | doplanfailed(Plantodo)
+robotsmart &mdash;&gt; client : moverobotdone(ok) | moverobotfailed(done,todo)
+</pre>
+
+<p>
+    Il <code>robotmnemo</code> e' sottoscritto a <code>sonardata</code> e
+    <code>vrinfo</code>: ad ogni step verifica la risposta del VirtualRobot
+    (<code>vrinfo(S,R)</code>) e, se <code>S</code> contiene <code>"ko"</code>,
+    risponde <code>stepfailed</code> &mdash; che il <code>planexec</code>
+    intercetta interrompendo il piano.
+</p>
+
+<br>
+
+<h2>Test plans</h2>
+<ol>
+    <li>
+        <b>Test del pianificatore in isolamento:</b> inviare
+        <code>buildPlan(0,0,2,1)</code> a robotsmart con una mappa nota e
+        verificare la stringa di mosse prodotta (es. <code>"wlw"</code>).
+    </li>
+    <li>
+        <b>Test esecuzione di un piano dato:</b> inviare
+        <code>doplan("wwwlwww", 345)</code> direttamente a planexec e
+        verificare l'arrivo di <code>doplandone(wwwlwww)</code>.
+    </li>
+    <li>
+        <b>Test integrato moverobot:</b> inviare
+        <code>moverobot(3,2,345)</code> a robotsmart e verificare che il
+        robot raggiunga (3,2) sulla scena 3D e nella mappa mentale.
+    </li>
+    <li>
+        <b>Test interruzione su sonar:</b> con un ostacolo simulato dal
+        mock PicoW, verificare che durante un piano lungo l'alarm
+        produca <code>doplanfailed</code> con il piano residuo.
+    </li>
+    <li>
+        <b>Test target irraggiungibile:</b> inviare
+        <code>moverobot</code> a una cella circondata da ostacoli e
+        verificare che il pianificatore restituisca piano vuoto e
+        scatti <code>noplan(obstacle)</code>.
+    </li>
+</ol>
+
+<br>
+
+<h2>Project</h2>
+<ul>
+    <li><code>src/robotsmart26.qak</code> &mdash; modello QAK dei 3 attori</li>
+    <li><code>src/it/unibo/robotsmart/Robotsmart.kt</code> &mdash; codice generato (front-end)</li>
+    <li><code>src/it/unibo/robotmnemo/Robotmnemo.kt</code> &mdash; codice generato (memoria)</li>
+    <li><code>src/it/unibo/planexec/Planexec.kt</code> &mdash; codice generato (esecutore)</li>
+    <li><code>src/it/unibo/ctxrobotsmart/MainCtxrobotsmart.kt</code> &mdash; entry point</li>
+    <li><code>utils/planning/AStarPathfinding.java</code> &mdash; algoritmo A*</li>
+    <li><code>utils/planning/Node.java</code> &mdash; nodo della griglia per A*</li>
+    <li><code>utils/location/RoomMap.java</code> &mdash; rappresentazione della stanza</li>
+    <li><code>utils/smart/RobotPosUtils.java</code> &mdash; tracking della posa</li>
+    <li><code>utils/robots/VRObjForQak.java</code> &mdash; wrapper VirtualRobot per QAK</li>
+    <li><code>utils/gui/AdapterGuiForMindrep.java</code>, <code>OutInWsGuimap.java</code> &mdash; ponte verso robotoutgui25</li>
+    <li><code>robotsmart26.pl</code>, <code>sysRules.pl</code> &mdash; sistema Prolog</li>
+    <li><code>Dockerfile</code>, <code>yamls/</code> &mdash; deployment containerizzato</li>
+</ul>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+    Il servizio si avvia con <code>gradlew run</code> dopo aver acceso il
+    VirtualRobot (8090/8091) e, se si vuole la mappa mentale, la GUI
+    <code>robotoutgui25</code> (8085). Per il collaudo dei comandi si puo'
+    usare il progetto <b>robotsmart26usage</b> che dichiara robotsmart e
+    robotmnemo come <code>ExternalQActor</code> e invia mosse via MQTT.
+</p>
+<p>
+    Il vantaggio rispetto a <code>boundaryworker</code> e' che il sistema
+    e' adesso un <b>servizio orientato al goal</b>: il client esprime
+    "voglio andare in (TX,TY)" e il sistema sceglie autonomamente come.
+</p>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+    <code>robotsmart26</code> e' il livello di "intelligenza locale" del
+    robot per il <b>TemaFinale25</b>: il <code>cargorobot</code> sara'
+    comandato con <code>moverobot</code> per i tragitti tra le posizioni
+    di carico/scarico, e con <code>buildPlan</code> per la simulazione di
+    rotte alternative.
+</p>
+<ul>
+    <li>
+        <b>Pianificatore pluggable:</b> l'<code>AStarPathfinding</code>
+        e' iniettato in <code>robotsmart.s0</code>: sostituirlo con un
+        Dijkstra o un BFS richiede solo di cambiare la classe.
+    </li>
+    <li>
+        <b>Mappa dinamica:</b> oggi <code>RoomMap</code> e' caricata da
+        <code>tf25map.txt</code>. Per il TemaFinale si puo' aggiungere
+        <code>updateMap(X,Y,OBSTACLE)</code> per registrare ostacoli
+        scoperti a runtime.
+    </li>
+    <li>
+        <b>Integrazione MQTT/CoAP:</b> il progetto e' gia' predisposto
+        per ricevere comandi via MQTT (vedi robotsmart26usage) e per
+        esporre la propria risorsa via CoAP (porta 8020).
+    </li>
+</ul>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>

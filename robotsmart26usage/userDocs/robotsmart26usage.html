@@ -1,0 +1,230 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>robotsmart26usage &ndash; Esempi d'uso del Robotsmart26</title>
+</head>
+
+<body>
+<div id="top">
+<h1>Progetto robotsmart26usage &ndash; Esempi d'uso del Robotsmart26</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+
+<a href='https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.30'>Robotsmart &ndash; Capitolo 30 del Protobook</a>
+<br>
+<b>Goal</b>: Mostrare come un client esterno usa <code>robotsmart26</code> come <b>servizio di robot intelligente</b>. Il progetto e' il riferimento operativo della lezione del <b>26/05</b> e contiene quattro modelli QAK distinti, ciascuno illustra un pattern d'interazione diverso con il robot smart.
+
+<br><br>
+
+I quattro modelli condividono lo stesso elenco di messaggi qak (moverobot, buildPlan, doplan, step, move, setdirection, getrobotstate) ma differiscono nel modo in cui invocano i comandi: invio diretto, pubblicazione MQTT, oppure orchestrazione di un percorso complesso.
+
+<h2>Requirements</h2>
+<pre>
+R1  Mostrare l'uso di robotsmart26 come servizio esterno (ExternalQActor),
+    senza far girare i suoi attori nello stesso contesto del client.
+
+R2  Validare i tre canali di interazione disponibili:
+       - messaggi qak diretti (forward/request);
+       - publish MQTT sul topic dell'attore destinatario;
+       - via proxy di contesto (ctxrobotsmart su porta 8020).
+
+R3  Coprire i casi d'uso tipici del TemaFinale25:
+       - boundary walk via robotsmart  (robotsmart26boundary);
+       - posizionamento ad una cella   (robotsmart26placetopos);
+       - comandi via broker MQTT       (robotsmart26Mqtt);
+       - oscillazione left/right       (robotsmart26usage).
+</pre>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p>
+    L'uso di <code>robotsmart26</code> come <code>ExternalQActor</code> rispetto
+    all'inclusione diretta dei suoi sorgenti:
+</p>
+<ul>
+    <li>
+        <b>disaccoppia il client</b> dalla logica di pianificazione: il
+        client conosce solo il contratto dei messaggi (cap. 30 Protobook),
+        non l'implementazione A*;
+    </li>
+    <li>
+        <b>permette deployment distribuito</b>: robotsmart puo' girare su
+        un altro nodo (basta cambiare l'host in <code>ctxrobotsmart</code>);
+    </li>
+    <li>
+        <b>abilita lo stesso client a parlare con robot reali o virtuali</b>:
+        il client non sa se VRObjForQak sta dietro un VirtualRobot o un
+        BasicRobot fisico.
+    </li>
+</ul>
+
+<p>
+    Il pattern e' lo stesso del <code>boundaryworker</code> che usa
+    <code>robotservice26</code>: ogni livello di astrazione e' un servizio
+    autonomo a messaggi.
+</p>
+
+<br>
+
+<h2>Problem analysis</h2>
+<p>
+    Il client gira nel contesto <code>ctxrobotsmartusage</code> (porta 8120),
+    diverso dal contesto del servizio (<code>ctxrobotsmart</code> porta 8020).
+    Per inviare messaggi a robotsmart il client puo' usare due canali:
+</p>
+
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Canale</th>
+        <th>Quando usarlo</th>
+        <th>Sintassi nel modello QAK</th>
+    </tr>
+    <tr>
+        <td>Proxy di contesto (TCP)</td>
+        <td>Comando puntuale, attesa di reply</td>
+        <td><code>request robotsmart -m moverobot : moverobot(2,3,345)</code></td>
+    </tr>
+    <tr>
+        <td>Publish MQTT</td>
+        <td>Comando broadcast, integrazione con sistemi esterni</td>
+        <td><code>publish(tL.toString(), "unibo/qak/robotsmart")</code></td>
+    </tr>
+</table>
+
+<p>
+    Mappa dei quattro modelli inclusi:
+</p>
+
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Modello</th>
+        <th>Cosa dimostra</th>
+    </tr>
+    <tr>
+        <td><code>robotsmart26usage.qaktt</code></td>
+        <td>Oscillazione del robot pubblicando <code>move(l)/move(r)</code> su MQTT verso <i>robotsmart</i> e poi verso <i>robotmnemo</i>.</td>
+    </tr>
+    <tr>
+        <td><code>robotsmart26boundary.qaktt</code></td>
+        <td>Esecuzione di un percorso perimetrale tramite <code>moverobot</code> ad angoli successivi.</td>
+    </tr>
+    <tr>
+        <td><code>robotsmart26placetopos.qaktt</code></td>
+        <td>Comando <code>moverobot(TX,TY,T)</code> per portare il robot in una posizione data.</td>
+    </tr>
+    <tr>
+        <td><code>robotsmart26Mqtt.qaktt</code></td>
+        <td>Variante full-MQTT: tutti i comandi sono pubblicati sul broker.</td>
+    </tr>
+</table>
+
+<br>
+
+<h2>Test plans</h2>
+<ol>
+    <li>
+        <b>Setup ambiente:</b> VirtualRobot (Docker o Node) attivo su 8091,
+        broker MQTT (mosquitto) su 1883, robotsmart26 attivo su 8020,
+        eventualmente robotoutgui25 su 8085 per vedere la mappa mentale.
+    </li>
+    <li>
+        <b>Test oscillazione (robotsmart26usage):</b> avviare il client e
+        verificare che il robot ruoti left poi right, due volte di seguito.
+    </li>
+    <li>
+        <b>Test placetopos:</b> robotsmart riceve <code>moverobot(2,3,345)</code>,
+        il pianificatore costruisce un piano, planexec lo esegue, il
+        client riceve <code>moverobotdone(ok)</code>.
+    </li>
+    <li>
+        <b>Test boundary:</b> il client richiede una sequenza di
+        moverobot verso i 4 angoli della stanza e verifica che ogni
+        risposta sia <code>moverobotdone</code>.
+    </li>
+    <li>
+        <b>Test MQTT puro:</b> usare un client MQTT esterno (es. mosquitto_pub)
+        sul topic <code>unibo/qak/robotsmart</code> per inviare un comando
+        e verificare che robotsmart lo riceva.
+    </li>
+</ol>
+
+<br>
+
+<h2>Project</h2>
+<ul>
+    <li><code>src/robotsmart26usage.qaktt</code> &mdash; modello oscillazione MQTT</li>
+    <li><code>src/robotsmart26boundary.qaktt</code> &mdash; modello boundary walk via robotsmart</li>
+    <li><code>src/robotsmart26placetopos.qaktt</code> &mdash; modello posizionamento</li>
+    <li><code>src/robotsmart26Mqtt.qaktt</code> &mdash; variante full-MQTT</li>
+    <li><code>src/clients/RobotsmartCoapClient.java</code> &mdash; client CoAP diretto al servizio robotsmart</li>
+    <li><code>src/it/unibo/ctxrobotsmartusage/MainCtxrobotsmartusage.kt</code> &mdash; entry point</li>
+    <li><code>src/it/unibo/robotsnartusage/Robotsnartusage.kt</code> &mdash; attore client generato</li>
+</ul>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+    Avviare prima il VirtualRobot e robotsmart26 (vedi
+    <code>robotsmart26.html</code>), poi questo client con
+    <code>gradlew run</code>. Il modello attivo dipende dal contenuto di
+    <code>robotsmart26usage.pl</code>: cambiare la clausola
+    <code>qactor</code> per scegliere tra i 4 modelli sopra.
+</p>
+<p>
+    Il vantaggio di avere quattro modelli separati e' che ognuno isola un
+    pattern: oscillazione (test di un comando elementare via MQTT),
+    boundary (test di una sequenza di goal), placetopos (test di un
+    singolo goal), Mqtt (test del canale di trasporto). E' utile per
+    individuare quale livello rompe quando qualcosa non funziona.
+</p>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+    Per il <b>TemaFinale25</b>, il <code>cargoservice</code> giochera' il
+    ruolo di questo client: inviera' a robotsmart le richieste
+    <code>moverobot</code> verso le posizioni di carico/scarico container.
+    Le interazioni saranno esattamente quelle dei quattro modelli qui
+    raccolti, in particolare <code>robotsmart26placetopos</code>.
+</p>
+<ul>
+    <li>
+        <b>Nuovi pattern d'uso:</b> aggiungere un .qaktt che orchestra
+        una sequenza pickup &rarr; moverobot &rarr; place, simulando un
+        ciclo cargo completo.
+    </li>
+    <li>
+        <b>Tolleranza ai guasti:</b> testare il caso
+        <code>moverobotfailed(done,todo)</code> e definire come il client
+        replica il comando con il piano residuo.
+    </li>
+    <li>
+        <b>Multi-robot:</b> usare i topic MQTT
+        <code>unibo/qak/robotsmart-N</code> per istanziare piu' robot smart
+        addressabili separatamente.
+    </li>
+</ul>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>

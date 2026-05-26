@@ -1,0 +1,219 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>TemaFinale25 &ndash; Analisi dell'Abstraction Gap (WORK TODO 20/05)</title>
+</head>
+
+<body>
+<div id="top">
+<h1>TemaFinale25 &ndash; Analisi dell'Abstraction Gap</h1>
+</div>
+
+<div class="body">
+
+<h2>Domanda del committente (WORK TODO 20/05)</h2>
+
+<pre>
+Analisi dei requisiti del TemaFinale25 al fine di capire se il tema
+presenta un 'abstraction gap' rispetto a quanto sviluppato fino ad ora.
+</pre>
+
+<p>
+    Per <i>abstraction gap</i> si intende la distanza concettuale tra i
+    costrutti (messaggi, attori, risorse) di cui il sistema sviluppato
+    finora dispone, e i concetti che il <code>cargoservice</code> del
+    TemaFinale25 deve manipolare.
+</p>
+
+<h2>Sintesi del TemaFinale25</h2>
+<p>
+    Una compagnia marittima vuole automatizzare il carico di
+    <i>product containers</i> in 4 <b>slot</b> di una stiva (<i>hold</i>).
+    Un <b>cargorobot</b> (DDR) preleva il container dall'<b>IOPort</b>
+    e lo deposita nello slot riservato dal <b>cargoservice</b>. Vincoli:
+</p>
+<ul>
+    <li>peso totale &le; <code>MaxLoad</code>;</li>
+    <li>4 slot al massimo (uno permanentemente occupato);</li>
+    <li>il sonar all'IOPort segnala l'arrivo del container quando <code>D &lt; DFREE/2</code> per 3 sec;</li>
+    <li>se <code>D &gt; DFREE</code> per 3 sec &rarr; sospetto guasto sonar &rarr; LED on, attivita' sospese;</li>
+    <li>al termine, il cargorobot torna a HOME e il cargoservice e' pronto per la richiesta successiva;</li>
+    <li>web-gui aggiornata in tempo reale.</li>
+</ul>
+
+<br>
+
+<h2>Cosa abbiamo gia' &ndash; mapping verso i requisiti TF25</h2>
+
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Bisogno del TF25</th>
+        <th>Componente gia' disponibile</th>
+        <th>Coperto?</th>
+    </tr>
+    <tr>
+        <td>DDR fisico/virtuale comandabile a basso livello</td>
+        <td><code>VirtualRobot26</code> + <code>RobotObj26</code></td>
+        <td>SI'</td>
+    </tr>
+    <tr>
+        <td>Robot esposto come servizio (move/cmd/step)</td>
+        <td><code>robotservice26</code></td>
+        <td>SI'</td>
+    </tr>
+    <tr>
+        <td>Robot intelligente goal-oriented (moverobot TX,TY)</td>
+        <td><code>robotsmart26</code> (planner A* + mappa + memoria)</td>
+        <td>SI'</td>
+    </tr>
+    <tr>
+        <td>Boundary walk per esplorazione iniziale</td>
+        <td><code>boundaryworker</code></td>
+        <td>SI'</td>
+    </tr>
+    <tr>
+        <td>Mappa mentale e visualizzazione griglia</td>
+        <td><code>robotoutgui25</code> (Docker)</td>
+        <td>SI' (generica)</td>
+    </tr>
+    <tr>
+        <td>Sonar HW + pubblicazione MQTT</td>
+        <td><code>Picow</code> + <code>mockPicowRadar.py</code></td>
+        <td>SI'</td>
+    </tr>
+    <tr>
+        <td>Interazione richiesta-risposta via TCP/CoAP/MQTT</td>
+        <td>Infrastruttura QAK (Context, Dispatch, Request, Event)</td>
+        <td>SI'</td>
+    </tr>
+</table>
+
+<br>
+
+<h2>Abstraction gap &ndash; cosa manca</h2>
+
+<table style="margin-left:10px;">
+    <tr style="background:#fde6e0;">
+        <th>Concetto TF25</th>
+        <th>Astrazione mancante</th>
+        <th>Dove andrebbe aggiunto</th>
+    </tr>
+    <tr>
+        <td>Prelievo/deposito di un container</td>
+        <td>
+            <b>pickup(PID)</b> e <b>place(SLOT)</b>: oggi il robot sa solo
+            muoversi e ruotare, non c'e' alcun comando di manipolazione.
+        </td>
+        <td><code>robotservice26</code> (livello hw) &rarr; nuovo Request<br>
+            <code>robotsmart26</code> (livello smart) &rarr; pickupAndPlace(PID,SLOT)</td>
+    </tr>
+    <tr>
+        <td>Slot della stiva</td>
+        <td>
+            <b>Hold model</b>: 4 slot identificati, ognuno occupied/free,
+            con peso del container ospitato.
+        </td>
+        <td><code>cargoservice</code> (POJO <i>HoldState</i>)</td>
+    </tr>
+    <tr>
+        <td>Vincolo peso massimo</td>
+        <td>
+            <b>WeightLedger</b>: somma corrente + maxLoad, regola
+            d'accettazione delle richieste.
+        </td>
+        <td><code>cargoservice</code> (business logic)</td>
+    </tr>
+    <tr>
+        <td>Identita' del prodotto (PID)</td>
+        <td>
+            <b>productservice client</b>: lookup di un PID per ottenere il
+            peso (oggi non esiste nessuna integrazione DB).
+        </td>
+        <td><code>cargoservice</code> &rarr; client HTTP/CoAP verso productservice</td>
+    </tr>
+    <tr>
+        <td>Sonar all'IOPort (statico, non a bordo)</td>
+        <td>
+            <b>IOPortDetector</b>: filtro sui dati MQTT che riconosce
+            "container presente per 3 sec con D &lt; DFREE/2".
+            Oggi <code>mockPicowRadar</code> e' tarato per "intruso" a bordo.
+        </td>
+        <td>Nuovo QActor <code>iosensor</code> in <code>cargoservice</code></td>
+    </tr>
+    <tr>
+        <td>Failure detection sonar &rarr; LED on</td>
+        <td>
+            <b>Watchdog del sonar</b>: timer su D &gt; DFREE per 3 sec con
+            attivazione GPIO LED via MQTT.
+        </td>
+        <td><code>cargoservice</code> + nuovo topic MQTT per LED Picow</td>
+    </tr>
+    <tr>
+        <td>Stato della stiva sulla web-gui</td>
+        <td>
+            <b>Hold view</b>: oggi robotoutgui25 mostra una griglia di
+            celle colorate, non slot etichettati con PID/peso.
+        </td>
+        <td>Nuova GUI dedicata (es. <code>cargogui</code>) o estensione
+        di robotoutgui25 con vista a slot.</td>
+    </tr>
+    <tr>
+        <td>Coordinamento richiesta-attivita'-fine</td>
+        <td>
+            <b>Sessione di carico</b>: stato "in attesa container",
+            "trasporto in corso", "robot a HOME". Le altre richieste
+            sono rifiutate in queste fasi.
+        </td>
+        <td><code>cargoservice</code> (FSM principale)</td>
+    </tr>
+</table>
+
+<br>
+
+<h2>Conclusione</h2>
+<p>
+    Esiste un <b>abstraction gap reale ma circoscritto</b>. La parte
+    infrastrutturale (DDR a basso livello, robot come servizio, pianificazione,
+    sonar via MQTT, GUI a celle) e' interamente coperta da quanto sviluppato:
+    si tratta dei progetti <code>robotservice26</code>, <code>robotsmart26</code>,
+    <code>boundaryworker</code>, <code>Picow</code>/mock e <code>robotoutgui25</code>.
+</p>
+<p>
+    Cio' che manca e' un <b>livello applicativo</b> (il <code>cargoservice</code>
+    stesso) che introduca:
+</p>
+<ol>
+    <li>i due nuovi comandi <b>pickup</b> e <b>place</b> nel contratto del robot;</li>
+    <li>il modello di dominio <b>HoldState</b> con i 4 slot;</li>
+    <li>la business logic dei <b>vincoli</b> (MaxLoad, slot disponibili);</li>
+    <li>un <b>watchdog</b> dedicato al sonar dell'IOPort con LED actuator;</li>
+    <li>una <b>vista a slot</b> per la stiva (estensione GUI).</li>
+</ol>
+
+<p>
+    Tutti questi elementi sono <i>componibili</i> sopra l'infrastruttura
+    esistente senza modificarne i contratti: il <code>cargoservice</code>
+    sara' un client di <code>robotsmart26</code> esattamente come oggi
+    <code>boundaryworker</code> e' un client di <code>robotservice26</code>.
+    L'<i>abstraction gap</i> e' quindi un gap <b>di dominio</b>, non di
+    <b>infrastruttura</b>: si copre aggiungendo nuovi QActor e nuovi
+    messaggi al modello, non riprogettando quelli esistenti.
+</p>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>
