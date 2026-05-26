@@ -1,0 +1,303 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>TemaFinale25 &ndash; Analisi dei Requisiti (Fase 1)</title>
+</head>
+
+<body>
+<div id="top">
+<h1>TemaFinale25 &ndash; Analisi dei Requisiti</h1>
+</div>
+
+<div class="body">
+
+<h2>Requirements</h2>
+<p>
+Una compagnia di trasporto marittimo (<i>company</i>) intende automatizzare le operazioni di
+carico dei prodotti nella stiva (<i>hold</i>) di una nave. A questo scopo intende utilizzare un
+<b>Differential Drive Robot</b> (<i>cargorobot</i>) per il carico di prodotti, contenuti in
+container di dimensioni predefinite.
+</p>
+<p>
+I prodotti sono registrati in un servizio esterno (<i>productservice</i>), che ne memorizza il
+<b>peso</b> e restituisce un identificatore univoco <code>PID</code> (intero positivo).
+</p>
+<p>
+La stiva e' un'area rettangolare piatta con una porta di input/output (<i>IOPort</i>) e
+<b>4 slot</b> per i container, piu' un'area aggiuntiva (<i>slot5</i>) <b>permanentemente occupata</b>.
+Di fronte all'IOPort un <b>sonar</b> rileva l'arrivo di un container quando misura una distanza
+<code>D &lt; DFREE/2</code> per un tempo ragionevole (es. 3 secondi).
+</p>
+
+<p>La compagnia richiede un sistema software (<b>cargoservice</b>) che:</p>
+<ol>
+<li>Riceva richieste di carico (<code>loadRequest</code>) per un PID gia' registrato.
+    La richiesta viene <b>rifiutata</b> se:
+    <ul>
+        <li>il peso del prodotto supera la capacita' residua (<code>MaxLoad</code>);</li>
+        <li>tutti i 4 slot sono occupati.</li>
+    </ul>
+    Se accettata, il cargoservice riserva uno slot, restituisce il suo nome,
+    e attende che il container arrivi al IOPort. Nel frattempo non elabora altre richieste.
+</li>
+<li>Rilevi la presenza del container al IOPort tramite il sonar.</li>
+<li>Garantisca che il cargorobot porti il container nello slot riservato.
+    Al termine: cargorobot torna a HOME, cargoservice pronto per la prossima richiesta.</li>
+<li>Mostri lo stato corrente della stiva in una <b>web-gui</b> aggiornata dinamicamente.</li>
+<li><b>Interrompa ogni attivita'</b> e accenda un <b>LED</b> se il sonar misura <code>D &gt; DFREE</code>
+    per almeno 3 secondi (sospetto guasto sonar). Il servizio riprende quando <code>D &le; DFREE</code>.</li>
+</ol>
+
+<br>
+
+<h2>Analisi dei requisiti</h2>
+<p>
+<b>Goal</b>: formalizzare le entita' del dominio escludendo le ambiguita' del linguaggio
+naturale ed esprimendole in un linguaggio comprensibile a un computer (dichiarazioni
+Java per il dominio + modello qak per le interazioni).
+</p>
+
+<h3>Entita' formalizzate</h3>
+
+<p><b>Product</b> &mdash; oggetto registrato nel productservice, identificato da PID e peso:</p>
+<pre>
+public class Product {
+    int    pid;     // &gt; 0, assegnato da productservice
+    double weight;  // kg
+}
+</pre>
+
+<p><b>ProductService</b> &mdash; servizio esterno che fa da database dei prodotti:</p>
+<pre>
+public interface IProductService {
+    int     register( double weight );  // restituisce PID univoco
+    Product lookup( int pid );          // restituisce Product o null
+}
+</pre>
+
+<p><b>Slot</b> &mdash; area di stoccaggio nominata della stiva:</p>
+<pre>
+public class Slot {
+    String  name;          // "slot1" .. "slot4", "slot5"
+    int     posX, posY;    // posizione nella mappa (celle DR x DR)
+    boolean occupied;
+    Integer occupantPid;   // null se libero
+    boolean permanent;     // true solo per slot5
+}
+</pre>
+
+<p><b>Hold</b> &mdash; aggregato dei 4 slot caricabili + slot5 permanente, con vincolo MaxLoad:</p>
+<pre>
+public class Hold {
+    Slot[]  slots;         // 5 elementi: 4 caricabili + slot5 permanente
+    double  maxLoad;       // kg, costante
+    double  currentLoad;   // somma dei pesi dei container presenti
+    String  reserve( Product p );    // restituisce slotName o null se non possibile
+    void    confirmPlaced( String slotName, int pid );
+    void    free( String slotName );
+}
+</pre>
+
+<p><b>CargoRobot</b> &mdash; DDR a basso livello (gia' disponibile come VirtualRobot26).
+Le mosse base e i comandi di pianificazione sono gia' formalizzati in
+<code>robotservice26</code> e <code>robotsmart26</code>:</p>
+<pre>
+//gia' nei progetti esistenti
+Request moverobot : moverobot(TARGETX, TARGETY, STEPTIME)   //robotsmart26
+Request step      : step(TIME)                              //robotservice26
+Dispatch move     : move(M)  "M = l|r|a|d|h"                //robotservice26
+</pre>
+
+<p><b>Sonar (IOPort)</b> &mdash; sensore stazionario di fronte all'IOPort, realizzato dal
+PicoW (o dal mock <code>mockPicowRadar.py</code>), che pubblica via MQTT:</p>
+<pre>
+topic  : mqttdemotopic
+payload: msg(sonardata, event, picow, none, sonardata(D), 0)
+   D : distanza in cm (intero positivo)
+</pre>
+
+<p><b>IOPortDetector</b> &mdash; filtra il flusso sonar e riconosce "container presente":</p>
+<pre>
+condizione  : D &lt; DFREE/2 per almeno 3 secondi consecutivi
+evento out  : containerAtIOPort()
+</pre>
+
+<p><b>Watchdog sonar</b> &mdash; rileva il sospetto guasto:</p>
+<pre>
+condizione  : D &gt; DFREE per almeno 3 secondi consecutivi
+azione      : ledOn() + sospensione di tutte le attivita' cargoservice
+ripristino  : D &le; DFREE -&gt; ledOff() + ripresa
+</pre>
+
+<p><b>WebGui</b> &mdash; vista a 4 slot etichettati con PID e peso, piu' indicatore LED.</p>
+
+<h3>Struttura: sistema distribuito su 5 nodi</h3>
+<ul>
+    <li>nodo <b>PicoW</b> (sonar IOPort + LED actuator) &mdash; o il mock Python;</li>
+    <li>nodo <b>productservice</b> (DB esterno dei prodotti);</li>
+    <li>nodo <b>cargoservice</b> (FSM principale + IOPortDetector + watchdog);</li>
+    <li>nodo <b>robotsmart26</b> (capa di pianificazione + esecuzione comandi al robot);</li>
+    <li>nodo <b>VirtualRobot26</b> (DDR virtuale, Docker).</li>
+</ul>
+<p>
+Trattandosi di componenti logicamente (micro)servizi a scambio di messaggi, formalizziamo
+la struttura con il linguaggio <b>qak</b>.
+</p>
+
+<br>
+
+<h2>Un modello dei requisiti</h2>
+<p>
+Il <code>cargoservice</code> e' il componente centrale: <b>proattivo</b> (gestisce sessioni di
+carico e coordina cargorobot) e <b>reattivo</b> (ai dati sonar dell'IOPort e al sospetto guasto).
+Lo modelliamo come QActor accompagnato da due QActor di supporto: <code>iosensor</code>
+(filtro container) e <code>sonarwatch</code> (watchdog guasti).
+</p>
+
+<pre>
+System cargoservice26
+
+//---- contratto del cargoservice verso il mondo esterno
+Request  loadRequest   : loadRequest(PID)
+Reply    loadAccepted  : loadAccepted(SLOT)     for loadRequest
+Reply    loadRejected  : loadRejected(REASON)   for loadRequest  "REASON=overweight|holdfull|unknownpid|suspended"
+
+//---- eventi di sistema (interni)
+Event    containerAtIOPort : containerAtIOPort()    "iosensor: D&lt;DFREE/2 per 3s"
+Event    sonarSuspect      : sonarSuspect()         "sonarwatch: D&gt;DFREE per 3s"
+Event    sonarOk           : sonarOk()              "sonarwatch: D&le;DFREE"
+
+//---- comandi al cargorobot (delegati a robotsmart26)
+Request  moverobot     : moverobot(TX,TY,T)         "gia' in robotsmart26"
+//Eventuali nuovi comandi di manipolazione (vedi P1):
+Request  pickup        : pickup(PID,IOPORTX,IOPORTY)
+Reply    pickupDone    : pickupDone(PID)            for pickup
+Request  place         : place(PID,SLOTX,SLOTY)
+Reply    placeDone     : placeDone(SLOT)            for place
+
+//---- comandi all'attuatore LED (verso il PicoW)
+Dispatch ledOn         : ledOn()
+Dispatch ledOff        : ledOff()
+
+Context ctxcargo       ip [host="localhost" port=8030]
+Context ctxrobotsmart  ip [host="localhost" port=8020]
+Context ctxproductsvc  ip [host="localhost" port=8040]
+
+ExternalQActor robotsmart  context ctxrobotsmart
+ExternalQActor productsvc  context ctxproductsvc
+
+QActor cargoservice context ctxcargo
+        withobj hold using "domain.Hold(maxLoad, slotLayout)" {
+    // FSM principale:
+    //   ready --loadRequest--&gt; reserved --containerAtIOPort--&gt; moving
+    //   moving --placeDone--&gt; returningHome --moverobotdone--&gt; ready
+    //   * --sonarSuspect--&gt; suspended --sonarOk--&gt; (stato precedente)
+}
+
+QActor iosensor context ctxcargo {
+    //sottoscrive il topic MQTT del sonar
+    //applica il filtro 'D&lt;DFREE/2 per 3s' -&gt; emit containerAtIOPort
+}
+
+QActor sonarwatch context ctxcargo {
+    //sottoscrive il topic MQTT del sonar
+    //applica il filtro 'D&gt;DFREE per 3s' -&gt; emit sonarSuspect / sonarOk
+    //pubblica ledOn/ledOff verso il PicoW (o stampa a video nel mock)
+}
+</pre>
+
+<br>
+
+<h2>Domande aperte al committente</h2>
+<pre>
+<b>D1.</b> Posizione di slot5: il quinto slot e' una posizione (X,Y) fissa e nota a priori,
+    oppure il cargoservice la scopre interrogando la mappa all'avvio?
+
+<b>D2.</b> Vincolo MaxLoad: "product-weight evaluated too high" significa
+    <i>(a)</i> currentLoad + weight &gt; MaxLoad (vincolo cumulativo) oppure
+    <i>(b)</i> weight &gt; MaxLoad (vincolo per-container)?
+
+<b>D3.</b> Hold pieno: se i 4 slot sono occupati, la loadRequest e' rifiutata
+    definitivamente o accodata fino a quando uno slot si libera (operazione
+    di scarico non prevista nella spec)?
+
+<b>D4.</b> Dimensione dei container: "predefined dimensions" significa che ogni
+    container occupa esattamente 1 cella della mappa (1xDR x 1xDR), oppure
+    puo' occupare piu' celle? Se piu' celle, qual e' la forma?
+
+<b>D5.</b> Posizione dell'IOPort: e' una cella fissa nota o e' un parametro
+    della mappa (es. caricato dal file tf25map.txt)?
+
+<b>D6.</b> Comportamento in "suspended" (LED on): durante il sospetto guasto sonar,
+    una loadRequest in arrivo va rifiutata con REASON=suspended, accodata,
+    oppure il canale di richiesta e' chiuso?
+
+<b>D7.</b> Persistenza dello stato hold: dopo riavvio del cargoservice, lo stato
+    della stiva si recupera da DB / file, oppure si parte sempre da
+    "hold vuoto + slot5 occupato"?
+
+<b>D8.</b> Pickup automatico vs manuale: il cargorobot preleva fisicamente il container
+    dall'IOPort (richiede attuatore di presa, non presente in VirtualRobot26)
+    oppure simuliamo il pickup come "il robot e' arrivato al IOPort, viene
+    caricato dall'operatore, poi parte verso lo slot"?
+
+<b>D9.</b> Concorrenza delle richieste: la spec dice "in the meantime, other requests
+    are not elaborated". Sono rifiutate (REASON=busy) o accodate FIFO?
+</pre>
+
+<br>
+
+<h2>Problematiche aperte (per l'analista)</h2>
+<div class="remark">
+<b>P1 &mdash; Pickup/place: estensione del contratto robot o composizione nel cargoservice?</b><br>
+Aggiungere i nuovi messaggi <code>pickup(PID)</code> e <code>place(SLOT)</code> dentro
+<code>robotsmart26</code> renderebbe esplicito il contratto, ma costringe a modificare un
+progetto del docente. In alternativa, il cargoservice puo' realizzare pickup/place componendo
+i messaggi gia' esistenti (<code>moverobot</code> verso IOPort / slot + delay simulati).
+Soluzione preferita: <b>composizione nel cargoservice</b> (non invasiva), con eventuale
+estensione di robotsmart26 in una seconda iterazione.
+</div>
+<div class="remark">
+<b>P2 &mdash; iosensor e sonarwatch: stesso QActor o separati?</b><br>
+Entrambi sottoscrivono lo stesso topic MQTT del sonar e applicano un filtro temporale.
+Tenerli separati semplifica la logica (ogni attore ha una sola condizione da riconoscere) e
+permette di testarli in isolamento. Costo: due connessioni al broker invece di una.
+</div>
+<div class="remark">
+<b>P3 &mdash; Granularita' del Test Plan automatizzato</b> (richiesto dalla valutazione).<br>
+Il caso minimo significativo per la demo e': una loadRequest end-to-end che attraversa
+ready &rarr; reserved &rarr; moving &rarr; returningHome &rarr; ready, verificando con assert
+finali che <i>hold.currentLoad</i> e <i>slot.occupantPid</i> sono coerenti. Un Test Plan piu'
+ricco aggiunge: una richiesta rifiutata per overweight, una per hold pieno, una sospensione
+da watchdog.
+</div>
+<div class="remark">
+<b>P4 &mdash; Persistenza fuori spec.</b><br>
+La spec non menziona persistenza. Per la demo basta lo stato in-memory, ma e' opportuno
+dichiararlo esplicitamente come limite nel doc di progetto.
+</div>
+<div class="remark">
+<b>P5 &mdash; Tipo di trasporto per la web-gui.</b><br>
+<code>robotoutgui25</code> (gia' in uso) visualizza una griglia generica di celle colorate.
+Per la vista a slot etichettati con PID/peso conviene <i>(a)</i> estendere il client esistente
+con un overlay informativo, oppure <i>(b)</i> realizzare un nuovo <code>cargogui</code>
+dedicato. La scelta dipende dal tempo disponibile prima della demo.
+</div>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>
