@@ -729,9 +729,9 @@ Orchestrazione e coreografia</a>
 <a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#subsection.11.2.4" target="web">
 Orchestrazione e microservizi</a> 
 </li>
-<li>Sviluppo in Lab2 della applicazione 
+<li>Discussione in Lab2 dei requisiti
 <a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#section.24.6" target="web">
-comportamento orchestrato</a>
+Fireflysynch</a>
 
 </li>
 </ul>
@@ -740,7 +740,7 @@ comportamento orchestrato</a>
 
 
 <!--
-    Week 11
+    Week 12
 -->
 <tr><td><em>Week 12</em></td><td></td><td></td></tr>    
     
@@ -748,65 +748,203 @@ comportamento orchestrato</a>
 
 <tr><td><m>5/05/2025 (12:00-15:00)</m></td><td>Lab2 </td> 
 <td> 
+<ul>
+<li>Modifica della libreria <b>unibo.basicomm23-1.0.jar</b>
+</li><li>
+Discussione con i singoli studenti sugli elaborati ricevuti e 
+contemporaneo sviluppo in Lab2 della <b>analisi dei seguenti requisiiti</b>:
+<pre>
+Costruire un sistema software che comanda un Differential Drive Robot (DDR) in modo che, 
+partendo dalla posizione iniziale HOME, il robot si sposti lungo il perimetro di una stanza rettangolare vuota. 
+Il DDR si deve fermare quando tornato in HOME.
 
+Il DDR è anche sensibile ai dati rilevati da un Radar.
+Quando il Radar rileva un 'intruso' a una distanza minore di una distanza prefissata ``DMIN``:
+  
+  - se il DDR si sta muovendo , il DDR si ferma fino a che il Radar non rileva più un 'intruso' così vicino 
+  - se il DDR è fermo in HOME, il DDR ruota su sè stesso fino a che un 'intruso' così vicino scompare
+	
+</pre>
+
+</li>
+</ul>
 </td>
 </tr>  
    
 <tr><td><m>6/05/2025 (11:30-14:30)</m></td><td>Lab2 </td> 
 <td> 
+<ul>
+<li>Modifica della libreria <b>unibo.basicomm23-1.0.jar</b>
+</li><li>
+Lucciole che sincronizzano i loro lampeggi
+	<ul>
+	<li>Un modello  a 
+	<a href="https://github.com/anatali/issLab2026/blob/main/firefly/src/fireflySynchOrchestr.qaktt" target="web">
+	comportamento orchestrato</a>
+	</li><li>
+	Un modello a 
+	<a href="https://github.com/anatali/issLab2026/blob/main/firefly/src/fireflySynchCoreog.qaktt" target="web">
+	comportamento coreografato</a>. Il meccansimo qak per lo stream processing:
+	<a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#section.22.10" target="web">
+     emitlocalstream e subscribeTo</a>
+	</li>
+	</ul>
+</li><li>Introduzione al
+<a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.25" target="web">
+VirtualRobot26</a> come definzione formale di un DDR.  
+</li><li>
+Il <a href="https://anatali.github.io/issLab2026/chronicle/TemaFinale25.pdf" target="web">TemaFinale25</a>
 
+
+</li>
+</ul>
 </td>
 </tr>
 
 <!--
-    Week 12
+    Week 13
 -->
 <tr><td><em>Week 13	</em></td><td></td><td></td></tr>    
    
 <tr><td><m>12/05/2025 (12:00-15:00)</m></td><td>Lab2 </td> 
 <td> 
-
+<ul>
+<li>
+Modifica della libreria <b>unibo.basicomm23-1.0.jar</b>
+</li><li>
+Il progetto
+<a href="https://github.com/anatali/issLab2026/tree/main/vrUsage26" target="web">vrusage26</a>:
+esempi di uso del <a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.25" target="web">
+VirtualRobot26</a> e del POJO  
+<a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.26" target="web">
+RobotObj26</a> come oggetto <b>osservabile</b>.
+	</li><li>Uso del virtual robot mediante websocket: <tt>TestMovesUsingWs26.java</tt>  e  
+	<a href="https://github.com/anatali/issLab2026/blob/main/vrUsage26/src/it/unibo/virtualRobot2026/clients/BoundaryWalkNaiveUsingWs26.java" target="web">
+      BoundaryWalkNaiveUsingWs26.java</a>.	
+	 Analisi del log files e dei thread di esecuzione.
+	</li><li>
+	Uso del POJO <i>RobotObj26</i>:  
+	<a href="https://github.com/anatali/issLab2026/blob/main/vrUsage26/src/appls/BoundaryWithBasicMoves.java" target="web">
+      BoundaryWithBasicMoves.java</a>.
+	La nuova operazione 
+	<a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#subsection.26.1.6" target="web">
+	step</a> e sua calibrazione: <tt>TuneSteptime.java</tt>
+	</li><li>Calcolo della lungheza dei lati della stanza in unità robotiche:	<tt>RoomSideLength.java</tt>
+ </li><li>
+ WORKTODO: Realizzare il sistema proposto il 5/05 usando un sonar collegato a un Raspberry PICOW</li>
+ 
+</li>
+</ul>
 </td>
 </tr>  
    
 <tr><td><m>13/05/2025 (11:30-14:30)</m></td><td>Lab2 </td> 
 <td> 
+<ul>
+<li>
+La semplificazione introdotta dal movimento <b>step</b> di 
+<a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.26" target="web">
+RobotObj26</a> : 
+<a href="https://github.com/anatali/issLab2026/blob/main/vrUsage26/src/appls/BoundaryWithStep.java" target="web">
+BoundaryWithStep.java</a>. Confronto con <a href="https://github.com/anatali/issLab2026/blob/main/vrUsage26/src/it/unibo/virtualRobot2026/clients/BoundaryWalkNaiveUsingWs26.java" target="web">
+BoundaryWalkNaiveUsingWs26.java</a>.	Analisi del log files e dei thread di esecuzione.
+</li><li>
+Verso un <b>robot come servizio</b> 
+(<a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.27" target="web">robotservice26</a>)  fruibile via rete e 
+<b>osservabile mediante eventi</b>: inserzione di oggetti Java antro attori qak
+(<a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#section.22.7" target="web">Demo UsingObjects</a>)
+</li><li>
+<a href="https://val.unibo.it/" target="web">Rilevazione</a> delle opinioni degli studenti
 
+</li><li>
+WORKTODO:<br/> utilizzare <tt>RobotService26</tt> per costruire una <b>mappa della stanza</b> in cui si muove il robot,
+nella ipotesi di ostacoli fissi e bordi perimetrali liberi da ostacoli (su una fascia di larghezza robotica).
+
+</li>
+</ul>
 
 </td>
 </tr>
-
-
-
-<!--
-    Week 13
--->
-<tr><td><em>Week 14</em></td><td></td><td></td></tr>    
-
-<tr><td><m>19/05/2025 (12:00-15:00)</m></td><td>Lab2 </td> 
-<td> 
-
-</td>
-</tr>  
-   
-<tr><td><m>20/05/2025 (11:30-14:30)</m></td><td>Lab2 </td> 
-<td> 
-
-</td>
-</tr>
-
-
 
 
 
 <!--
     Week 14
 -->
+<tr><td><em>Week 14</em></td><td></td><td></td></tr>    
+
+<tr><td><m>19/05/2025 (12:00-15:00)</m></td><td>Lab2 </td> 
+<td> 
+<ul>
+<li>
+Analisi dei requisiti del sistema
+<a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.29" target="web">DDRBoundary</a>:
+esempio di formalizzazione e di interazione con il committente.
+	<ul>
+	<li>
+	Specifica di 
+	<a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#section.29.3" target="web">Un modello dei requisiti</a>
+	</li><li>
+	Indivduazione del <a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#section.29.4" target="web">
+	Core Business applicativo</a>
+	</li><li> 
+	Verso un 
+	<a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#section.29.5" target="web">
+	Piano per testing automtizzabile</a> del Core Business
+    </li><li> 
+	Confronto con quanto elaborato dagli studenti in merito alla analisi dei requsiti
+	</li>
+	</ul>
+</li><li> 
+<a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#section.23.7" target="web">
+Sistema sperimentale di N lucciole</a>: proposta per la impostazione di un progetto.
+
+</li>
+</ul>
+</td>
+</tr>  
+   
+<tr><td><m>20/05/2025 (11:30-14:30)</m></td><td>Lab2 </td> 
+<td> 
+<ul>
+<li>Confronto con quanto elaborato dagli studenti in merito alla analisi dei requsiti
+</li><li> 
+ <a href="https://github.com/anatali/issLab2026/tree/main/Picow" target="web">Sperimentazione </a>
+di un  
+<a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.28" target="web">
+Raspberry PICO W</a>. Attivazione di sonar <tt>HC-SR04</tt> e acquisizione dei dati rilevati.
+</li><li>
+WORK TODO: analisi dei requisiti del  <a href="https://anatali.github.io/issLab2026/chronicle/TemaFinale25.pdf" target="web">TemaFinale25</a>
+al fine di capire se il tema preenta un 'abstraction gap' rispetto a quanto sviluppato fino ad ora.
+</li>
+</ul>
+<ul>
+</ul>
+</td>
+</tr>
+
+
+
+
+
+<!--
+    Week 15
+-->
 
 <tr><td><em>Week 15</em></td><td></td><td></td></tr>    
 <tr><td><m>26/05/2025 (12:00-15:00)</m></td><td>Lab2 </td> 
 <td> 
+<ul>
+<li>Aggiornamento della libreria <b>unibo.qakactor23-5.0</b>
+</li><li>
+Un nuovo 'tipo di robot':
+<a href="https://anatali.github.io/issLab2026/_static/docs/Protobook.pdf#chapter.30" target="web">Robotsmart26</a>
 
+</li><li>Un esempio di uso:
+<a href="https://github.com/anatali/issLab2026/blob/main/robotsmart26usage/src/robotsmart26usage.qaktt" target="web">robotsmart26usage.qak</a>
+
+</li>
+</ul>
 </td>
 </tr>  
    
