@@ -197,16 +197,48 @@ come il robot raggiunge una posizione e come si accende il LED sono scelte della
 cargoservice consiste anzitutto nel <b>portare un container nello slot riservato</b>
 muovendo il cargorobot, mentre la rilevazione col sonar, il watchdog/LED e la
 web-gui sono aspetti secondari, da affrontare in sprint successivi?
+
+<b>Risposta del committente:</b> si', il committente concorda con il core business
+riportato.
 </pre>
+
+<p>
+I requisiti dello Sprint1 corrispondono ai punti <b>1</b> e <b>3</b> della specifica.
+Se ne riporta il <b>testo esatto del committente</b>:
+</p>
+<div class="req">
+<b>[Req. 1]</b> <i>"is able to receive the request to load on the cargo a product container
+already registered in the productservice. The request is rejected when: the product-weight
+is evaluated too high, since the ship can carry a maximum load of MaxLoad&gt;0 kg; the hold is
+already full, i.e. the 4 slots are already occupied. If the request is accepted, the
+cargoservice associates a slot to the product PID and returns the name of the reserved slot.
+Afterwards, it waits that the product container is delivered to the ioport. In the meantime,
+other requests are not elaborated."</i>
+<br><br>
+<b>[Req. 3]</b> <i>"is able to ensure that the product container is placed by the cargorobot
+within its reserved slot. At the end of the work: the cargorobot should return to its HOME
+location; the cargoservice can process another load-request."</i>
+</div>
+
+<p>
+Restano <b>esclusi dallo Sprint1</b> (da affrontare in sprint successivi):
+</p>
+<div class="remark">
+<b>[Req. 2]</b> <i>"is able to detect (by means of the sonar sensor) the presence of the
+product container at the ioport"</i> &mdash; nello Sprint1 si <b>assume il container gia'
+presente all'IOPort</b>.<br>
+<b>[Req. 4]</b> <i>"is able to show the current state of the hold, by means of a dynamically
+updated web-gui"</i>.<br>
+<b>[Req. 5]</b> <i>"interrupts any activity and turns on a led if the sonar sensor measures
+a distance D &gt; DFREE for at least 3 secs ..."</i>.
+</div>
+
 <div class="req">
 <b>Goal dello Sprint1.</b> Realizzare il <code>cargoservice</code> che, ricevuta una
-<code>loadrequest(PID)</code> valida, verifica i vincoli (peso, slot disponibile),
-riserva uno slot e comanda il <b>cargorobot</b> a portare il container fino allo slot
-riservato; al termine il robot torna a HOME e il servizio e' pronto per una nuova richiesta.
-<br><br>
-Per lo Sprint1 si <b>assume il container gia' presente all'IOPort</b> (si ignora la
-rilevazione tramite sonar) e si ignorano il watchdog/LED (requisito 5) e la web-gui
-(requisito 4), lasciati a evoluzioni successive.
+richiesta di carico per un PID valido, verifica i vincoli (peso rispetto a MaxLoad e
+disponibilita' di uno slot), riserva uno slot e ne restituisce il nome; comanda quindi il
+<b>cargorobot</b> a portare il container fino allo slot riservato; al termine il robot torna
+a HOME e il servizio e' pronto per una nuova richiesta.
 </div>
 
 <br>

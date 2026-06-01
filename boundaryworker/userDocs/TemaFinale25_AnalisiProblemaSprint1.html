@@ -1,0 +1,223 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>TemaFinale25 &ndash; Analisi del Problema (Sprint1)</title>
+</head>
+
+<body>
+<div id="top">
+<h1>TemaFinale25 &ndash; Analisi del Problema (Sprint1)</h1>
+</div>
+
+<div class="body">
+
+<h2>Scopo</h2>
+<p>
+Questo documento sviluppa l'<b>analisi del problema</b> limitatamente allo <b>Sprint1</b>,
+il cui core business e' stato concordato con il committente: <b>portare un container nello
+slot riservato muovendo il cargorobot</b>. Si parte dai requisiti gia' formalizzati
+(<a href="TemaFinale25_AnalisiRequisiti.html">TemaFinale25 &ndash; Analisi dei Requisiti</a>)
+e se ne costruisce un <b>modello logico</b> (attori, messaggi, comportamento), senza ancora
+scegliere i dettagli realizzativi (fase di progetto).
+</p>
+
+<div class="req">
+Lo Sprint1 copre i punti <b>1</b> e <b>3</b> della specifica. In particolare:
+<i>"If the request is accepted, the cargoservice associates a slot to the product PID and
+returns the name of the reserved slot"</i> e <i>"is able to ensure that the product container
+is placed by the cargorobot within its reserved slot. At the end of the work: the cargorobot
+should return to its HOME location; the cargoservice can process another load-request"</i>.
+<br><br>
+Si <b>assume il container gia' presente all'IOPort</b> (punto 2 escluso); sono esclusi
+anche la web-gui (punto 4) e il watchdog/LED (punto 5).
+</div>
+
+<br>
+
+<h2>Architettura logica</h2>
+<p>Lo Sprint1 coinvolge tre componenti logici a scambio di messaggi:</p>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Attore</th>
+        <th>Tipo</th>
+        <th>Responsabilita' nello Sprint1</th>
+    </tr>
+    <tr>
+        <td><code>cargoservice</code></td>
+        <td>da costruire</td>
+        <td>riceve la richiesta, verifica i vincoli, riserva lo slot, coordina il cargorobot</td>
+    </tr>
+    <tr>
+        <td><code>productservice</code></td>
+        <td>esterno (dato)</td>
+        <td>dato un PID, fornisce il peso del prodotto</td>
+    </tr>
+    <tr>
+        <td><code>cargorobot</code></td>
+        <td>esterno (DDR del committente)</td>
+        <td>raggiunge una posizione-obiettivo su comando</td>
+    </tr>
+</table>
+
+<p>
+Il <code>cargoservice</code> incapsula lo <b>stato del dominio</b> (la stiva), gia' formalizzato
+in fase di requisiti:
+</p>
+<pre>
+Hold:  4 slot caricabili (+ slot5 permanente), maxLoad, currentLoad
+Slot:  name, posizione (X,Y), occupied, occupantPid
+</pre>
+
+<br>
+
+<h2>Modello delle interazioni</h2>
+<p>Si individuano i messaggi necessari allo Sprint1 (notazione qak):</p>
+<pre>
+//---- committente -> cargoservice
+Request  loadrequest    : loadrequest(PID)
+Reply    loadaccepted   : loadaccepted(SLOT)        for loadrequest
+Reply    loadrejected   : loadrejected(REASON)      for loadrequest
+            REASON = overweight | holdfull | unknownpid
+
+//---- cargoservice -> productservice
+Request  productweight  : productweight(PID)
+Reply    weightis       : weightis(PID, W)          for productweight
+Reply    nosuchpid      : nosuchpid(PID)            for productweight
+
+//---- cargoservice -> cargorobot
+Request  moverobot      : moverobot(X, Y)           "raggiungi la posizione X,Y"
+Reply    moverobotdone  : moverobotdone(X, Y)       for moverobot
+Reply    moverobotfailed: moverobotfailed(CAUSE)    for moverobot
+</pre>
+
+<br>
+
+<h2>Comportamento del cargoservice (FSM)</h2>
+<p>
+Il cargoservice e' <b>proattivo/reattivo</b>: attende una richiesta, la valida interrogando il
+productservice, riserva lo slot e pilota il cargorobot. Lo modelliamo come macchina a stati:
+</p>
+<pre>
+stato        evento / azione                                  -> stato successivo
+-----------  ----------------------------------------------   -------------------
+ready        loadrequest(PID) / chiedi productweight(PID)      -> checking
+(iniziale)
+
+checking     weightis(PID,W) :
+               se W &gt; capacita' residua  / loadrejected(overweight) -> ready
+               se nessuno slot libero    / loadrejected(holdfull)   -> ready
+               altrimenti / reserve(slot); loadaccepted(slot)       -> carrying
+             nosuchpid(PID) / loadrejected(unknownpid)              -> ready
+
+carrying     [container assunto all'IOPort]
+             plan: moverobot(IOPort); moverobot(slot)
+             moverobotdone(slot) / confirmPlaced(slot,PID)          -> returning
+
+returning    moverobot(HOME)
+             moverobotdone(HOME) /                                  -> ready
+</pre>
+
+<div class="remark">
+<b>Nota sul punto 1.</b> Il requisito dice <i>"In the meantime, other requests are not
+elaborated"</i>: negli stati <code>checking</code>, <code>carrying</code> e
+<code>returning</code> il cargoservice <b>non accetta nuove loadrequest</b>; torna disponibile
+solo in <code>ready</code>. Come trattare una richiesta che arriva mentre e' occupato
+(rifiuto o accodamento) e' la domanda <b>D10</b> lasciata aperta al committente.
+</div>
+
+<br>
+
+<h2>Flusso nominale (scenario di successo)</h2>
+<pre>
+client            cargoservice          productservice        cargorobot
+  |  loadrequest(7)   |                       |                    |
+  |------------------>|  productweight(7)     |                    |
+  |                   |---------------------->|                    |
+  |                   |     weightis(7,120)   |                    |
+  |                   |<----------------------|                    |
+  |                   | check: 120 &lt;= capacita', slot2 libero      |
+  |                   | reserve(slot2)        |                    |
+  |  loadaccepted(slot2)                      |                    |
+  |<------------------|                       |                    |
+  |                   |  moverobot(IOPort)    |                    |
+  |                   |------------------------------------------->|
+  |                   |          moverobotdone(IOPort)             |
+  |                   |<-------------------------------------------|
+  |                   |  moverobot(slot2)     |                    |
+  |                   |------------------------------------------->|
+  |                   |          moverobotdone(slot2)              |
+  |                   |<-------------------------------------------|
+  |                   | confirmPlaced(slot2,7)|                    |
+  |                   |  moverobot(HOME)      |                    |
+  |                   |------------------------------------------->|
+  |                   |          moverobotdone(HOME)               |
+  |                   |<-------------------------------------------|
+  |                   | -> ready (pronto per un'altra richiesta)   |
+</pre>
+
+<br>
+
+<h2>Decisioni sulle problematiche</h2>
+<div class="remark">
+<b>P1 &mdash; trasferimento del container.</b> Il DDR del committente non dispone di un
+attuatore di presa. Per lo Sprint1 il <i>placement</i> e' modellato in modo <b>astratto</b>:
+il container si considera depositato nello slot quando il cargorobot <b>raggiunge la posizione
+dello slot</b> partendo dall'IOPort. Coerente con il requisito <i>"placed by the cargorobot
+within its reserved slot"</i> senza richiedere hardware aggiuntivo.
+</div>
+<div class="remark">
+<b>Raggiungimento di una posizione.</b> Il cargoservice usa il solo messaggio astratto
+<code>moverobot(X,Y)</code>. Se tale capacita' sia nativa del DDR o realizzata da uno strato di
+pianificazione e' la domanda <b>D1</b>: nel modello dello Sprint1 e' irrilevante, poiche' il
+cargoservice dipende solo dal contratto <code>moverobot</code> / <code>moverobotdone</code>.
+</div>
+
+<br>
+
+<h2>Piano di test dello Sprint1</h2>
+<p>
+Come nel DDRBoundary, il cargoservice mantiene una <b>rappresentazione dello stato della stiva</b>
+che evolve in conseguenza delle azioni comandate. Il test e' automatizzabile confrontando lo
+stato finale con quello atteso.
+</p>
+<ol>
+    <li><b>Carico nominale (PASS):</b> stiva con slot2 libero, <code>loadrequest(7)</code> con
+        peso compatibile. Al termine si verifica che:
+        <pre>
+slot2.occupied == true  &amp;&amp;  slot2.occupantPid == 7
+hold.currentLoad == currentLoad_iniziale + 120
+posizione robot == HOME
+stato cargoservice == ready
+        </pre>
+    </li>
+    <li><b>Rifiuto per peso (PASS se rifiutato):</b> <code>loadrequest</code> con peso che
+        supera la capacita' residua &rarr; attesa <code>loadrejected(overweight)</code> e stiva
+        <b>invariata</b>.</li>
+    <li><b>Rifiuto per stiva piena (PASS se rifiutato):</b> 4 slot occupati &rarr; attesa
+        <code>loadrejected(holdfull)</code> e stiva <b>invariata</b>.</li>
+    <li><b>PID sconosciuto (PASS se rifiutato):</b> <code>loadrequest</code> con PID non
+        registrato &rarr; attesa <code>loadrejected(unknownpid)</code>.</li>
+</ol>
+<p>
+Il caso 1 e' il <b>Test Plan significativo</b> richiesto per la demo: copre l'intero ciclo
+ready &rarr; checking &rarr; carrying &rarr; returning &rarr; ready ed e' verificabile con assert
+finali (PASS/FAIL) integrabili in JUnit o nel log di collaudo.
+</p>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>
