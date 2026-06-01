@@ -105,10 +105,11 @@ ready        loadrequest(PID) / chiedi productweight(PID)      -> checking
 (iniziale)
 
 checking     weightis(PID,W) :
-               se W &gt; capacita' residua  / loadrejected(overweight) -> ready
-               se nessuno slot libero    / loadrejected(holdfull)   -> ready
-               altrimenti / reserve(slot); loadaccepted(slot)       -> carrying
-             nosuchpid(PID) / loadrejected(unknownpid)              -> ready
+               se W non rispetta il limite MaxLoad / loadrejected(overweight) -> ready
+               se nessuno slot libero              / loadrejected(holdfull)   -> ready
+               altrimenti / reserve(slot); loadaccepted(slot)                 -> carrying
+             nosuchpid(PID) / loadrejected(unknownpid)                        -> ready
+             (la forma esatta del vincolo MaxLoad e' la domanda aperta D3)
 
 carrying     [container assunto all'IOPort]
              plan: moverobot(IOPort); moverobot(slot)
@@ -136,7 +137,7 @@ client            cargoservice          productservice        cargorobot
   |                   |---------------------->|                    |
   |                   |     weightis(7,120)   |                    |
   |                   |<----------------------|                    |
-  |                   | check: 120 &lt;= capacita', slot2 libero      |
+  |                   | check: 120 entro MaxLoad, slot2 libero     |
   |                   | reserve(slot2)        |                    |
   |  loadaccepted(slot2)                      |                    |
   |<------------------|                       |                    |
@@ -192,7 +193,7 @@ stato cargoservice == ready
         </pre>
     </li>
     <li><b>Rifiuto per peso (PASS se rifiutato):</b> <code>loadrequest</code> con peso che
-        supera la capacita' residua &rarr; attesa <code>loadrejected(overweight)</code> e stiva
+        supera il limite MaxLoad &rarr; attesa <code>loadrejected(overweight)</code> e stiva
         <b>invariata</b>.</li>
     <li><b>Rifiuto per stiva piena (PASS se rifiutato):</b> 4 slot occupati &rarr; attesa
         <code>loadrejected(holdfull)</code> e stiva <b>invariata</b>.</li>

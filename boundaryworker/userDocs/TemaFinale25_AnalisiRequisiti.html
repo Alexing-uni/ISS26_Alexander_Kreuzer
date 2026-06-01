@@ -83,7 +83,7 @@ public interface IProductService {
 <pre>
 public class Slot {
     String  name;          // "slot1" .. "slot4", "slot5"
-    int     posX, posY;    // posizione nella mappa (celle DR x DR)
+    int     posX, posY;    // posizione nella stiva
     boolean occupied;
     Integer occupantPid;   // null se libero
     boolean permanent;     // true solo per slot5
@@ -171,10 +171,13 @@ Event    sonarOk           : sonarOk()              "sonar di nuovo affidabile"
 //---- comando al cargorobot
 Request  moverobot     : moverobot(TX,TY)           "porta il robot alla posizione TX,TY"
 
-Context ctxcargo       ip [host="localhost" port=8030]
+//gli indirizzi (host/port) dei context sono indicativi: la loro scelta e' materia di progetto
+Context ctxcargo    ip [host="localhost" port=8030]
+Context ctxrobot    ip [host="localhost" port=8020]
+Context ctxproduct  ip [host="localhost" port=8040]
 
-ExternalQActor cargorobot   context ctxrobot       //il DDR fornito dal committente
-ExternalQActor productservice context ctxproduct   //servizio esterno dei prodotti
+ExternalQActor cargorobot     context ctxrobot      //il DDR fornito dal committente
+ExternalQActor productservice context ctxproduct    //servizio esterno dei prodotti
 
 QActor cargoservice context ctxcargo
         withobj hold using "domain.Hold(...)" {
@@ -308,11 +311,11 @@ La spec non menziona persistenza. Per la demo basta lo stato in-memory, ma e' op
 dichiararlo esplicitamente come limite nel doc di progetto.
 </div>
 <div class="remark">
-<b>P5 &mdash; Tipo di trasporto per la web-gui.</b><br>
-<code>robotoutgui25</code> (gia' in uso) visualizza una griglia generica di celle colorate.
-Per la vista a slot etichettati con PID/peso conviene <i>(a)</i> estendere il client esistente
-con un overlay informativo, oppure <i>(b)</i> realizzare un nuovo <code>cargogui</code>
-dedicato. La scelta dipende dal tempo disponibile prima della demo.
+<b>P5 &mdash; Realizzazione della web-gui.</b><br>
+Per mostrare lo stato della stiva (slot occupati/liberi con PID e peso) conviene
+<i>(a)</i> riusare un visualizzatore a griglia gia' disponibile nel corso, oppure
+<i>(b)</i> realizzare una vista dedicata. La scelta dipende dal tempo disponibile
+prima della demo ed e' rimandata alla fase di progetto.
 </div>
 
 <br><br>
