@@ -85,46 +85,105 @@ Request  productweight  : productweight(PID)
 Reply    weightis       : weightis(PID, W)          for productweight
 Reply    nosuchpid      : nosuchpid(PID)            for productweight
 
-//---- cargoservice -> cargorobot
-Request  moverobot      : moverobot(X, Y)           "raggiungi la posizione X,Y"
-Reply    moverobotdone  : moverobotdone(X, Y)       for moverobot
-Reply    moverobotfailed: moverobotfailed(CAUSE)    for moverobot
+//---- cargoservice -> cargorobot  (contratto moverobot, come in robotsmart26)
+Request  moverobot      : moverobot(TARGETX, TARGETY, STEPTIME)
+Reply    moverobotdone  : moverobotok(ARG)                     for moverobot
+Reply    moverobotfailed: moverobotfailed(PLANDONE, PLANTODO)  for moverobot
 </pre>
 
 <br>
 
-<h2>Comportamento del cargoservice (FSM)</h2>
-<p>
-Il cargoservice e' <b>proattivo/reattivo</b>: attende una richiesta, la valida interrogando il
-productservice, riserva lo slot e pilota il cargorobot. Lo modelliamo come macchina a stati:
-</p>
+<h2>Comportamento del cargoservice (modello qak)</h2>
+<p>Il comportamento del cargoservice e' espresso direttamente in qak (QActor):</p>
 <pre>
-stato        evento / azione                                  -> stato successivo
------------  ----------------------------------------------   -------------------
-ready        loadrequest(PID) / chiedi productweight(PID)      -> checking
-(iniziale)
+QActor cargoservice context ctxcargo
+        withobj hold using "domain.Hold(...)" {     //Hold incapsula slot, MaxLoad, mappa
+  [# var Pid      = ""
+     var Slot     = ""
+     var W        = 0.0
+     val StepTime = 400
+  #]
+  State s0 initial {
+     println("$name | starts") color blue
+  }
+  Goto ready
 
-checking     weightis(PID,W) :
-               se W non rispetta il limite MaxLoad / loadrejected(overweight) -> ready
-               se nessuno slot libero              / loadrejected(holdfull)   -> ready
-               altrimenti / reserve(slot); loadaccepted(slot)                 -> carrying
-             nosuchpid(PID) / loadrejected(unknownpid)                        -> ready
-             (la forma esatta del vincolo MaxLoad e' la domanda aperta D3)
+  State ready {                                      //unico stato che accetta richieste
+     println("$name | ready, attende loadrequest") color yellow
+  }
+  Transition t0
+     whenRequest loadrequest -> askWeight
 
-carrying     [container assunto all'IOPort]
-             plan: moverobot(IOPort); moverobot(slot)
-             moverobotdone(slot) / confirmPlaced(slot,PID)          -> returning
+  State askWeight {
+     onMsg( loadrequest : loadrequest(PID) ){
+        [# Pid = payloadArg(0) #]
+        request productservice -m productweight : productweight($Pid)
+     }
+  }
+  Transition t0
+     whenReply weightis  -> evalRequest
+     whenReply nosuchpid -> rejectUnknown
 
-returning    moverobot(HOME)
-             moverobotdone(HOME) /                                  -> ready
+  State evalRequest {
+     onMsg( weightis : weightis(PID,WVAL) ){
+        [# W = payloadArg(1).toDouble(); Slot = "" #]
+        //la forma del vincolo MaxLoad (cumulativo o per-container) e' la D3
+        if [# hold.isFull() #] {
+           replyTo loadrequest with loadrejected : loadrejected(holdfull)
+        }
+        if [# !hold.isFull() &amp;&amp; !hold.fits(W) #] {
+           replyTo loadrequest with loadrejected : loadrejected(overweight)
+        }
+        if [# !hold.isFull() &amp;&amp; hold.fits(W) #] {
+           [# Slot = hold.reserve(Pid, W) #]
+           replyTo loadrequest with loadaccepted : loadaccepted($Slot)
+        }
+     }
+  }
+  Goto carrying if [# Slot != "" #] else ready
+
+  State rejectUnknown {
+     replyTo loadrequest with loadrejected : loadrejected(unknownpid)
+  }
+  Goto ready
+
+  State carrying {                                   //Sprint1: container assunto all'IOPort
+     [# val IOX = hold.ioportX(); val IOY = hold.ioportY() #]
+     request cargorobot -m moverobot : moverobot($IOX, $IOY, $StepTime)
+  }
+  Transition t0
+     whenReply moverobotdone   -> carryToSlot
+     whenReply moverobotfailed -> abort
+
+  State carryToSlot {
+     [# val SX = hold.slotX(Slot); val SY = hold.slotY(Slot) #]
+     request cargorobot -m moverobot : moverobot($SX, $SY, $StepTime)
+  }
+  Transition t0
+     whenReply moverobotdone   -> goHome
+     whenReply moverobotfailed -> abort
+
+  State goHome {
+     [# hold.confirmPlaced(Slot, Pid) #]             //container depositato nello slot
+     request cargorobot -m moverobot : moverobot(0, 0, $StepTime)   //HOME
+  }
+  Transition t0
+     whenReply moverobotdone   -> ready
+     whenReply moverobotfailed -> abort
+
+  State abort {
+     println("$name | move fallito: libero lo slot") color red
+     [# hold.free(Slot) #]
+  }
+  Goto ready
+}
 </pre>
 
 <div class="remark">
-<b>Nota sul punto 1.</b> Il requisito dice <i>"In the meantime, other requests are not
-elaborated"</i>: negli stati <code>checking</code>, <code>carrying</code> e
-<code>returning</code> il cargoservice <b>non accetta nuove loadrequest</b>; torna disponibile
-solo in <code>ready</code>. Come trattare una richiesta che arriva mentre e' occupato
-(rifiuto o accodamento) e' la domanda <b>D10</b> lasciata aperta al committente.
+Il requisito 1 <i>"In the meantime, other requests are not elaborated"</i> e' reso dal fatto
+che <b>solo lo stato <code>ready</code></b> ha la transizione <code>whenRequest loadrequest</code>:
+negli altri stati il cargoservice non raccoglie nuove richieste. Se trattarle con rifiuto o con
+accodamento e' la domanda aperta <b>D10</b>.
 </div>
 
 <br>
