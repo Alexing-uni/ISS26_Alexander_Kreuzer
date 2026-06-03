@@ -143,8 +143,9 @@ IOPort sono entita' esterne con cui interagisce a scambio di messaggi.
 <pre>
 System cargoservice26
 
-//---- IOPort (pushbutton) -> cargoservice
-Event    loadrequest   : loadrequest()             "pulsante premuto dal customer"
+//---- IOPort (pushbutton) -> cargoservice  (richiesta con risposta)
+Request  loadrequest   : loadrequest()             "pulsante premuto dal customer"
+Reply    answer        : answer(RESP) for loadrequest "RESP = retrylater | reject | reserved(SLOT)"
 
 //---- cargoservice -> IOPort (display)
 Dispatch showOnDisplay : show(WHAT)                "risposta o stato hold sul display"

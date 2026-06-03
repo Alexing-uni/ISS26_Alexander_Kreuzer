@@ -54,12 +54,10 @@ espresso in <b>qak</b>. Non disponendo del PicoW fisico, i dispositivi sono real
 
 <h2>Modello delle interazioni</h2>
 <pre>
-//---- pushbutton -> cargoservice
-Event    loadrequest   : loadrequest()
+//---- pushbutton -> cargoservice  (richiesta con risposta)
+Request  loadrequest   : loadrequest()
+Reply    answer        : answer(RESP)   for loadrequest  "RESP = retrylater | reject | reserved(SLOT)"
 
-//---- cargoservice -> display
-Dispatch showOnDisplay : show(WHAT)        "WHAT = reserved(SLOT) | retrylater | reject |
-                                            serviceworking | outofservice | holdstate(...)"
 //---- sonar (via iosensor) -> cargoservice
 Event    containerAtIOPort : containerAtIOPort()   "D&lt;DFREE/2 per ~3s"
 Event    sonarFail         : sonarFail()           "D&gt;DFREE per &ge;3s"
@@ -73,8 +71,9 @@ Request  moverobot     : moverobot(TARGETX, TARGETY, STEPTIME)
 Reply    moverobotdone : moverobotok(ARG)                     for moverobot
 Reply    moverobotfailed: moverobotfailed(PLANDONE, PLANTODO) for moverobot
 
-//---- cargoservice -> LED
-Dispatch ledBlink      : ledBlink(ONOFF)   "ONOFF = on | off"
+//---- display e LED: oggetti embedded (withobj), non messaggi qak
+//     display.show(WHAT)   con WHAT = reserved(SLOT)|retrylater|reject|serviceworking|outofservice|holdstate
+//     led.blink(true|false)
 </pre>
 
 <br>
@@ -83,36 +82,41 @@ Dispatch ledBlink      : ledBlink(ONOFF)   "ONOFF = on | off"
 <p>Il comportamento e' espresso direttamente in qak (QActor):</p>
 <pre>
 QActor cargoservice context ctxcargo
-        withobj hold using "domain.Hold(...)" {   //Hold incapsula slot1..5, posizioni, mappa
+        withobj hold    using "domain.Hold(...)"        //slot1..5, posizioni, mappa
+        withobj display using "devices.DisplaySim()"    //display simulato (output a video)
+        withobj led     using "devices.LedSim()" {      //LED simulato (lampeggio a video)
   [# var Slot   = ""
      var OutOfService = false
      val StepTime = 345
   #]
   State s0 initial {
      println("$name | starts") color blue
-     subscribeTo cargoservice for sonarFail
-     subscribeTo cargoservice for sonarOk
+     [# display.show("serviceworking") #]
   }
   Goto available
 
   State available {                                   //Service working
-     showOnDisplay : show(serviceworking)
      println("$name | available") color yellow
   }
   Transition t0
-     whenEvent loadrequest -> evalRequest
-     whenEvent sonarFail   -> goOutOfService
+     whenRequest loadrequest      -> evalRequest
+     whenInterruptEvent sonarFail -> goOutOfService
 
   State evalRequest {
      onMsg( loadrequest : loadrequest() ){
         [# Slot = "" #]
-        if [# OutOfService #]      { showOnDisplay : show(retrylater) }
-        if [# !OutOfService &amp;&amp; hold.ioportOccupied() #] { showOnDisplay : show(retrylater) }
-        if [# !OutOfService &amp;&amp; !hold.ioportOccupied() &amp;&amp; hold.isFull() #] { showOnDisplay : show(reject) }
-        if [# !OutOfService &amp;&amp; !hold.ioportOccupied() &amp;&amp; !hold.isFull() #] {
+        if [# OutOfService || hold.ioportOccupied() #] {
+           replyTo loadrequest with answer : answer(retrylater)
+           [# display.show("retrylater") #]
+        }
+        if [# !(OutOfService || hold.ioportOccupied()) &amp;&amp; hold.isFull() #] {
+           replyTo loadrequest with answer : answer(reject)
+           [# display.show("reject") #]
+        }
+        if [# !(OutOfService || hold.ioportOccupied()) &amp;&amp; !hold.isFull() #] {
            [# Slot = hold.reserveFreeSlot() #]
-           showOnDisplay : show(reserved($Slot))
-           ledBlink : ledBlink(on)            //engaged
+           replyTo loadrequest with answer : answer(reserved($Slot))
+           [# display.show("reserved " + Slot); led.blink(true) #]   //engaged
         }
      }
   }
@@ -122,58 +126,55 @@ QActor cargoservice context ctxcargo
      println("$name | engaged, attendo container (max 30s)") color magenta
   }
   Transition t0
-     whenEvent containerAtIOPort -> carryToSlot5
-     whenTime 30000              -> disengage         //timeout
-     whenEvent sonarFail         -> goOutOfService
+     whenEvent containerAtIOPort  -> carryToSlot5
+     whenTime 30000               -> disengage         //timeout 30s
+     whenInterruptEvent sonarFail -> goOutOfService
 
   State carryToSlot5 {
      [# val SX = hold.slotX("slot5"); val SY = hold.slotY("slot5") #]
      request cargorobot -m moverobot : moverobot($SX, $SY, $StepTime)   //IOPort -> slot5
   }
   Transition t0
-     whenReply moverobotdone -> marking
-     whenEvent sonarFail     -> goOutOfService
+     whenReply moverobotdone      -> marking
+     whenInterruptEvent sonarFail -> goOutOfService
 
   State marking {                                     //il marker etichetta il container
      println("$name | marcatura in slot5 ...") color cyan
   }
   Transition t0
-     whenEvent markingDone -> carryToReserved
-     whenEvent sonarFail   -> goOutOfService
+     whenEvent markingDone        -> carryToReserved
+     whenInterruptEvent sonarFail -> goOutOfService
 
   State carryToReserved {
      [# val SX = hold.slotX(Slot); val SY = hold.slotY(Slot) #]
      request cargorobot -m moverobot : moverobot($SX, $SY, $StepTime)   //slot5 -> slot riservato
   }
   Transition t0
-     whenReply moverobotdone -> goHome
-     whenEvent sonarFail     -> goOutOfService
+     whenReply moverobotdone      -> goHome
+     whenInterruptEvent sonarFail -> goOutOfService
 
   State goHome {
      [# hold.confirmStored(Slot) #]
      request cargorobot -m moverobot : moverobot(0, 0, $StepTime)       //ritorno a HOME
   }
   Transition t0
-     whenReply moverobotdone -> doneRequest
-     whenEvent sonarFail     -> goOutOfService
+     whenReply moverobotdone      -> doneRequest
+     whenInterruptEvent sonarFail -> goOutOfService
 
   State doneRequest {
-     ledBlink : ledBlink(off)            //disengaged
-     showOnDisplay : show(holdstate)
+     [# led.blink(false) #]              //disengaged
+     [# display.show("holdstate") #]
   }
   Goto available
 
   State disengage {                                   //timeout: il container non e' arrivato
      println("$name | timeout 30s: disengaged") color red
-     [# hold.freeSlot(Slot) #]
-     ledBlink : ledBlink(off)
+     [# hold.freeSlot(Slot); led.blink(false) #]
   }
   Goto available
 
   State goOutOfService {                              //sonarFail
-     [# OutOfService = true #]
-     ledBlink : ledBlink(off)
-     showOnDisplay : show(outofservice)
+     [# OutOfService = true; led.blink(false); display.show("outofservice") #]
      println("$name | OUT OF SERVICE (sonar)") color red
   }
   Transition t0
@@ -199,7 +200,10 @@ cargoservice resta indipendente dalla sorgente fisica del sonar.
 <pre>
 customer        cargoservice        cargorobot        marker
   | loadrequest()  |                    |               |
-  |--------------->| reserve slot2; show reserved(slot2); LED blink on
+  |--------------->| (non OutOfService, IOPort libero, hold non pieno)
+  |                | reserve slot2; led.blink(true); display.show(reserved slot2)
+  | answer reserved(slot2)              |               |
+  |&lt;---------------|                    |               |
   |                | (engaged, attende container all'IOPort entro 30s)
   | (sonar: D&lt;DFREE/2 per 3s) -> containerAtIOPort()    |
   |                |---- moverobot(slot5) -------------->|             IOPort -> slot5
