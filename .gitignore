@@ -5,3 +5,6 @@ build/
 .project
 .classpath
 .worktrees/
+# credenziali WiFi del PicoW (NON pubblicare)
+Picow/secretsTPLink.py
+Picow/secrets*.py
