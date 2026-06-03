@@ -172,26 +172,6 @@ task run0(type: JavaExec) {
     main = 'it.unibo.ctxrobotsmart.MainCtxrobotsmartKt'
 }
 
-// --- Caller di esempio: inviano comandi a robotsmart26 (deve essere gia' in 'gradlew run') ---
-task callerTcp(type: JavaExec) {
-    group = "Execution"
-    description = "Invia comandi a robotsmart26 via TCP (porta 8020)"
-    classpath = sourceSets.main.runtimeClasspath
-    main = 'callers.Robotsmart26CallerTcp'
-}
-task callerCoap(type: JavaExec) {
-    group = "Execution"
-    description = "Invia comandi a robotsmart26 via CoAP"
-    classpath = sourceSets.main.runtimeClasspath
-    main = 'callers.Robotsmart26CallerCoap'
-}
-task callerMqtt(type: JavaExec) {
-    group = "Execution"
-    description = "Invia comandi a robotsmart26 via MQTT (broker 1883)"
-    classpath = sourceSets.main.runtimeClasspath
-    main = 'callers.Robotsmart26CallerMqtt'
-}
-
 /*
 //TODO
 tasks.register('copyReport', Copy) {
