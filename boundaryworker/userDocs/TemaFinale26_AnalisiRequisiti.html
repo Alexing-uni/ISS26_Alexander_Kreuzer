@@ -51,9 +51,11 @@ request to load is accepted, the customer must move the container in the sensor 
 prefixed amount of time (e.g. 30 secs), otherwise the systems becomes disengaged. Then, the
 cargoservice uses the cargorobot to move the container from the IOPort to the slot5 (for marking
 the container) and then to the reserved slot. The service must also show on the display on the
-IOPort: the current state of the hold; the message `Service working', when it is all is going
-well; the message `Out of service' if the sonar sensor measures a distance D &gt; DFREE for at
-least 3 secs (perhaps a failure of the sonar)."</i>
+IOPort:</i><br>
+<i>&nbsp;&nbsp;&bull; the current state of the hold;</i><br>
+<i>&nbsp;&nbsp;&bull; the message `Service working', when it is all is going well;</i><br>
+<i>&nbsp;&nbsp;&bull; the message `Out of service' if the sonar sensor measures a distance
+D &gt; DFREE for at least 3 secs (perhaps a failure of the sonar)."</i>
 </div>
 
 <h3>Layout dell'area (dalla figura allegata al tema)</h3>
@@ -96,9 +98,11 @@ public class Slot {
 <pre>
 public class Hold {
     Slot[]  slots;            // slot1..slot4 (+ slot5 marcatura)
+    boolean ioportOccupied(); // container presente all'IOPort
     boolean isFull();         // tutti gli slot1..4 occupati
     String  reserveFreeSlot();// nome di uno slot libero, "" se pieno
     void    confirmStored(String slotName);
+    void    freeSlot(String slotName);
 }
 </pre>
 
@@ -175,22 +179,22 @@ display, marker e LED, e <b>come</b> il robot raggiunga le posizioni sono scelte
 
 <br>
 
-<h2>Core Business e Goal dello Sprint1</h2>
+<h2>Core Business e Goal del primo prototipo</h2>
 <pre>
 <b>Domanda al committente:</b> e' corretto concordare che il 'core business' consiste
 anzitutto nel <b>portare un container, accettata la richiesta, dall'IOPort allo slot
 riservato passando per la marcatura in slot5</b>, mentre la gestione del display, del LED
-lampeggiante e del 'Out of service' sono aspetti da consolidare in sprint successivi?
+lampeggiante e del 'Out of service' sono aspetti da consolidare in iterazioni successive?
 </pre>
 <div class="req">
-<b>Goal dello Sprint1.</b> Realizzare il <code>cargoservice</code> che, ricevuta una richiesta
-valida (pushbutton) con stiva non piena e IOPort libero, riserva uno slot, attende il container
-all'IOPort (entro il tempo previsto), comanda il cargorobot a portarlo <b>IOPort &rarr; slot5
-(marcatura) &rarr; slot riservato</b>, e riporta il robot a HOME, tornando pronto per una nuova
-richiesta.
+<b>Goal del primo prototipo</b> (fase Development). Realizzare il <code>cargoservice</code> che,
+ricevuta una richiesta valida (pushbutton) con stiva non piena e IOPort libero, riserva uno slot,
+attende il container all'IOPort (entro il tempo previsto), comanda il cargorobot a portarlo
+<b>IOPort &rarr; slot5 (marcatura) &rarr; slot riservato</b>, e riporta il robot a HOME, tornando
+pronto per una nuova richiesta.
 <br><br>
-Per lo Sprint1 si possono semplificare gli output (display/LED come log a video) e rinviare la
-gestione completa di <i>Out of service</i> e del barcode allo Sprint2.
+Nel primo prototipo si possono semplificare gli output (display/LED come log a video) e rinviare
+la gestione completa di <i>Out of service</i> e del barcode a un'iterazione successiva.
 </div>
 
 <br>
