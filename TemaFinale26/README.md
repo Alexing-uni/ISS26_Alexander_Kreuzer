@@ -9,15 +9,16 @@ Studente: **Alexander Kreuzer** (Erasmus) — sviluppo individuale.
 
 ## Consegna per fasi (stile Scrum)
 
+I documenti vengono pubblicati **una fase alla volta**, man mano che vengono consegnati
+al docente. I PDF sono forniti per consentire al docente di aggiungere note.
+
 | Fase | Documento | HTML | PDF |
 |------|-----------|------|-----|
 | **Sprint 0 — Requisiti** | Analisi dei Requisiti | [html](userDocs/TemaFinale26_AnalisiRequisiti.html) | [pdf](userDocs/TemaFinale26_AnalisiRequisiti.pdf) |
-| **Sprint 1 — Problema** | Analisi del Problema (FSM qak) | [html](userDocs/TemaFinale26_AnalisiProblema.html) | [pdf](userDocs/TemaFinale26_AnalisiProblema.pdf) |
-| **Project** | Architettura e Progetto | [html](userDocs/TemaFinale26_Project.html) | [pdf](userDocs/TemaFinale26_Project.pdf) |
-| **Development** | codice `cargoservice26` | _in corso_ | — |
+| **Sprint 1 — Problema** | Analisi del Problema | _in preparazione_ | _in preparazione_ |
+| **Project** | Architettura e Progetto | _in preparazione_ | _in preparazione_ |
+| **Development** | codice `cargoservice26` | _da fare_ | — |
 | **Prototypes** | demo + Test Plan automatizzato | _da fare_ | — |
-
-I PDF sono forniti per consentire al docente di aggiungere note.
 
 ## Struttura prevista (dalla fase Project)
 
