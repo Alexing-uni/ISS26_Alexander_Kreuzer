@@ -59,17 +59,28 @@ D &gt; DFREE for at least 3 secs (perhaps a failure of the sonar)."</i>
 </div>
 
 <h3>Layout dell'area (dalla figura allegata al tema)</h3>
+<p>La figura del tema e' <b>illustrativa</b>: mostra le posizioni relative ma non formalizza l'area.</p>
 <pre>
 +-------------------------------------------------+
 |  HOME            [SONAR]                         |   HOME  : posizione iniziale del cargorobot
-|        [SLOT1][SLOT2]                            |   SONAR : sensore in alto nell'area
-|   robot         [SLOT5]                          |   SLOT1..4 : aree di stoccaggio container
-|        [SLOT3][SLOT4]                            |   SLOT5 : area di marcatura temporanea
-|                                                  |
-|  [IOPORT]                                        |   IOPORT: pushbutton + display + sonar
+|        [SLOT1][SLOT2]                            |   SLOT1..4 : aree di stoccaggio container
+|   robot         [SLOT5]                          |   SLOT5 : area di marcatura temporanea
+|        [SLOT3][SLOT4]                            |   IOPORT: pushbutton + display + sensor
+|  [IOPORT]                                        |
 +-------------------------------------------------+
-SENSOR ---- DFREE ----  | (parete/oggetto)
 </pre>
+
+<h3>Formalizzazione dell'area</h3>
+<p>
+Per ragionare in modo non ambiguo, l'area va <b>formalizzata</b> come una <b>mappa</b> a celle
+(griglia), in cui ogni cella ha coordinate <code>(X,Y)</code> e HOME, IOPort e slot1..slot5
+occupano celle note. Una mossa del cargorobot porta da una cella a una cella adiacente.
+</p>
+<div class="remark">
+Un <b>servizio DDR</b> tipicamente mette gia' a disposizione una <b>mappa built-in</b> dell'area:
+in tal caso le coordinate di HOME/IOPort/slot non sono un dato da inventare, ma provengono da
+quella mappa. (Vedi <b>D1</b>.)
+</div>
 
 <br>
 
@@ -107,75 +118,78 @@ public class Hold {
 </pre>
 
 <p><b>IOPort</b> &mdash; dispositivo composto: <b>pushbutton</b> (input richiesta),
-<b>display</b> (output: risposta + stato hold) e <b>sonar</b> (presenza container).</p>
+<b>display</b> (output: risposta + stato hold) e un <b>sensor</b> (un sonar) per rilevare la
+presenza del container.</p>
 
-<p><b>Sonar (IOPort)</b> &mdash; misura la distanza <code>D</code>. Condizioni fissate dal committente:</p>
+<p><b>Sensor dell'IOPort (sonar)</b> &mdash; misura la distanza <code>D</code> di un oggetto
+davanti all'IOPort. Condizioni fissate dal committente:</p>
 <pre>
 container presente : D &lt; DFREE/2  per ~3 s
 sospetto guasto    : D &gt; DFREE    per &ge; 3 s
 </pre>
+<div class="remark">
+<b>Da chiarire col committente:</b> cosa sia esattamente questo sensor e in che modo fornisca il
+dato (i requisiti non lo specificano). Va inoltre tenuto <b>distinto</b> dall'eventuale sonar
+montato sul <b>robot</b> (es. in WEnv): quest'ultimo non ha alcun ruolo nel cargoservice.
+</div>
 
 <p><b>Marker</b> &mdash; dispositivo in slot5 che etichetta il container con un barcode e
 <b>segnala</b> il completamento della marcatura.</p>
 
 <p><b>LED</b> &mdash; attuatore che <b>lampeggia</b> mentre il sistema e' <i>engaged</i>.</p>
 
-<p><b>CargoRobot</b> &mdash; il DDR fornito dal committente (risorsa data). Raggiunge posizioni
-obiettivo su comando; e' lo stesso robot gia' usato come <code>robotsmart</code>.</p>
+<p><b>CargoRobot</b> &mdash; il DDR fornito dal committente (risorsa data) che raggiunge una
+posizione-obiettivo su comando.</p>
+<div class="remark">
+<b>Assunzione da chiarire.</b> Il committente/azienda dispone di <i>piu' software</i> per il DDR
+(un POJO come <code>RobotObj26</code> e servizi a messaggi come <code>RobotService26</code> o il
+pianificatore <code>robotsmart</code>): <b>quale</b> usare per realizzare il cargorobot e' una
+<b>decisione di progetto</b>, da motivare, non un requisito.
+</div>
 
 <h3>Struttura: componenti logici</h3>
 <ul>
     <li>il <b>cargoservice</b> (il software da costruire);</li>
-    <li>il <b>cargorobot</b> (DDR fornito dal committente, gia' come robotsmart);</li>
-    <li>i dispositivi dell'<b>IOPort</b>: pushbutton, display, sonar;</li>
+    <li>il <b>cargorobot</b> (il DDR fornito dal committente);</li>
+    <li>i dispositivi dell'<b>IOPort</b>: pushbutton, display, sensor;</li>
     <li>il <b>marker</b> (in slot5) e il <b>LED</b>.</li>
 </ul>
 <p>
-Trattandosi di componenti logicamente (micro)servizi a scambio di messaggi, formalizziamo la
-struttura con il linguaggio <b>qak</b>.
+I componenti si scambiano informazioni. <b>Quanti</b> di essi siano realizzati come servizi
+autonomi, con <b>quale</b> tecnologia e <b>quale</b> trasporto, e' una decisione della fase di
+progetto da motivare: non e' un requisito.
 </p>
 
 <br>
 
-<h2>Un modello dei requisiti</h2>
+<h2>Un modello (astratto) delle interazioni</h2>
 <p>
-Il <code>cargoservice</code> e' il componente centrale: <b>proattivo</b> (gestisce la sessione
-di carico e comanda il cargorobot) e <b>reattivo</b> (al pushbutton, al sonar dell'IOPort, alla
-fine marcatura, al timeout). Lo modelliamo come QActor; cargorobot, sonar, marker e dispositivi
-IOPort sono entita' esterne con cui interagisce a scambio di messaggi.
+A livello di requisiti interessa <b>quali</b> informazioni scorrono tra i componenti, non
+<b>come</b> vengano realizzate. Il <code>cargoservice</code> e' il componente centrale:
 </p>
-<pre>
-System cargoservice26
-
-//---- IOPort (pushbutton) -> cargoservice  (richiesta con risposta)
-Request  loadrequest   : loadrequest()             "pulsante premuto dal customer"
-Reply    answer        : answer(RESP) for loadrequest "RESP = retrylater | reject | reserved(SLOT)"
-
-//---- cargoservice -> IOPort (display)
-Dispatch showOnDisplay : show(WHAT)                "risposta o stato hold sul display"
-
-//---- osservazioni dal dominio (a cui il cargoservice reagisce)
-Event    containerAtIOPort : containerAtIOPort()   "sonar: D&lt;DFREE/2 per ~3s"
-Event    sonarFail         : sonarFail()           "sonar: D&gt;DFREE per &ge;3s"
-Event    markingDone       : markingDone()         "il marker ha completato"
-
-//---- cargoservice -> cargorobot (come in robotsmart26)
-Request  moverobot     : moverobot(TARGETX, TARGETY, STEPTIME)
-
-//---- cargoservice -> LED
-Dispatch ledBlink      : ledBlink(ONOFF)           "lampeggio mentre engaged"
-
-QActor cargoservice context ctxcargo {
-    //proattivo: pushbutton -> verifica stato/hold -> riserva slot -> comanda cargorobot
-    //reattivo : containerAtIOPort, sonarFail, markingDone, timeout 30s
-    ...
-}
-</pre>
-<p>
-<i>Nota:</i> <b>come</b> il sonar produca gli eventi, <b>come</b> si realizzino pushbutton,
-display, marker e LED, e <b>come</b> il robot raggiunga le posizioni sono scelte della
-<b>fase di progetto</b>, non dei requisiti.
-</p>
+<ul>
+    <li>riceve dal <b>pushbutton</b> una richiesta di carico e ne restituisce una risposta
+        (slot riservato | retrylater | reject);</li>
+    <li>aggiorna il <b>display</b> con lo stato corrente della stiva e i messaggi di servizio;</li>
+    <li>e' informato dal <b>sensor</b> dell'IOPort della presenza del container e di un eventuale
+        guasto;</li>
+    <li>e' informato dal <b>marker</b> del completamento della marcatura;</li>
+    <li>comanda il <b>cargorobot</b> a raggiungere una posizione;</li>
+    <li>attiva il <b>LED</b> mentre il sistema e' <i>engaged</i>.</li>
+</ul>
+<div class="remark">
+<b>Assunzioni che NON vanno fissate nei requisiti</b> (sono scelte della fase di progetto, da
+motivare):
+<ul>
+    <li>il <b>tipo</b> di interazione di ciascun flusso (evento, dispatch, request/reply): i
+        requisiti non dicono, per esempio, se il sensor <i>emette eventi</i> o <i>invia dispatch</i>;</li>
+    <li>il <b>trasporto</b> (MQTT, TCP, CoAP, ...): non e' un requisito che il sensor usi MQTT;</li>
+    <li>la <b>tecnologia</b> di realizzazione (es. qak/QActor), il cui uso va motivato;</li>
+    <li>quale <b>software del DDR</b> realizza il cargorobot.</li>
+</ul>
+La formalizzazione di questi flussi in un modello concreto e' compito dello Sprint successivo
+(Analisi del Problema) e del Progetto.
+</div>
 
 <br>
 
@@ -199,28 +213,32 @@ la gestione completa di <i>Out of service</i> e del barcode a un'iterazione succ
 
 <br>
 
-<h2>Domande aperte al committente</h2>
+<h2>Domande al committente e chiarimenti ricevuti</h2>
 <pre>
-<b>D1.</b> Posizioni: quali sono le coordinate (nella mappa) di IOPort, HOME, slot1..slot5?
-    (la figura mostra il layout, ma servono le posizioni esatte; cfr. tf25map e
-    Robotsmart26Cmds, dove IOPort=(4,0))
+<b>D1.</b> Posizioni di IOPort, HOME, slot1..slot5?
+    <b>Chiarimento:</b> un servizio DDR fornito ha gia' una <b>mappa built-in</b> dell'area;
+    le coordinate provengono da quella mappa, non sono un dato da inventare.
 
-<b>D2.</b> "IOPort occupied by a container": come si rileva che l'IOPort e' occupato &mdash;
-    e' lo stesso sonar (D&lt;DFREE/2) o un'informazione distinta?
+<b>D2.</b> Come si rileva che l'IOPort e' "occupato da un container"?
+    (ancora da chiarire: e' lo stesso sensor della presenza, o un'informazione distinta?)
 
-<b>D3.</b> Timeout 30s: parte alla risposta di slot riservato e se scade il sistema torna
-    'available' liberando lo slot riservato? Il container eventualmente arrivato resta?
+<b>D3.</b> Timeout 30s: cosa succede se scade?
+    <b>Chiarimento:</b> si assume che il container <b>NON sia arrivato</b>: il sistema si
+    disengagia e libera lo slot riservato.
 
-<b>D4.</b> Marcatura: il 'marker' e' un dispositivo reale/simulato? Il barcode prodotto va
-    memorizzato o basta il segnale 'markingDone'?
+<b>D4.</b> Marcatura: il barcode va memorizzato?
+    <b>Chiarimento:</b> basta il <b>segnale</b> di completamento (markingDone); il barcode
+    in se' non e' gestito dal cargoservice.
 
-<b>D5.</b> Display: e' un dispositivo fisico, una pagina web, o (per la demo) un output a
-    video? Quali messaggi esatti mostrare per "current state of the hold"?
+<b>D5.</b> Display: che cos'e' e cosa mostra?
+    <b>Chiarimento:</b> dovrebbe essere una <b>pagina web</b>, che <b>non</b> include il sensor,
+    e deve mostrare almeno lo <b>stato corrente degli slot</b>.
 
-<b>D6.</b> Stato 'Out of service' (sonarFail): le richieste in arrivo vanno tutte rifiutate
-    con retrylater, e il servizio riprende automaticamente quando D&le;DFREE?
+<b>D6.</b> Out of service: le richieste in arrivo?
+    <b>Chiarimento:</b> vanno <b>rifiutate</b> (retrylater) finche' il servizio non torna attivo.
 
-<b>D7.</b> Pushbutton: una sola richiesta per volta (mentre engaged le altre danno retrylater)?
+<b>D7.</b> Pushbutton: una sola richiesta per volta?
+    <b>Chiarimento:</b> si', come da requisito (le altre ricevono retrylater).
 </pre>
 
 <br>
@@ -228,16 +246,17 @@ la gestione completa di <i>Out of service</i> e del barcode a un'iterazione succ
 <h2>Problematiche aperte (per l'analista)</h2>
 <div class="remark">
 <b>P1 &mdash; Realizzazione dei dispositivi senza hardware fisico.</b><br>
-Non disponendo del PicoW fisico, sonar, pushbutton, display, marker e LED vanno realizzati in
-modo <b>simulato</b> (in Python/Java): il sonar tramite il mock <code>mockPicowRadar.py</code>
-(stesso messaggio MQTT del PicoW reale), gli altri come input/output a video o eventi simulati.
-I contratti (i messaggi) restano identici a quelli di un'eventuale realizzazione hardware.
+Non disponendo del PicoW fisico, sensor, pushbutton, display, marker e LED vanno realizzati in
+modo <b>simulato</b> (in Python/Java). Cio' che conta a livello di requisiti e' l'<b>informazione</b>
+scambiata (per il sensor: la distanza D), non il dispositivo ne' il trasporto: sostituendo il
+simulato con l'hardware reale, le informazioni restano le stesse.
 </div>
 <div class="remark">
-<b>P2 &mdash; Sorgente del sonar.</b><br>
-Il sonar dell'IOPort puo' provenire dal mock (MQTT) oppure dal sonar simulato in WEnv
-(evento <code>sonaralarm</code> di robotmnemo, come in <code>robotsmart26tf26.qak</code>): le
-due sorgenti sono intercambiabili perche' il cargoservice reagisce allo stesso evento logico.
+<b>P2 &mdash; Natura e interazione del sensor dell'IOPort.</b><br>
+I requisiti non dicono <b>cosa</b> sia esattamente il sensor, ne' <b>come</b> comunichi il dato
+(evento? dispatch? quale trasporto?): sono decisioni di progetto da motivare. Il sensor va
+inoltre tenuto distinto dal sonar eventualmente montato sul <b>robot</b> (es. in WEnv), che
+<b>non riguarda</b> questa applicazione.
 </div>
 <div class="remark">
 <b>P3 &mdash; Movimento IOPort &rarr; slot5 &rarr; slot.</b><br>
@@ -251,6 +270,7 @@ Caso minimo significativo: una richiesta accettata che attraversa l'intero ciclo
 (pushbutton &rarr; slot riservato &rarr; container all'IOPort &rarr; IOPort&rarr;slot5&rarr;slot
 &rarr; HOME), verificando alla fine che lo stato della stiva sia coerente. Casi aggiuntivi:
 hold pieno (reject), IOPort occupato/out of service (retrylater), timeout (disengaged).
+<b>Questo Test Plan andrebbe formalizzato il prima possibile</b>, gia' a partire da questa fase.
 </div>
 
 <br><br>
