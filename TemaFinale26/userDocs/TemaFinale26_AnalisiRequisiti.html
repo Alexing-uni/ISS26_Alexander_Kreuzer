@@ -79,14 +79,72 @@ estraneo all'applicazione &mdash; cfr. P2.)
 
 <h3>Formalizzazione dell'area</h3>
 <p>
-Per ragionare in modo non ambiguo, l'area va <b>formalizzata</b> come una <b>mappa</b> a celle
-(griglia), in cui ogni cella ha coordinate <code>(X,Y)</code> e HOME, IOPort e slot1..slot5
-occupano celle note. Una mossa del cargorobot porta da una cella a una cella adiacente.
+La figura sopra <b>non formalizza</b> l'area. Per ragionare in modo non ambiguo (e per rendere
+il test <b>automatizzabile</b>) l'area va rappresentata come una <b>matrice di celle</b>: ogni
+cella ha coordinate <code>(X,Y)</code>, una mossa del cargorobot porta a una cella adiacente, e
+lo stato della stiva e' definito da quali celle-slot sono occupate.
 </p>
+<pre>
+            X=0    X=1    X=2    X=3    X=4    X=5
+         +------+------+------+------+------+------+
+   Y=0   |  H   |  .   |  .   |  .   |  .   |  .   |     H      = HOME (start del cargorobot)
+         +------+------+------+------+------+------+     I      = IOPort
+   Y=1   |  .   |  S1  |  .   |  S2  |  .   |  .   |     S1..S5 = slot (occupato se contiene
+         +------+------+------+------+------+------+              un container)
+   Y=2   |  .   |  .   |  .   |  .   |  S5  |  .   |     .      = cella libera (percorribile)
+         +------+------+------+------+------+------+     #      = parete / bordo
+   Y=3   |  .   |  S3  |  .   |  S4  |  .   |  .   |
+         +------+------+------+------+------+------+
+   Y=4   |  .   |  .   |  .   |  .   |  .   |  .   |
+         +------+------+------+------+------+------+
+   Y=5   |  I   |  .   |  .   |  .   |  .   |  .   |
+         +------+------+------+------+------+------+
+
+Forma 'machine-readable' (convenzione del docente, una riga per @, 0=libera 1=occupata):
+   es.  100000@010100@000010@010100@000000@100000
+</pre>
 <div class="remark">
-Un <b>servizio DDR</b> tipicamente mette gia' a disposizione una <b>mappa built-in</b> dell'area:
-in tal caso le coordinate di HOME/IOPort/slot non sono un dato da inventare, ma provengono da
-quella mappa. (Vedi <b>D1</b>.)
+Lo schema sopra e' <b>schematico</b> (coerente con la figura): mostra il <b>metodo</b> di
+formalizzazione (griglia a coordinate + simboli), non i valori definitivi. Le coordinate
+<b>autorevoli</b> di HOME/IOPort/slot <b>non sono inventate</b>: provengono dalla
+<b>mappa built-in</b> del servizio DDR (cfr. <b>D1</b>). Nota: la figura colloca l'IOPort in
+basso, mentre il materiale del docente usa <code>moverobot(4,0)</code> per l'IOPort: la
+riconciliazione avviene proprio leggendo la mappa del DDR.
+</div>
+
+<br>
+
+<h2>Requisiti come user stories</h2>
+<p>
+Su indicazione del docente, i requisiti vengono espressi anche come
+<a href="https://www.atlassian.com/agile/project-management/user-stories" target="_blank">user
+stories</a> (formato <i>"Come &lt;ruolo&gt;, voglio &lt;obiettivo&gt;, cosi' che &lt;beneficio&gt;"</i>),
+per metterne a fuoco gli attori e il valore. Sono una vista <b>complementare</b> al testo del
+committente, non una sua sostituzione.
+</p>
+<div class="req">
+<b>US1.</b> Come <b>customer</b>, voglio inviare una richiesta di carico premendo il pushbutton
+dell'IOPort, cosi' da poter caricare un container sulla nave.<br><br>
+<b>US2.</b> Come <b>customer</b>, voglio ricevere sul display la risposta alla richiesta
+(slot riservato | retrylater | reject), cosi' da conoscerne l'esito.<br><br>
+<b>US3.</b> Come <b>committente</b>, voglio che la richiesta sia <b>rifiutata</b> quando la stiva
+e' piena (slot1-4 occupati), cosi' da non accettare carichi impossibili.<br><br>
+<b>US4.</b> Come <b>committente</b>, voglio che il sistema risponda <b>retrylater</b> quando
+l'IOPort e' occupato da un container o e' Out of service, cosi' da gestire la richiesta piu' tardi.<br><br>
+<b>US5.</b> Come <b>customer</b>, quando la richiesta e' accettata voglio depositare il container
+nell'area del sensor entro un tempo prefissato (~30s), altrimenti il sistema si disengagia.<br><br>
+<b>US6.</b> Come <b>committente</b>, voglio che il cargorobot porti il container dall'IOPort allo
+slot5 (marcatura) e poi allo slot riservato, cosi' che ogni container sia etichettato e
+immagazzinato correttamente.<br><br>
+<b>US7.</b> Come <b>committente</b>, voglio che al termine il cargorobot torni a HOME, cosi' che il
+servizio sia pronto per una nuova richiesta.<br><br>
+<b>US8.</b> Come <b>operatore</b>, voglio vedere sul display lo stato corrente della stiva e i
+messaggi "Service working"/"Out of service", cosi' da conoscere lo stato del sistema.<br><br>
+<b>US9.</b> Come <b>committente</b>, voglio che il sistema faccia lampeggiare un LED mentre e'
+<i>engaged</i>, cosi' che l'impegno del sistema sia visibile.<br><br>
+<b>US10.</b> Come <b>committente</b>, voglio che il sistema vada "Out of service" se il sonar
+misura D&gt;DFREE per &ge;3s (possibile guasto), cosi' da non operare con un sensore guasto,
+riprendendo quando D&le;DFREE.
 </div>
 
 <br>
