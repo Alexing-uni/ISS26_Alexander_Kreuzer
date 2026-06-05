@@ -62,13 +62,20 @@ D &gt; DFREE for at least 3 secs (perhaps a failure of the sonar)."</i>
 <p>La figura del tema e' <b>illustrativa</b>: mostra le posizioni relative ma non formalizza l'area.</p>
 <pre>
 +-------------------------------------------------+
-|  HOME            [SONAR]                         |   HOME  : posizione iniziale del cargorobot
+|  HOME            [SONAR]                         |   HOME   : posizione iniziale del cargorobot
 |        [SLOT1][SLOT2]                            |   SLOT1..4 : aree di stoccaggio container
-|   robot         [SLOT5]                          |   SLOT5 : area di marcatura temporanea
-|        [SLOT3][SLOT4]                            |   IOPORT: pushbutton + display + sensor
-|  [IOPORT]                                        |
-+-------------------------------------------------+
+|   robot         [SLOT5]                          |   SLOT5  : area di marcatura temporanea
+|        [SLOT3][SLOT4]                            |   IOPORT : pushbutton + display
+|  [IOPORT] ~SENSOR~                               |   SENSOR : dispositivo SEPARATO associato
++-------------------------------------------------+             all'IOPort (rileva il container)
 </pre>
+<p>
+<b>Attenzione:</b> IOPort e sensor <b>non</b> sono un unico dispositivo. Il testo del committente
+dice "the IOPort is a device with a pushbutton and a display" e, separatamente, "the
+<i>sensor associated to</i> the IOPort": il sensor e' un dispositivo <b>distinto</b>, associato
+all'IOPort. (Il <code>[SONAR]</code> in alto nella figura e' l'eventuale sonar del <b>robot</b>,
+estraneo all'applicazione &mdash; cfr. P2.)
+</p>
 
 <h3>Formalizzazione dell'area</h3>
 <p>
@@ -117,9 +124,10 @@ public class Hold {
 }
 </pre>
 
-<p><b>IOPort</b> &mdash; dispositivo composto: <b>pushbutton</b> (input richiesta),
-<b>display</b> (output: risposta + stato hold) e un <b>sensor</b> (un sonar) per rilevare la
-presenza del container.</p>
+<p><b>IOPort</b> &mdash; dispositivo con <b>pushbutton</b> (input richiesta) e <b>display</b>
+(output: risposta + stato hold). Il <b>sensor</b> che rileva il container e' un dispositivo
+<b>separato associato</b> all'IOPort, non parte di esso (testo del committente: "the sensor
+<i>associated to</i> the IOPort").</p>
 
 <p><b>Sensor dell'IOPort (sonar)</b> &mdash; misura la distanza <code>D</code> di un oggetto
 davanti all'IOPort. Condizioni fissate dal committente:</p>
@@ -134,9 +142,11 @@ montato sul <b>robot</b> (es. in WEnv): quest'ultimo non ha alcun ruolo nel carg
 </div>
 
 <p><b>Marker</b> &mdash; dispositivo in slot5 che etichetta il container con un barcode e
-<b>segnala</b> il completamento della marcatura.</p>
+<b>segnala</b> il completamento della marcatura. (Il significato esatto di "segnala" va
+<b>chiarito col committente</b>; al cargoservice basta il segnale di completamento.)</p>
 
-<p><b>LED</b> &mdash; attuatore che <b>lampeggia</b> mentre il sistema e' <i>engaged</i>.</p>
+<p><b>LED</b> &mdash; attuatore che <b>lampeggia</b> mentre il sistema e' <i>engaged</i>.
+La sua <b>collocazione non e' specificata</b> dai requisiti (cfr. domanda aperta).</p>
 
 <p><b>CargoRobot</b> &mdash; il DDR fornito dal committente (risorsa data) che raggiunge una
 posizione-obiettivo su comando.</p>
@@ -207,8 +217,9 @@ attende il container all'IOPort (entro il tempo previsto), comanda il cargorobot
 <b>IOPort &rarr; slot5 (marcatura) &rarr; slot riservato</b>, e riporta il robot a HOME, tornando
 pronto per una nuova richiesta.
 <br><br>
-Nel primo prototipo si possono semplificare gli output (display/LED come log a video) e rinviare
-la gestione completa di <i>Out of service</i> e del barcode a un'iterazione successiva.
+Nel primo prototipo si possono semplificare gli output (display/LED come log a video) e si
+possono <b>ignorare</b> <i>Out of service</i> e barcode (confermato dal committente),
+affrontandoli in un'iterazione successiva.
 </div>
 
 <br>
@@ -239,6 +250,8 @@ la gestione completa di <i>Out of service</i> e del barcode a un'iterazione succ
 
 <b>D7.</b> Pushbutton: una sola richiesta per volta?
     <b>Chiarimento:</b> si', come da requisito (le altre ricevono retrylater).
+
+<b>D8.</b> LED: dove e' collocato? I requisiti non lo specificano (da chiarire col committente).
 </pre>
 
 <br>
@@ -270,6 +283,8 @@ Caso minimo significativo: una richiesta accettata che attraversa l'intero ciclo
 (pushbutton &rarr; slot riservato &rarr; container all'IOPort &rarr; IOPort&rarr;slot5&rarr;slot
 &rarr; HOME), verificando alla fine che lo stato della stiva sia coerente. Casi aggiuntivi:
 hold pieno (reject), IOPort occupato/out of service (retrylater), timeout (disengaged).
+<br><b>Questo test va formalizzato il prima possibile</b> (indicazione del docente), per
+guidare lo sviluppo.
 <b>Questo Test Plan andrebbe formalizzato il prima possibile</b>, gia' a partire da questa fase.
 </div>
 
