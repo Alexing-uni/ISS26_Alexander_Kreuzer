@@ -215,17 +215,30 @@ pianificatore <code>robotsmart</code>): <b>quale</b> usare per realizzare il car
 <b>decisione di progetto</b>, da motivare, non un requisito.
 </div>
 
-<h3>Struttura: componenti logici</h3>
-<ul>
-    <li>il <b>cargoservice</b> (il software da costruire);</li>
-    <li>il <b>cargorobot</b> (il DDR fornito dal committente);</li>
-    <li>i dispositivi dell'<b>IOPort</b>: pushbutton, display, sensor;</li>
-    <li>il <b>marker</b> (in slot5) e il <b>LED</b>.</li>
-</ul>
+<h3>Macro-parti del sistema</h3>
+<p>Modello delle macro-parti, con indicazione di cosa e' <b>fornito dal committente</b> e cosa
+va <b>sviluppato</b> (richiesto dallo Sprint0, cap. 32.1.1):</p>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Macro-parte</th><th>Fornito / da sviluppare</th><th>Natura software</th>
+    </tr>
+    <tr><td><b>cargoservice</b></td><td>da sviluppare</td>
+        <td>logica applicativa (servizio a messaggi)</td></tr>
+    <tr><td><b>cargorobot</b> (DDR)</td><td>fornito dal committente</td>
+        <td>POJO o servizio gia' esistente &mdash; <i>quale</i> usare e' una scelta di progetto</td></tr>
+    <tr><td><b>sensor</b> dell'IOPort</td><td>fornito (hardware) / simulato</td>
+        <td>sorgente di dati di distanza; natura/trasporto da chiarire</td></tr>
+    <tr><td><b>pushbutton</b> + <b>display</b></td><td>forniti (IOPort) / simulati</td>
+        <td>input richiesta / output (display: pagina web)</td></tr>
+    <tr><td><b>marker</b> (slot5)</td><td>fornito / simulato</td>
+        <td>segnala il completamento della marcatura</td></tr>
+    <tr><td><b>LED</b></td><td>fornito (hardware) / simulato</td>
+        <td>attuatore di stato (engaged)</td></tr>
+</table>
 <p>
-I componenti si scambiano informazioni. <b>Quanti</b> di essi siano realizzati come servizi
-autonomi, con <b>quale</b> tecnologia e <b>quale</b> trasporto, e' una decisione della fase di
-progetto da motivare: non e' un requisito.
+<b>Quanti</b> di questi componenti siano realizzati come servizi autonomi, con <b>quale</b>
+tecnologia e <b>quale</b> trasporto, e' una decisione della fase di progetto da motivare: non
+e' un requisito.
 </p>
 
 <br>
@@ -336,14 +349,60 @@ cargorobot <b>raggiunge</b> la posizione (slot5 e poi lo slot), tramite <code>mo
 senza richiedere un attuatore di presa (non presente nel DDR).
 </div>
 <div class="remark">
-<b>P4 &mdash; Granularita' del Test Plan automatizzato</b> (richiesto dalla valutazione).<br>
-Caso minimo significativo: una richiesta accettata che attraversa l'intero ciclo
-(pushbutton &rarr; slot riservato &rarr; container all'IOPort &rarr; IOPort&rarr;slot5&rarr;slot
-&rarr; HOME), verificando alla fine che lo stato della stiva sia coerente. Casi aggiuntivi:
-hold pieno (reject), IOPort occupato/out of service (retrylater), timeout (disengaged).
-<br><b>Questo test va formalizzato il prima possibile</b> (indicazione del docente), per
-guidare lo sviluppo.
-<b>Questo Test Plan andrebbe formalizzato il prima possibile</b>, gia' a partire da questa fase.
+<b>P4 &mdash; Test Plan funzionali.</b> Su indicazione del docente ("questo test va formalizzato
+il prima possibile") il Test Plan e' stato <b>formalizzato gia' in questa fase</b>: vedi la
+sezione <i>Piano di Test Funzionali</i> qui sotto.
+</div>
+
+<br>
+
+<h2>Piano di Test Funzionali (Sprint0)</h2>
+<p>
+Come nel metodo del corso (cfr. la 'mappa mentale' del DDRBoundary), il test e'
+<b>automatizzabile</b>: il cargoservice mantiene lo stato della stiva, che evolve in conseguenza
+delle azioni; al termine lo stato finale si confronta <b>programmaticamente</b> con quello atteso
+(esito <b>PASS/FAIL</b>). Ogni TP indica precondizione, azione, risposta e asserzioni finali.
+</p>
+<pre>
+TP1  CARICO NOMINALE  (test significativo per la demo)
+  precondizione : sistema available; IOPort libero; sonar ok; almeno uno slot libero (es. slot2)
+  azione        : loadrequest()                          (pushbutton)
+  risposta att. : answer(reserved(slot2))
+  sequenza      : containerAtIOPort (entro 30s) -> moverobot(IOPort) -> moverobot(slot5)
+                  -> markingDone -> moverobot(slot2) -> moverobot(HOME)
+  ASSERZIONI (PASS sse tutte vere):
+     hold.slot("slot2").occupied == true
+     posizione cargorobot        == HOME
+     stato cargoservice          == available
+     (display == holdstate ; LED == off)
+
+TP2  RIFIUTO PER STIVA PIENA
+  precondizione : slot1..slot4 tutti occupati
+  azione        : loadrequest()
+  risposta att. : answer(reject)
+  ASSERZIONE    : stato della stiva INVARIATO ; cargoservice resta available
+
+TP3  RETRYLATER  (IOPort occupato OPPURE Out of service)
+  precondizione : IOPort occupato da un container  oppure  sistema Out of service
+  azione        : loadrequest()
+  risposta att. : answer(retrylater)
+  ASSERZIONE    : stato della stiva INVARIATO
+
+TP4  TIMEOUT  (container non arrivato)
+  precondizione : richiesta accettata (slot riservato), sistema engaged
+  azione        : il container NON arriva entro 30s
+  risultato att.: disengage
+  ASSERZIONI    : slot riservato di nuovo libero ; LED == off ; cargoservice == available
+
+TP5  OUT OF SERVICE  (sospetto guasto sonar)
+  precondizione : sistema in funzione
+  azione        : il sonar misura D &gt; DFREE per &ge; 3s   -> sonarFail
+  risultato att.: display == "Out of service" ; le richieste ricevono retrylater
+  ripristino    : D &le; DFREE -> sonarOk -> available
+</pre>
+<div class="remark">
+<b>TP1</b> e' il <b>Test Plan automatizzato significativo</b> richiesto per la demo: copre
+l'intero ciclo e termina con asserzioni PASS/FAIL integrabili in JUnit o nel log di collaudo.
 </div>
 
 <br><br>
