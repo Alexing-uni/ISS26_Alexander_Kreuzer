@@ -43,7 +43,7 @@ Repository del corso Ingegneria dei Sistemi Software a.a. 2025/2026 - DISI - Uni
 
   **Progetto Finale &mdash; [TemaFinale26 (cargoservice)](TemaFinale26)** — consegna per fasi (le fasi vengono pubblicate man mano che sono consegnate al docente)
     * Sprint 0 — Requisiti: 📄 [html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/userDocs/TemaFinale26_AnalisiRequisiti.html) | 📕 [pdf](TemaFinale26/userDocs/TemaFinale26_AnalisiRequisiti.pdf)
-    * Sprint 1 — Analisi del Problema: _in preparazione_
+    * Sprint 1 — Analisi del Problema: 📄 [html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/userDocs/TemaFinale26_AnalisiProblema.html) | 📕 [pdf](TemaFinale26/userDocs/TemaFinale26_AnalisiProblema.pdf)
     * Project — Architettura: _in preparazione_
   * **Progetto robotservice26** — Il robot come microservizio (move/cmd/step + eventi) | [Codice Sorgente](robotservice26/src) | 📄 [robotservice26.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/robotservice26/userDocs/robotservice26.html)
   * **Progetto robotsmart26** — Robot intelligente con pianificazione A* (cap. 30 Protobook) | [Codice Sorgente](robotsmart26/src) | 📄 [robotsmart26.html](https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/robotsmart26/userDocs/robotsmart26.html)
