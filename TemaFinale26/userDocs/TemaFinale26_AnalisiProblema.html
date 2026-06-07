@@ -94,7 +94,7 @@ viene qui <b>adottato e motivato</b>.
 <h3>Realizzazione dei dispositivi senza hardware</h3>
 <table style="margin-left:10px;">
     <tr style="background:#e1f4d7;"><th>Dispositivo</th><th>Realizzazione per la demo</th></tr>
-    <tr><td>Sonar IOPort</td><td><code>mockPicowRadar.py</code> &rarr; <code>sonardata(D)</code> su MQTT (identico al PicoW reale)</td></tr>
+    <tr><td>Sonar IOPort</td><td>mock in Python che pubblica la distanza <code>D</code> via MQTT, sullo stile del PicoW reale (cfr. <code>Picow/Sonar/sonarMqtt.py</code>); formato/trasporto concreti = dettaglio di Progetto</td></tr>
     <tr><td>Pushbutton</td><td>messaggio <code>loadrequest</code> inviato da un client simulato (caller)</td></tr>
     <tr><td>Display</td><td>output a video / log (<code>show(...)</code>)</td></tr>
     <tr><td>Marker</td><td>attesa simulata + segnale <code>markingDone</code></td></tr>
@@ -290,10 +290,14 @@ QActor cargoservice context ctxcargo
 </pre>
 
 <div class="remark">
-Il <code>iosensor</code> e' un QActor di supporto che si iscrive al sonar (mock MQTT o sonar di
-WEnv) e applica i filtri temporali, emettendo <code>containerAtIOPort</code> (D&lt;DFREE/2 per ~3s),
-<code>sonarFail</code> (D&gt;DFREE per &ge;3s) e <code>sonarOk</code> (D&le;DFREE). Cosi' il
-cargoservice resta indipendente dalla sorgente fisica del sonar.
+Il <code>iosensor</code> e' un QActor di supporto (<b>scelta di progetto</b>) che riceve la distanza
+<code>D</code> dal <b>sensor dell'IOPort</b> (il PicoW reale o il suo mock) e applica i filtri
+temporali del committente, emettendo gli <i>eventi logici</i> <code>containerAtIOPort</code>
+(D&lt;DFREE/2 per ~3s), <code>sonarFail</code> (D&gt;DFREE per &ge;3s) e <code>sonarOk</code>
+(D&le;DFREE). Cosi' il cargoservice resta indipendente dalla sorgente e dal formato del dato.
+<br><b>NB:</b> questo sensor dell'IOPort va tenuto <b>distinto</b> dal sonar montato sul robot in
+WEnv (evento <code>sonaralarm</code> emesso da robotsmart) che, come chiarito dal committente,
+<b>non riguarda</b> il cargoservice.
 </div>
 
 <br>
@@ -325,10 +329,12 @@ customer        cargoservice        cargorobot        marker
 
 <h2>Decisioni sulle problematiche</h2>
 <div class="remark">
-<b>P1 &mdash; Dispositivi simulati.</b> sonar = <code>mockPicowRadar.py</code> (MQTT, identico al
-PicoW reale); pushbutton = messaggio <code>loadrequest</code> da un caller; display/LED = log a
-video; marker = attesa + <code>markingDone</code>. I contratti restano invariati: sostituendo il
-mock col PicoW reale, il cargoservice non cambia.
+<b>P1 &mdash; Dispositivi simulati.</b> sonar = mock in Python che pubblica la distanza
+<code>D</code> (sullo stile del PicoW reale, cfr. <code>Picow/Sonar/sonarMqtt.py</code>);
+pushbutton = messaggio <code>loadrequest</code> da un caller; display/LED = log a video; marker =
+attesa + <code>markingDone</code>. Cio' che conta e' l'<b>informazione</b> (la distanza
+<code>D</code>), non il formato del messaggio: il cargoservice vede solo gli <i>eventi logici</i>
+dell'iosensor, percio' sostituire il mock col PicoW reale non lo cambia.
 </div>
 <div class="remark">
 <b>P2 &mdash; Deposito astratto.</b> Il container si considera spostato quando il cargorobot
