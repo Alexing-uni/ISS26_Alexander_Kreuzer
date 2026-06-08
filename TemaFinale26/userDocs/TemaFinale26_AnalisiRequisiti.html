@@ -107,9 +107,8 @@ Forma 'machine-readable' (convenzione del docente, una riga per @, 0=libera 1=oc
 Lo schema sopra e' <b>schematico</b> (coerente con la figura): mostra il <b>metodo</b> di
 formalizzazione (griglia a coordinate + simboli), non i valori definitivi. Le coordinate
 <b>autorevoli</b> di HOME/IOPort/slot <b>non sono inventate</b>: provengono dalla
-<b>mappa built-in</b> del servizio DDR (cfr. <b>D1</b>). Nota: la figura colloca l'IOPort in
-basso, mentre il materiale del docente usa <code>moverobot(4,0)</code> per l'IOPort: la
-riconciliazione avviene proprio leggendo la mappa del DDR.
+<b>mappa built-in</b> del servizio DDR (cfr. <b>D1</b>): le coordinate effettive di HOME, IOPort e
+slot vanno <b>lette da quella mappa</b>, non fissate qui.
 </div>
 
 <br>
@@ -203,16 +202,18 @@ montato sul <b>robot</b> (es. in WEnv): quest'ultimo non ha alcun ruolo nel carg
 <b>segnala</b> il completamento della marcatura. (Il significato esatto di "segnala" va
 <b>chiarito col committente</b>; al cargoservice basta il segnale di completamento.)</p>
 
-<p><b>LED</b> &mdash; attuatore che <b>lampeggia</b> mentre il sistema e' <i>engaged</i>.
-La sua <b>collocazione non e' specificata</b> dai requisiti (cfr. domanda aperta).</p>
+<p><b>LED</b> &mdash; <b>indicatore di stato</b> (non un attuatore) che <b>lampeggia</b> mentre il
+sistema e' <i>engaged</i>. La sua <b>collocazione non e' specificata</b> dai requisiti (cfr.
+domanda aperta).</p>
 
 <p><b>CargoRobot</b> &mdash; il DDR fornito dal committente (risorsa data) che raggiunge una
 posizione-obiettivo su comando.</p>
 <div class="remark">
-<b>Assunzione da chiarire.</b> Il committente/azienda dispone di <i>piu' software</i> per il DDR
-(un POJO come <code>RobotObj26</code> e servizi a messaggi come <code>RobotService26</code> o il
-pianificatore <code>robotsmart</code>): <b>quale</b> usare per realizzare il cargorobot e' una
-<b>decisione di progetto</b>, da motivare, non un requisito.
+<b>Da analizzare.</b> Il committente/azienda dispone di <i>piu' software</i> per il DDR (un POJO
+come <code>RobotObj26</code> e servizi a messaggi come <code>RobotService26</code> o il
+pianificatore <code>robotsmart</code>): <b>quale</b> usare per realizzare il cargorobot non e' un
+requisito, ma va <b>analizzato e motivato</b> (vedi Analisi del Problema, Sprint 1), non solo
+rinviato al progetto.
 </div>
 
 <h3>Macro-parti del sistema</h3>
@@ -233,7 +234,7 @@ va <b>sviluppato</b> (richiesto dallo Sprint0, cap. 32.1.1):</p>
     <tr><td><b>marker</b> (slot5)</td><td>fornito / simulato</td>
         <td>segnala il completamento della marcatura</td></tr>
     <tr><td><b>LED</b></td><td>fornito (hardware) / simulato</td>
-        <td>attuatore di stato (engaged)</td></tr>
+        <td>indicatore di stato (engaged)</td></tr>
 </table>
 <p>
 <b>Quanti</b> di questi componenti siano realizzati come servizi autonomi, con <b>quale</b>
@@ -258,6 +259,12 @@ A livello di requisiti interessa <b>quali</b> informazioni scorrono tra i compon
     <li>comanda il <b>cargorobot</b> a raggiungere una posizione;</li>
     <li>attiva il <b>LED</b> mentre il sistema e' <i>engaged</i>.</li>
 </ul>
+<p>
+L'interazione <b>request/reply</b> del pushbutton e' gia' un <b>requisito</b> e viene
+<b>formalizzata in qak</b> (a livello di interfaccia dei messaggi) nell'<a
+href="TemaFinale26_AnalisiProblema.html">Analisi del Problema (Sprint 1)</a>; anche le user stories
+US1..US10 prefigurano il primo test plan.
+</p>
 <div class="remark">
 <b>Assunzioni che NON vanno fissate nei requisiti</b> (sono scelte della fase di progetto, da
 motivare):

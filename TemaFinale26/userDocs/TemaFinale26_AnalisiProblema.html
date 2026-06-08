@@ -14,363 +14,300 @@
 
 <h2>Scopo e goal dello Sprint 1</h2>
 <p>
-Questo documento sviluppa l'<b>analisi del problema</b> a partire dai requisiti gia'
-formalizzati (<a href="TemaFinale26_AnalisiRequisiti.html">TemaFinale26 &ndash; Analisi dei
-Requisiti</a>).
+Questa fase fa <b>analisi del problema</b>: a partire dai requisiti gia' formalizzati
+(<a href="TemaFinale26_AnalisiRequisiti.html">TemaFinale26 &ndash; Analisi dei Requisiti</a>) si
+costruisce un <b>modello logico</b> della soluzione &mdash; <i>di che tipo</i> sono i componenti,
+<i>come</i> interagiscono e <i>quale</i> comportamento ci si attende &mdash; <b>senza</b> ancora
+scegliere i dettagli di realizzazione (codice qak concreto, classi, trasporto), che sono compito
+delle fasi di <b>Progetto</b> e <b>Development</b>.
 </p>
 <div class="req">
-<b>Goal dello Sprint 1.</b> Produrre un <b>modello logico</b> del cargoservice &mdash;
-<b>struttura</b> (attori), <b>interazioni</b> (messaggi/eventi) e <b>comportamento</b> (FSM) &mdash;
-sufficiente a guidare la fase di Development, <b>motivando</b> la tecnologia adottata (qak/QActor)
-e individuando il <b>core business</b> da realizzare per primo.
+<b>Goal dello Sprint 1</b> (sottoinsieme del testo del committente). Analizzare e modellare il
+<b>core business</b>: <i>"the cargoservice uses the cargorobot to move the container from the IOPort
+to the slot5 (for marking the container) and then to the reserved slot"</i>, con ritorno del
+cargorobot a HOME e sistema pronto per una nuova richiesta. Gli aspetti accessori (display come
+web-gui, LED, <i>Out of service</i>, barcode) sono rinviati a iterazioni successive (confermato
+dal committente).
 </div>
-<p>
-Non disponendo del PicoW fisico, i dispositivi sono realizzati in modo <b>simulato</b>
-(Python/Java) con gli <b>stessi contratti</b> di un'eventuale realizzazione hardware: a livello
-logico conta l'<i>informazione</i> scambiata, non il dispositivo.
-</p>
+
+<div class="remark">
+<b>Metodo (altitudine).</b> I requisiti dicono <b>che cosa</b>. L'analisi del problema si chiede:
+<i>quali tipi di componente software</i> realizzano le entita' del committente, <i>come</i>
+interagiscono e <i>quale</i> comportamento producono &mdash; tutto a livello <b>logico</b>. La
+scelta della tecnologia concreta, dei contratti sintattici e del trasporto e' <b>Progetto</b>.
+Per ogni decisione, qui sotto, si indica se e' un <b>requisito</b>, una scelta di <b>analisi</b>
+(motivata) o una scelta rinviata al <b>progetto</b>.
+</div>
 
 <br>
 
-<h2>Perche' qak (QActor): motivazione</h2>
+<h2>Di che tipo sono i componenti? (pojo / service / attore)</h2>
 <p>
-La scelta del modello a <b>attori</b> (qak/QActor) non e' arbitraria: discende dalla natura del
-<code>cargoservice</code>, che e' <b>al tempo stesso proattivo e reattivo</b>.
+Prima di progettare occorre <b>analizzare la natura</b> di ogni entita' del committente. Si usano
+tre categorie del metamodello:
 </p>
 <ul>
-    <li><b>Proattivo</b>: accettata una richiesta, <i>guida</i> una sessione di carico in piu'
-        passi (riserva slot &rarr; attende il container &rarr; IOPort&rarr;slot5&rarr;slot
-        riservato &rarr; HOME), mantenendo uno <b>stato</b> tra un passo e l'altro.</li>
-    <li><b>Reattivo</b>: deve rispondere a <i>eventi asincroni e non prevedibili</i> &mdash; la
-        pressione del pushbutton, l'arrivo del container (sonar), la fine della marcatura, un
-        guasto del sonar, lo scadere del timeout di 30s.</li>
+    <li><b>POJO</b> &mdash; oggetto <i>passivo</i>, senza vita propria, invocato in modo
+        <b>sincrono</b>; incapsula dati/stato e calcolo (nessun messaggio).</li>
+    <li><b>Service</b> &mdash; componente che <i>espone operazioni</i> e <b>risponde a richieste</b>
+        (request/reply) di altri: e' <b>reattivo</b>, guidato dalle richieste, ma non ha un piano
+        proprio.</li>
+    <li><b>Attore (QActor)</b> &mdash; entita' <i>autonoma</i> con stato, insieme <b>proattiva</b>
+        (ha un proprio comportamento/piano) e <b>reattiva</b> (a messaggi ed eventi), che comunica
+        <b>solo</b> per messaggi asincroni.</li>
 </ul>
-<p>
-Questa combinazione &laquo;macchina a stati + reazione a messaggi/eventi + temporizzazione&raquo;
-e' esattamente cio' che il modello QActor rende esplicito e di prima classe:
-</p>
 <table style="margin-left:10px;">
-    <tr style="background:#e1f4d7;"><th>Esigenza del problema</th><th>Costrutto QActor</th></tr>
-    <tr><td>comportamento a fasi con memoria</td>
-        <td><code>State</code> / <code>Transition</code> + variabili di stato</td></tr>
-    <tr><td>richiesta con risposta (pushbutton, robot)</td>
-        <td><code>whenRequest</code>/<code>replyTo</code> ; <code>request</code>/<code>whenReply</code></td></tr>
-    <tr><td>notifiche asincrone (sonar, marker)</td>
-        <td><code>whenEvent</code> (publish/subscribe)</td></tr>
-    <tr><td>guasto che interrompe da qualunque stato</td>
-        <td><code>whenInterruptEvent</code> (sonarFail &rarr; Out of service)</td></tr>
-    <tr><td>timeout dei 30 s</td><td><code>whenTime</code></td></tr>
-    <tr><td>disaccoppiamento da dispositivi simulati/reali</td>
-        <td>scambio di <b>messaggi</b>: stesso contratto per mock e hardware</td></tr>
+    <tr style="background:#e1f4d7;">
+        <th>Entita' del committente</th><th>Discussione (analisi)</th><th>Natura (conclusione)</th>
+    </tr>
+    <tr>
+        <td><b>cargoservice</b></td>
+        <td>deve <i>guidare</i> una sessione di carico in piu' passi (riserva slot, attesa
+            container, IOPort&rarr;slot5&rarr;slot, HOME) e insieme <i>reagire</i> a pushbutton,
+            sensor, marker e timeout. Un pojo o un service puro non bastano: non "guidano" un
+            processo, rispondono soltanto.</td>
+        <td><b>attore</b> (proattivo + reattivo)</td>
+    </tr>
+    <tr>
+        <td><b>cargorobot</b> (DDR)</td>
+        <td>componente <b>fornito</b> dal committente, che raggiunge una posizione su comando e
+            risponde con l'esito; <i>quale</i> software del DDR usare e' analizzato a parte (vedi
+            sezione seguente).</td>
+        <td><b>service esterno</b></td>
+    </tr>
+    <tr>
+        <td><b>sensor</b> dell'IOPort</td>
+        <td>fornisce la <b>distanza D</b> di un oggetto davanti all'IOPort. Il <b>sonar</b> e' una
+            <i>parte</i> del sensor (il dispositivo di misura), <b>non</b> un componente a se'. Come
+            software e' una <i>sorgente di notifiche</i> sulla presenza del container/guasto: cosa
+            sia esattamente e come fornisca il dato resta da <b>chiarire col committente</b>.</td>
+        <td>sorgente di notifiche (service/attore) &mdash; <i>aperto</i></td>
+    </tr>
+    <tr>
+        <td><b>IOPort</b></td>
+        <td>non e' un unico componente: il <b>pushbutton</b> e' la sorgente di una <i>richiesta</i>
+            (interazione request/reply: e' un requisito); il <b>display</b> e' un <i>canale di
+            output</i>. Un analista puo' sostenere che il display faccia parte della
+            <b>web-gui</b>, non del cargoservice.</td>
+        <td>pushbutton: sorgente di richieste &middot; display: output (forse web-gui)</td>
+    </tr>
+    <tr>
+        <td><b>marker</b> (slot5)</td>
+        <td>etichetta il container e <b>segnala</b> il completamento: al cargoservice serve solo
+            il segnale "fatto".</td>
+        <td>service/attore che notifica un evento</td>
+    </tr>
+    <tr>
+        <td><b>LED</b></td>
+        <td>riflette lo stato <i>engaged</i> del sistema: e' un <b>indicatore di stato</b>, non un
+            attuatore (non agisce sull'ambiente).</td>
+        <td><b>indicatore di stato</b> (output)</td>
+    </tr>
+    <tr>
+        <td><b>Hold</b> (stiva)</td>
+        <td>stato del dominio (slot, occupazione, posizioni dalla mappa): nessuna vita propria,
+            invocato in modo sincrono dal cargoservice.</td>
+        <td><b>POJO</b></td>
+    </tr>
 </table>
 <p>
-In un'implementazione <i>monolitica</i> (un thread con cicli e flag) stato, attese, timeout e
-interruzioni andrebbero gestiti a mano e si confonderebbero tra loro; QActor li <b>separa</b> e li
-rende verificabili, e <b>disaccoppia</b> il servizio dai dispositivi (sostituire il sonar simulato
-col PicoW reale non cambia la logica). Per questo qak, soltanto <i>anticipato</i> nei requisiti,
-viene qui <b>adottato e motivato</b>.
+<b>Quante</b> di queste parti siano attori/servizi autonomi e' una <i>conclusione</i> dell'analisi,
+non un dato di partenza; per <b>sensor</b> e <b>display</b> restano domande aperte da chiarire col
+committente.
 </p>
 
 <br>
 
-<h2>Architettura logica</h2>
+<h2>Quale software per il cargorobot, e perche'</h2>
+<p>
+Il committente <b>non</b> fornisce un solo robot, ma un <b>insieme di componenti</b> (POJO e
+servizi) per il DDR. Quale usare per realizzare il <code>cargorobot</code> e' oggetto di
+<b>analisi</b> (non un semplice rinvio al progetto):
+</p>
 <table style="margin-left:10px;">
     <tr style="background:#e1f4d7;">
-        <th>Componente</th>
-        <th>Tipo</th>
-        <th>Ruolo</th>
+        <th>Componente del DDR</th><th>Cosa offre</th><th>Adeguatezza al problema</th>
     </tr>
-    <tr><td><code>cargoservice</code></td><td>da costruire</td>
-        <td>FSM principale: richiesta, riserva slot, orchestra il cargorobot, aggiorna display/LED</td></tr>
-    <tr><td><code>cargorobot</code> (DDR)</td><td>esterno (dato)</td>
-        <td>raggiunge una posizione con <code>moverobot(X,Y,T)</code>; <i>quale</i> software del
-        DDR lo realizzi (POJO RobotObj26 / RobotService26 / robotsmart) e' scelta di Progetto</td></tr>
-    <tr><td><code>iosensor</code></td><td>da costruire</td>
-        <td>filtra il sonar: emette <code>containerAtIOPort</code> e <code>sonarFail</code></td></tr>
-    <tr><td>pushbutton / display / marker / LED</td><td>simulati</td>
-        <td>input richiesta / output stato / marcatura / lampeggio</td></tr>
+    <tr><td><code>RobotObj26</code> (POJO)</td>
+        <td>comandi elementari sincroni (move l/r/a, step)</td>
+        <td>troppo basso livello: il cargoservice dovrebbe gestire la navigazione mossa-per-mossa</td></tr>
+    <tr><td><code>RobotService26</code> (service)</td>
+        <td>il robot esposto come servizio (move/cmd/step + eventi)</td>
+        <td>astrae il trasporto, ma resta al livello delle <i>mosse</i> elementari</td></tr>
+    <tr><td><code>robotsmart</code> (service)</td>
+        <td><code>moverobot(TARGETX,TARGETY)</code> orientato all'obiettivo (pianificazione A* +
+            mappa)</td>
+        <td><b>adeguato</b>: lavora a livello di <i>posizione-obiettivo</i></td></tr>
 </table>
-
-<h3>Realizzazione dei dispositivi senza hardware</h3>
-<table style="margin-left:10px;">
-    <tr style="background:#e1f4d7;"><th>Dispositivo</th><th>Realizzazione per la demo</th></tr>
-    <tr><td>Sonar IOPort</td><td>mock in Python che pubblica la distanza <code>D</code> via MQTT, sullo stile del PicoW reale (cfr. <code>Picow/Sonar/sonarMqtt.py</code>); formato/trasporto concreti = dettaglio di Progetto</td></tr>
-    <tr><td>Pushbutton</td><td>messaggio <code>loadrequest</code> inviato da un client simulato (caller)</td></tr>
-    <tr><td>Display</td><td>output a video / log (<code>show(...)</code>)</td></tr>
-    <tr><td>Marker</td><td>attesa simulata + segnale <code>markingDone</code></td></tr>
-    <tr><td>LED</td><td>log a video del lampeggio (<code>ledBlink</code>)</td></tr>
-</table>
+<p>
+Il problema chiede di <b>"raggiungere una posizione"</b> (IOPort, slot5, slot riservato, HOME):
+e' esattamente l'astrazione offerta da <code>moverobot(X,Y)</code>. Si analizza quindi come
+candidato motivato <b>robotsmart</b>, usato come <b>service esterno</b> di cui il cargoservice e'
+client (lo stesso pattern con cui <code>boundaryworker</code> usa <code>robotservice</code>). Cosi'
+il cargoservice resta al livello del <i>dominio</i> (posizioni) e non delle mosse del robot. La
+conferma della versione esatta e' una rifinitura di <b>Progetto</b>; la <b>motivazione</b> della
+scelta e' analisi.
+</p>
 
 <br>
 
 <h2>Modello delle interazioni</h2>
+<p>
+Il modello delle interazioni descrive <b>chi interagisce con chi, perche', e di che natura</b> e'
+ciascun flusso (non e' una semplice lista di messaggi). Il <code>cargoservice</code> e' il centro:
+</p>
 <pre>
-//---- pushbutton -> cargoservice  (richiesta con risposta)
-Request  loadrequest   : loadrequest()
-Reply    answer        : answer(RESP)   for loadrequest  "RESP = retrylater | reject | reserved(SLOT)"
+        richiesta di carico / risposta
+  customer  &lt;------------------------------&gt;  CARGOSERVICE  &lt;----&gt; cargorobot
+            (pushbutton + display dell'IOPort)        |  ^         (raggiungi posizione / esito)
+                                                      |  |
+                 presenza container / sospetto guasto |  | marcatura completata
+                          sensor dell'IOPort  --------+  +--------  marker
+                                                      |
+                              stato hold (display/web-gui) ; engaged (LED)
+</pre>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;">
+        <th>Flusso</th><th>Natura</th><th>Altitudine</th><th>Motivazione</th>
+    </tr>
+    <tr><td>pushbutton &rarr; cargoservice</td><td>request / reply</td><td><b>requisito</b></td>
+        <td>il committente: "send a request ... show the answer to the request"</td></tr>
+    <tr><td>sensor &rarr; cargoservice</td><td>notifica (presenza/guasto)</td><td><b>analisi</b></td>
+        <td>sorgente asincrona senza risposta &rarr; si sceglie l'<i>evento</i> (alternativa:
+            dispatch); il sonar e' parte del sensor</td></tr>
+    <tr><td>marker &rarr; cargoservice</td><td>notifica "fatto"</td><td><b>analisi</b></td>
+        <td>basta il segnale di completamento &rarr; evento</td></tr>
+    <tr><td>cargoservice &rarr; cargorobot</td><td>request / reply</td><td>contratto (vedi sopra)</td>
+        <td>serve sapere <i>quando</i> il robot ha raggiunto la posizione per procedere</td></tr>
+    <tr><td>cargoservice &rarr; display / LED</td><td>output di stato</td><td><b>progetto</b> / aperto</td>
+        <td>display forse parte della web-gui; LED indicatore di stato</td></tr>
+</table>
+<div class="remark">
+Il <b>trasporto</b> (TCP / CoAP / MQTT) <b>non</b> e' deciso qui: e' Progetto. A livello di analisi
+contano i <i>ruoli</i>, la <i>natura</i> dei flussi e l'<i>informazione</i> scambiata.
+</div>
 
-//---- sonar (via iosensor) -> cargoservice
-Event    containerAtIOPort : containerAtIOPort()   "D&lt;DFREE/2 per ~3s"
-Event    sonarFail         : sonarFail()           "D&gt;DFREE per &ge;3s"
-Event    sonarOk           : sonarOk()             "D&le;DFREE"
+<br>
 
-//---- marker -> cargoservice
-Event    markingDone   : markingDone()
+<h2>Formalizzazione (qak) delle interazioni di base</h2>
+<p>
+Come indicato dal docente, l'interazione che e' gia' un <b>requisito</b> &mdash; la request/reply
+del pushbutton &mdash; si puo' <b>formalizzare subito in qak</b>, a livello di <i>interfaccia dei
+messaggi</i> (non di realizzazione). Allo stesso modo si riporta il <b>contratto</b> (esterno)
+offerto da robotsmart per il cargorobot:
+</p>
+<pre>
+//---- pushbutton -> cargoservice   (REQUISITO)
+Request loadrequest  : loadrequest()
+Reply   answer       : answer(RESP)   for loadrequest
+            RESP = reserved(SLOT) | retrylater | reject
 
-//---- cargoservice -> cargorobot (contratto di robotsmart26)
-Request  moverobot     : moverobot(TARGETX, TARGETY, STEPTIME)
-Reply    moverobotdone : moverobotok(ARG)                     for moverobot
-Reply    moverobotfailed: moverobotfailed(PLANDONE, PLANTODO) for moverobot
-
-//---- display e LED: oggetti embedded (withobj), non messaggi qak
-//     display.show(WHAT)   con WHAT = reserved(SLOT)|retrylater|reject|serviceworking|outofservice|holdstate
-//     led.blink(true|false)
+//---- cargoservice -> cargorobot   (contratto di robotsmart, scelta motivata sopra)
+Request moverobot      : moverobot(TARGETX, TARGETY, STEPTIME)
+Reply   moverobotdone  : moverobotok(ARG)                     for moverobot
+Reply   moverobotfailed: moverobotfailed(PLANDONE, PLANTODO)  for moverobot
 </pre>
 <div class="remark">
-<b>Perche' questi tipi di interazione</b> (non sono imposti dai requisiti: si scelgono qui,
-motivandoli):
-<ul>
-    <li><code>loadrequest</code> &rarr; <b>request/reply</b>: il customer attende una <i>risposta</i>
-        (reserved | retrylater | reject), quindi e' un'interazione richiesta&ndash;risposta;</li>
-    <li>sonar e marker &rarr; <b>evento</b> (publish/subscribe): sono <i>sorgenti di notifiche</i>
-        asincrone, emesse quando una condizione si verifica, senza attendere risposta. (E' una
-        scelta: in alternativa potrebbero inviare <i>dispatch</i> diretti; si preferisce l'evento
-        per disaccoppiare la sorgente dal servizio e permettere piu' osservatori.)</li>
-    <li><code>moverobot</code> &rarr; <b>request/reply</b>: il cargoservice deve sapere <i>quando</i>
-        il robot ha raggiunto la posizione (<code>moverobotok</code>) per procedere al passo
-        successivo; e' il contratto gia' offerto dal DDR.</li>
-</ul>
-Il <b>trasporto</b> concreto (TCP/CoAP/MQTT) <b>non</b> e' fissato qui: e' una decisione della
-fase di Progetto. A livello logico contano il <i>tipo</i> di interazione e l'informazione scambiata.
+Questa e' la <b>formalizzazione delle interfacce</b>, non il comportamento interno ne' la
+realizzazione: la traduzione in una <b>FSM qak</b> concreta (stati, transizioni, <code>withobj</code>,
+codice) e' compito di <b>Progetto/Development</b>. Le user stories dello Sprint 0 (US1..US10)
+prefigurano gia' il primo <i>test plan</i>.
+</div>
+
+<br>
+
+<h2>Comportamento atteso (livello di problema)</h2>
+<p>
+A livello di problema il cargoservice attraversa una <b>sessione di carico</b> fatta di fasi
+logiche (non si fissa qui la FSM concreta):
+</p>
+<pre>
+disponibile (Service working)
+     | richiesta valida (non pieno, IOPort libero)
+     v
+engaged  -- riserva uno slot, risposta reserved(slot), LED on
+     | container presente all'IOPort entro ~30s     (altrimenti: disengage, slot liberato)
+     v
+trasporto -- il cargorobot: IOPort -> slot5 (marcatura) -> slot riservato
+     |
+     v
+ritorno  -- il cargorobot torna a HOME, slot confermato occupato
+     v
+disponibile (pronto per una nuova richiesta)
+</pre>
+<p>
+Vincoli dai requisiti: <b>una sola richiesta per volta</b> (le altre ricevono retrylater);
+stiva piena &rarr; reject; IOPort occupato o sistema Out of service &rarr; retrylater. La gestione
+dell'<i>Out of service</i> (sospetto guasto del sensor) e del barcode e' rinviata a un'iterazione
+successiva (confermato dal committente).
+</p>
+<div class="remark">
+La <b>traduzione</b> di queste fasi in una macchina a stati qak concreta (con
+<code>State</code>/<code>Transition</code>, <code>withobj</code> e codice) appartiene alla fase di
+<b>Progetto/Development</b>: qui si definisce <i>quale</i> comportamento, non <i>come</i> scriverlo.
 </div>
 
 <br>
 
 <h2>Core business e strategia incrementale</h2>
-<p>
-Concordato col committente (Sprint 0): il <b>core business</b> e' <b>portare un container,
-accettata la richiesta, dall'IOPort allo slot riservato passando per la marcatura in slot5</b>.
-Coerentemente, lo sviluppo procede in modo <b>incrementale</b>:
-</p>
 <table style="margin-left:10px;">
     <tr style="background:#e1f4d7;"><th>Iterazione</th><th>Cosa realizza</th></tr>
     <tr><td><b>Prototipo 1 (core)</b></td>
         <td>flusso nominale: richiesta valida &rarr; riserva slot &rarr; container all'IOPort
-        &rarr; IOPort&rarr;slot5&rarr;slot riservato &rarr; HOME. Display/LED come log;
-        <i>Out of service</i> e barcode <b>ignorati</b> (confermato dal committente).</td></tr>
+        &rarr; IOPort&rarr;slot5&rarr;slot riservato &rarr; HOME. <i>Out of service</i> e barcode
+        <b>ignorati</b> (confermato dal committente).</td></tr>
     <tr><td>Iterazione 2</td>
         <td>rifiuti (hold pieno &rarr; reject; IOPort occupato &rarr; retrylater) e timeout dei 30s.</td></tr>
     <tr><td>Iterazione 3</td>
-        <td><i>Out of service</i> (guasto sonar) e ripristino; display come <b>pagina web</b>.</td></tr>
+        <td><i>Out of service</i> (sospetto guasto del sensor) e ripristino; display come
+        <b>web-gui</b>.</td></tr>
 </table>
+
+<br>
+
+<h2>Decisioni e domande aperte</h2>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Tema</th><th>Altitudine</th><th>Stato</th></tr>
+    <tr><td>container considerato spostato quando il robot <b>raggiunge</b> la posizione (nessun
+        attuatore di presa nel DDR)</td><td>analisi</td><td>confermato dal committente</td></tr>
+    <tr><td>cargorobot realizzato da <b>robotsmart</b> (service a posizione-obiettivo)</td>
+        <td>analisi (motivata)</td><td>versione esatta &rarr; Progetto</td></tr>
+    <tr><td>che tipo di componente sia il <b>sensor</b> e come fornisca il dato</td>
+        <td>analisi</td><td><b>aperta</b> (committente)</td></tr>
+    <tr><td><b>display</b>: parte della web-gui o del service?</td><td>analisi</td>
+        <td><b>aperta</b> (committente)</td></tr>
+    <tr><td>tipo di interazione del sensor/marker (evento vs dispatch)</td><td>analisi</td>
+        <td>scelto evento, motivato</td></tr>
+    <tr><td><b>trasporto</b> (MQTT / TCP / CoAP) e contratti sintattici</td><td>progetto</td>
+        <td>rinviato</td></tr>
+</table>
+
+<br>
+
+<h2>Piano di test (livello di problema)</h2>
 <p>
-Il modello qak qui sotto e' presentato <b>completo</b> (include gia' Out-of-service e timeout) per
-dare una visione d'insieme; la <b>demo significativa</b> riguarda pero' il Prototipo 1 (vedi
-<i>Piano di test</i>).
-</p>
-
-<br>
-
-<h2>Comportamento del cargoservice (modello qak)</h2>
-<p>Il comportamento e' espresso direttamente in qak (QActor):</p>
-<pre>
-QActor cargoservice context ctxcargo
-        withobj hold    using "domain.Hold(...)"        //slot1..5, posizioni, mappa
-        withobj display using "devices.DisplaySim()"    //display simulato (output a video)
-        withobj led     using "devices.LedSim()" {      //LED simulato (lampeggio a video)
-  [# var Slot   = ""
-     var OutOfService = false
-     val StepTime = 345
-  #]
-  State s0 initial {
-     println("$name | starts") color blue
-     [# display.show("serviceworking") #]
-  }
-  Goto available
-
-  State available {                                   //Service working
-     println("$name | available") color yellow
-  }
-  Transition t0
-     whenRequest loadrequest      -> evalRequest
-     whenInterruptEvent sonarFail -> goOutOfService
-
-  State evalRequest {
-     onMsg( loadrequest : loadrequest() ){
-        [# Slot = "" #]
-        if [# OutOfService || hold.ioportOccupied() #] {
-           replyTo loadrequest with answer : answer(retrylater)
-           [# display.show("retrylater") #]
-        }
-        if [# !(OutOfService || hold.ioportOccupied()) &amp;&amp; hold.isFull() #] {
-           replyTo loadrequest with answer : answer(reject)
-           [# display.show("reject") #]
-        }
-        if [# !(OutOfService || hold.ioportOccupied()) &amp;&amp; !hold.isFull() #] {
-           [# Slot = hold.reserveFreeSlot() #]
-           replyTo loadrequest with answer : answer(reserved($Slot))
-           [# display.show("reserved " + Slot); led.blink(true) #]   //engaged
-        }
-     }
-  }
-  Goto waitContainer if [# Slot != "" #] else available
-
-  State waitContainer {                               //engaged: attende il container entro 30s
-     println("$name | engaged, attendo container (max 30s)") color magenta
-  }
-  Transition t0
-     whenEvent containerAtIOPort  -> goToIOPort
-     whenTime 30000               -> disengage         //timeout 30s
-     whenInterruptEvent sonarFail -> goOutOfService
-
-  State goToIOPort {                                   //il robot raggiunge l'IOPort (presa astratta)
-     [# val IX = hold.ioportX(); val IY = hold.ioportY() #]
-     request cargorobot -m moverobot : moverobot($IX, $IY, $StepTime)   //HOME -> IOPort
-  }
-  Transition t0
-     whenReply moverobotdone      -> carryToSlot5
-     whenInterruptEvent sonarFail -> goOutOfService
-
-  State carryToSlot5 {
-     [# val SX = hold.slotX("slot5"); val SY = hold.slotY("slot5") #]
-     request cargorobot -m moverobot : moverobot($SX, $SY, $StepTime)   //IOPort -> slot5
-  }
-  Transition t0
-     whenReply moverobotdone      -> marking
-     whenInterruptEvent sonarFail -> goOutOfService
-
-  State marking {                                     //il marker etichetta il container
-     println("$name | marcatura in slot5 ...") color cyan
-  }
-  Transition t0
-     whenEvent markingDone        -> carryToReserved
-     whenInterruptEvent sonarFail -> goOutOfService
-
-  State carryToReserved {
-     [# val SX = hold.slotX(Slot); val SY = hold.slotY(Slot) #]
-     request cargorobot -m moverobot : moverobot($SX, $SY, $StepTime)   //slot5 -> slot riservato
-  }
-  Transition t0
-     whenReply moverobotdone      -> goHome
-     whenInterruptEvent sonarFail -> goOutOfService
-
-  State goHome {
-     [# hold.confirmStored(Slot)
-        val HX = hold.homeX(); val HY = hold.homeY() #]   //posizione HOME dalla mappa del DDR
-     request cargorobot -m moverobot : moverobot($HX, $HY, $StepTime)   //ritorno a HOME
-  }
-  Transition t0
-     whenReply moverobotdone      -> doneRequest
-     whenInterruptEvent sonarFail -> goOutOfService
-
-  State doneRequest {
-     [# led.blink(false) #]              //disengaged
-     [# display.show("holdstate") #]
-  }
-  Goto available
-
-  State disengage {                                   //timeout: il container non e' arrivato
-     println("$name | timeout 30s: disengaged") color red
-     [# hold.freeSlot(Slot); led.blink(false) #]
-  }
-  Goto available
-
-  State goOutOfService {                              //sonarFail
-     [# OutOfService = true; led.blink(false); display.show("outofservice") #]
-     println("$name | OUT OF SERVICE (sonar)") color red
-  }
-  Transition t0
-     whenEvent sonarOk -> backInService
-
-  State backInService {
-     [# OutOfService = false #]
-  }
-  Goto available
-}
-</pre>
-
-<div class="remark">
-Il <code>iosensor</code> e' un QActor di supporto (<b>scelta di progetto</b>) che riceve la distanza
-<code>D</code> dal <b>sensor dell'IOPort</b> (il PicoW reale o il suo mock) e applica i filtri
-temporali del committente, emettendo gli <i>eventi logici</i> <code>containerAtIOPort</code>
-(D&lt;DFREE/2 per ~3s), <code>sonarFail</code> (D&gt;DFREE per &ge;3s) e <code>sonarOk</code>
-(D&le;DFREE). Cosi' il cargoservice resta indipendente dalla sorgente e dal formato del dato.
-<br><b>NB:</b> questo sensor dell'IOPort va tenuto <b>distinto</b> dal sonar montato sul robot in
-WEnv (evento <code>sonaralarm</code> emesso da robotsmart) che, come chiarito dal committente,
-<b>non riguarda</b> il cargoservice.
-</div>
-
-<br>
-
-<h2>Flusso nominale (richiesta accettata)</h2>
-<pre>
-customer        cargoservice        cargorobot        marker
-  | loadrequest()  |                    |               |
-  |--------------->| (non OutOfService, IOPort libero, hold non pieno)
-  |                | reserve slot2; led.blink(true); display.show(reserved slot2)
-  | answer reserved(slot2)              |               |
-  |&lt;---------------|                    |               |
-  |                | (engaged, attende container all'IOPort entro 30s)
-  | (sonar: D&lt;DFREE/2 per 3s) -> containerAtIOPort()    |
-  |                |---- moverobot(IOPort) ------------->|             HOME  -> IOPort
-  |                |<--- moverobotok --------------------|
-  |                |---- moverobot(slot5) -------------->|             IOPort -> slot5
-  |                |<--- moverobotok --------------------|
-  |                | (marcatura)                         | markingDone()
-  |                |<------------------------------------|------------
-  |                |---- moverobot(slot2) -------------->|             slot5 -> slot riservato
-  |                |<--- moverobotok --------------------|
-  |                |---- moverobot(HOME) --------------->|             ritorno a HOME
-  |                |<--- moverobotok --------------------|
-  |                | LED off; show holdstate; -> available
-</pre>
-
-<br>
-
-<h2>Decisioni sulle problematiche</h2>
-<div class="remark">
-<b>P1 &mdash; Dispositivi simulati.</b> sonar = mock in Python che pubblica la distanza
-<code>D</code> (sullo stile del PicoW reale, cfr. <code>Picow/Sonar/sonarMqtt.py</code>);
-pushbutton = messaggio <code>loadrequest</code> da un caller; display/LED = log a video; marker =
-attesa + <code>markingDone</code>. Cio' che conta e' l'<b>informazione</b> (la distanza
-<code>D</code>), non il formato del messaggio: il cargoservice vede solo gli <i>eventi logici</i>
-dell'iosensor, percio' sostituire il mock col PicoW reale non lo cambia.
-</div>
-<div class="remark">
-<b>P2 &mdash; Deposito astratto.</b> Il container si considera spostato quando il cargorobot
-<b>raggiunge</b> la posizione (slot5, poi lo slot) con <code>moverobot</code>: nessun attuatore
-di presa richiesto.
-</div>
-<div class="remark">
-<b>P3 &mdash; Out of service.</b> <code>sonarFail</code> e' gestito come transizione da qualunque
-stato verso <code>goOutOfService</code> (display "Out of service", LED off, richieste rifiutate
-con retrylater); il servizio riprende su <code>sonarOk</code>.
-</div>
-
-<br>
-
-<h2>Piano di test dello Sprint1</h2>
-<p>
-Il cargoservice mantiene lo stato della stiva, che evolve in conseguenza dei comandi: il test e'
-automatizzabile confrontando lo stato finale con quello atteso.
+Il cargoservice mantiene lo <b>stato della stiva</b>, che evolve in conseguenza delle azioni: il
+test e' <b>automatizzabile</b> confrontando lo stato finale con quello atteso (PASS/FAIL). Si
+definisce qui <i>che cosa</i> verificare; l'implementazione del test e' Development.
 </p>
 <ol>
-    <li><b>Carico nominale (PASS):</b> stiva con slot liberi, <code>loadrequest</code>, container
-        all'IOPort entro 30s. Al termine si verifica:
+    <li><b>Carico nominale (test significativo per la demo):</b> stiva con uno slot libero,
+        richiesta valida, container all'IOPort entro 30s. Asserzioni finali:
         <pre>
 slot riservato .occupied == true
-posizione robot == HOME
-LED == off  &amp;&amp;  display == holdstate
-stato cargoservice == available
+posizione cargorobot      == HOME
+stato cargoservice        == disponibile
         </pre></li>
-    <li><b>Hold pieno (PASS se rifiutato):</b> slot1..4 occupati &rarr; <code>show(reject)</code>, stiva invariata.</li>
-    <li><b>IOPort occupato / Out of service (PASS se retrylater):</b> richiesta mentre occupato o in OutOfService &rarr; <code>show(retrylater)</code>.</li>
-    <li><b>Timeout (PASS se disengaged):</b> richiesta accettata ma container non arriva entro 30s &rarr; slot liberato, LED off, ritorno ad available.</li>
-    <li><b>Out of service (PASS):</b> sonar D&gt;DFREE per 3s &rarr; <code>show(outofservice)</code>; al ritorno D&le;DFREE &rarr; available.</li>
+    <li><b>Stiva piena:</b> slot1..4 occupati &rarr; risposta <code>reject</code>, stato della
+        stiva <b>invariato</b>.</li>
+    <li><b>Retrylater:</b> IOPort occupato o sistema Out of service &rarr; risposta
+        <code>retrylater</code>, stiva invariata.</li>
+    <li><b>Timeout:</b> richiesta accettata ma container non arriva entro 30s &rarr; disengage,
+        slot riservato di nuovo libero.</li>
 </ol>
 <p>
-Il caso 1 e' il <b>Test Plan significativo</b> per la demo (richiesto dalla valutazione):
-copre l'intero ciclo e termina con assert PASS/FAIL integrabili in JUnit o nel log di collaudo.
+Il caso 1 e' il <b>Test Plan significativo</b> richiesto per la demo: copre l'intero ciclo della
+sessione di carico e termina con asserzioni PASS/FAIL.
 </p>
 
 <br><br>
