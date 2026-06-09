@@ -28,8 +28,11 @@ cargoservice26/
   utils/domain/Hold.java              stato della stiva (POJO) + posizioni dalla mappa del DDR
   utils/devices/DisplaySim.java       display simulato (output a video)
   utils/devices/LedSim.java           LED simulato (indicatore di stato)
+  utils/test/TestHold.java            test di unita' di Hold (ESEGUITO: 16 PASS, 0 FAIL)
   build.gradle  settings.gradle       build (pattern di robotsmart26usage)
 ```
+
+I POJO sono **compilati e testati** (`javac` + `java test.TestHold` → **16 PASS, 0 FAIL**).
 
 Il cargoservice è un **QActor** client di `robotsmart` (`moverobot(X,Y)`); generazione del
 codice `.kt` col plugin QAK nell'IDE. Contratto preso da `robotsmart26usage/src/robotsmart26tf26.qak`.

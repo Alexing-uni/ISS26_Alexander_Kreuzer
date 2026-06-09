@@ -12,8 +12,20 @@ cargoservice26/
   utils/domain/Hold.java              stato della stiva (POJO) + posizioni dalla mappa
   utils/devices/DisplaySim.java       display simulato (output a video)
   utils/devices/LedSim.java           LED simulato (indicatore di stato)
+  utils/test/TestHold.java            test di unita' di Hold (ESEGUITO: 16 PASS, 0 FAIL)
   build.gradle  settings.gradle       build (come robotsmart26usage)
 ```
+
+## Test eseguito (POJO)
+
+```
+cd TemaFinale26/cargoservice26
+javac -d build/testclasses utils/domain/Hold.java utils/test/TestHold.java
+java  -cp build/testclasses test.TestHold        =>  TestHold: 16 PASS, 0 FAIL
+```
+
+Il test copre la logica delle tre risposte alla `loadrequest` (`reserved/retrylater/reject`,
+cfr. TP2/TP3), slot5 mai riservato come slot di carico, posizioni IOPort=(4,0) e HOME=(0,0).
 
 ## Contratto del cargorobot
 Il cargoservice e' **client di robotsmart**: usa `moverobot(X,Y,STEPTIME)` con risposta
@@ -26,5 +38,6 @@ Il cargoservice e' **client di robotsmart**: usa `moverobot(X,Y,STEPTIME)` con r
    e `robotsmart26` (`gradlew run`, porta 8020).
 3. `gradlew run` di questo progetto; inviare una `loadrequest` (caller del pushbutton).
 
-> Stato: il **modello** e' scritto (sintassi modellata su `robotsmart26tf26.qak`).
-> Generazione `.kt`, build ed esecuzione/test sono il passo immediato successivo.
+> Stato: i POJO sono **compilati e testati** (`TestHold`: 16 PASS, 0 FAIL). Il **modello qak**
+> e' scritto con sintassi allineata ai sorgenti del corso (`robotsmart26tf26.qak`, `firefly`,
+> `robotservice26`); generazione `.kt` (plugin QAK), build ed esecuzione di TP1 = passo successivo.

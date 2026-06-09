@@ -19,7 +19,7 @@ Questo documento (template del corso) e' focalizzato sull'<b>analisi del problem
 sono i componenti, <i>come</i> interagiscono e <i>quale</i> comportamento ci si attende &mdash;
 <b>senza</b> fissare i dettagli di realizzazione (codice qak concreto, classi, trasporto), che
 sono Progetto/Development. Requisiti e analisi dei requisiti sono in
-<a href="Sprint0_v1.html">Sprint 0 (v1)</a>.
+<a href="https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/userDocs/Sprint0_v1.html">Sprint 0 (v1)</a>.
 </p>
 <div class="req">
 <b>Goal dello Sprint 1</b> (sottoinsieme del testo del committente): analizzare e modellare il
@@ -32,7 +32,7 @@ ritorno a HOME e sistema pronto per una nuova richiesta.
 
 <h2>Requirements</h2>
 <p>
-Il testo esatto del committente e' riportato in <a href="Sprint0_v1.html">Sprint 0 (v1) &ndash;
+Il testo esatto del committente e' riportato in <a href="https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/userDocs/Sprint0_v1.html">Sprint 0 (v1) &ndash;
 Requirements</a>. In sintesi, per il core: ricevuta una richiesta valida (pushbutton), il
 cargoservice riserva uno slot e usa il cargorobot per portare il container
 IOPort&rarr;slot5(marcatura)&rarr;slot riservato, poi torna a HOME.
@@ -43,7 +43,7 @@ IOPort&rarr;slot5(marcatura)&rarr;slot riservato, poi torna a HOME.
 <h2>Requirement analysis</h2>
 <p>
 Le entita' del dominio (Container, Slot, Hold, IOPort, sensor, marker, LED, cargorobot), la
-formalizzazione dell'area e le user stories sono in <a href="Sprint0_v1.html">Sprint 0 (v1) &ndash;
+formalizzazione dell'area e le user stories sono in <a href="https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/userDocs/Sprint0_v1.html">Sprint 0 (v1) &ndash;
 Requirement analysis</a>. Qui se ne analizza la <b>natura come componenti software</b> e le
 <b>interazioni</b>.
 </p>
@@ -128,7 +128,7 @@ Reply   moverobotdone  : moverobotok(ARG)                     for moverobot
 Reply   moverobotfailed: moverobotfailed(PLANDONE, PLANTODO)  for moverobot
 </pre>
 <div class="remark">La FSM completa (stati, <code>withobj</code>, codice) e' <b>realizzazione</b>: vedi la sezione
-<i>Project</i> e il modello <a href="../cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a>.</div>
+<i>Project</i> e il modello <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a>.</div>
 
 <h3>Comportamento atteso (livello di problema)</h3>
 <pre>
@@ -163,7 +163,7 @@ Il cargoservice mantiene lo stato della stiva: il test e' <b>automatizzabile</b>
 Il caso significativo (<b>TP1, carico nominale</b>) verifica a fine ciclo: slot riservato occupato,
 robot a HOME, cargoservice disponibile. Casi aggiuntivi: stiva piena (reject), IOPort occupato/Out
 of service (retrylater), timeout (disengage). Dettaglio in
-<a href="Sprint0_v1.html">Sprint 0 (v1) &ndash; Test plans</a>.
+<a href="https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/userDocs/Sprint0_v1.html">Sprint 0 (v1) &ndash; Test plans</a>.
 </p>
 
 <br>
@@ -171,10 +171,10 @@ of service (retrylater), timeout (disengage). Dettaglio in
 <h2>Project</h2>
 <p>
 La traduzione del modello logico in una <b>FSM qak</b> concreta e' realizzata nel modello
-<a href="../cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a> (con
-<a href="../cargoservice26/utils/domain/Hold.java">Hold</a>,
-<a href="../cargoservice26/utils/devices/DisplaySim.java">DisplaySim</a>,
-<a href="../cargoservice26/utils/devices/LedSim.java">LedSim</a>): il cargoservice e' un QActor
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a> (con
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/utils/domain/Hold.java">Hold</a>,
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/utils/devices/DisplaySim.java">DisplaySim</a>,
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/utils/devices/LedSim.java">LedSim</a>): il cargoservice e' un QActor
 client di <code>robotsmart</code>, struttura e build modellate su <code>robotsmart26usage</code>.
 </p>
 
@@ -183,14 +183,18 @@ client di <code>robotsmart</code>, struttura e build modellate su <code>robotsma
 <h2>Testing</h2>
 <p>
 <b>TP1</b> e' progettato per girare sul modello verificando lo stato finale della stiva. <b>Stato:</b>
-il modello e' scritto; generazione (plugin QAK), build ed esecuzione sono il passo successivo
-(<a href="../cargoservice26/README.md">cargoservice26/README</a>).
+il POJO <code>Hold</code> e' <b>compilato ed eseguito</b> con il test
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/utils/test/TestHold.java">TestHold</a>
+(<b>16 PASS, 0 FAIL</b>: logica <code>reserved/retrylater/reject</code>, slot5 mai riservato,
+posizioni IOPort/HOME); la generazione del modello (plugin QAK), la build e l'esecuzione di TP1
+sono il passo successivo
+(<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/README.md">cargoservice26/README</a>).
 </p>
 
 <br>
 
 <h2>Deployment</h2>
-<p>Vedi <a href="Sprint0_v1.html">Sprint 0 (v1) &ndash; Deployment</a>: Docker (VR+GUI+mosquitto) +
+<p>Vedi <a href="https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/userDocs/Sprint0_v1.html">Sprint 0 (v1) &ndash; Deployment</a>: Docker (VR+GUI+mosquitto) +
 <code>robotsmart26</code> (8020) + <code>cargoservice26</code> (8030). Con mosquitto in Docker
 usare l'IP reale del PC.</p>
 

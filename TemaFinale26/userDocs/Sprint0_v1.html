@@ -27,7 +27,7 @@ analysis, Problem analysis, Test plans, Project, Testing, Deployment, Maintenanc
         <td>flusso nominale: <code>loadrequest</code> &rarr; riserva slot &rarr;
         IOPort&rarr;slot5(marcatura)&rarr;slot riservato &rarr; HOME (container assunto presente;
         display/LED come log)</td>
-        <td><a href="../cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a></td></tr>
+        <td><a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a></td></tr>
     <tr><td>Sprint 1</td><td>aggiunge il <b>sensor dell'IOPort</b> (rilevamento container) e il
         <b>timeout</b> di 30s</td><td>&ndash;</td></tr>
     <tr><td>Sprint 2</td><td>aggiunge <b>Out of service</b> (sospetto guasto del sensor) e il
@@ -37,11 +37,13 @@ analysis, Problem analysis, Test plans, Project, Testing, Deployment, Maintenanc
 </table>
 <div class="remark">
 Il <b>modello qak</b> del core (Sprint 0) e' gia' nel repository:
-<a href="../cargoservice26/src/cargoservice26.qak">cargoservice26/src/cargoservice26.qak</a>
-(con <a href="../cargoservice26/utils/domain/Hold.java">Hold</a>,
-<a href="../cargoservice26/utils/devices/DisplaySim.java">DisplaySim</a>,
-<a href="../cargoservice26/utils/devices/LedSim.java">LedSim</a>). Vedi le sezioni
-<i>Project</i>/<i>Testing</i>.
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/src/cargoservice26.qak">cargoservice26/src/cargoservice26.qak</a>
+(con <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/utils/domain/Hold.java">Hold</a>,
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/utils/devices/DisplaySim.java">DisplaySim</a>,
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/utils/devices/LedSim.java">LedSim</a>).
+Il POJO <code>Hold</code> e' <b>compilato ed eseguito</b> con il test
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/utils/test/TestHold.java">TestHold</a>
+(<b>16 PASS, 0 FAIL</b>). Vedi le sezioni <i>Project</i>/<i>Testing</i>.
 </div>
 
 <br>
@@ -119,7 +121,7 @@ vanno <b>lette da quella mappa</b>, non inventate.
 posizione <code>(X,Y)</code>, <code>occupied</code>, <code>isMarkingArea</code>.</p>
 <p><b>Hold</b> &mdash; aggregato degli slot: <code>ioportOccupied()</code>, <code>isFull()</code>,
 <code>reserveFreeSlot()</code>, <code>confirmStored()</code>, <code>freeSlot()</code> (POJO, vedi
-<a href="../cargoservice26/utils/domain/Hold.java">Hold.java</a>).</p>
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/utils/domain/Hold.java">Hold.java</a>).</p>
 <p><b>IOPort</b> &mdash; <b>pushbutton</b> (input richiesta) + <b>display</b> (output). Il
 <b>sensor</b> che rileva il container e' un dispositivo <b>separato associato</b> all'IOPort, non
 parte di esso.</p>
@@ -167,7 +169,7 @@ va <b>analizzato e motivato</b> (vedi Sprint 1), non solo rinviato.</p>
 <p>
 L'analisi del problema (natura dei componenti pojo/service/attore, scelta motivata del DDR,
 modello delle interazioni, comportamento atteso) e' sviluppata nel documento dedicato:
-<a href="Sprint1_v1.html">Sprint 1 (v1) &ndash; Analisi del Problema</a>.
+<a href="https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/userDocs/Sprint1_v1.html">Sprint 1 (v1) &ndash; Analisi del Problema</a>.
 </p>
 
 <br>
@@ -194,21 +196,36 @@ TP5  OUT OF SERVICE (Sprint2): D&gt;DFREE per &ge;3s -> display "Out of service"
 <h2>Project</h2>
 <p>
 Le scelte architetturali (cargoservice come <b>attore</b>, cargorobot realizzato da <b>robotsmart</b>,
-natura dei flussi) sono motivate nello <a href="Sprint1_v1.html">Sprint 1</a>. Il <b>modello qak</b>
-del core e' in <a href="../cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a> (struttura e
+natura dei flussi) sono motivate nello <a href="https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/userDocs/Sprint1_v1.html">Sprint 1</a>. Il <b>modello qak</b>
+del core e' in <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a> (struttura e
 build modellate su <code>robotsmart26usage</code>).
 </p>
 
 <br>
 
 <h2>Testing</h2>
-<p>
-Il test significativo <b>TP1</b> e' progettato per essere eseguito sul modello
-<code>cargoservice26.qak</code> verificando lo stato finale della stiva (asserzioni PASS/FAIL).
-<b>Stato:</b> il modello e' scritto; la generazione del codice (plugin QAK), la build e
-l'esecuzione del test sono il <b>passo immediato successivo</b> (vedi
-<a href="../cargoservice26/README.md">cargoservice26/README</a>).
-</p>
+<p><b>Stato del testing</b> in questa versione:</p>
+<ul>
+<li><b>POJO di dominio (codice eseguito/testato)</b>: <code>Hold</code> e' compilato ed eseguito con
+    il test <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/utils/test/TestHold.java">TestHold.java</a>
+    &mdash; 16 asserzioni sulla logica delle risposte (<code>reserved/retrylater/reject</code>,
+    cfr. TP2/TP3), su slot5 (area di marcatura, mai riservata come slot di carico) e sulle
+    posizioni IOPort/HOME. <code>DisplaySim</code> e <code>LedSim</code> compilati.</li>
+</ul>
+<pre>
+&gt; javac -d build/testclasses utils/domain/Hold.java utils/test/TestHold.java
+&gt; java  -cp build/testclasses test.TestHold
+PASS  T3 dopo 4 riserve: stiva piena
+PASS  T4 slot5 (marcatura) mai riservato        (... 16 asserzioni ...)
+TestHold: 16 PASS, 0 FAIL
+</pre>
+<ul>
+<li><b>Modello qak</b>: sintassi allineata costrutto per costrutto ai sorgenti del corso
+    (<code>robotsmart26tf26.qak</code>, <code>firefly</code>, <code>robotservice26</code>).
+    La generazione del codice (plugin QAK nell'IDE), la build e l'esecuzione di <b>TP1</b> sono il
+    <b>passo immediato successivo</b> (vedi
+    <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/cargoservice26/README.md">cargoservice26/README</a>).</li>
+</ul>
 
 <br>
 
