@@ -1,0 +1,248 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>TemaFinale26 &ndash; Sprint 0 (v1)</title>
+</head>
+
+<body>
+<div id="top">
+<h1>TemaFinale26 &ndash; Sprint 0 (v1)</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+<p>
+Il sistema <b>cargoservice</b> (Protobook cap. 31) automatizza il carico di container nella stiva
+di una nave tramite un Differential Drive Robot (<i>cargorobot</i>). Questo documento, secondo il
+template del corso, raccoglie per lo <b>Sprint 0</b> le sezioni: Requirements, Requirement
+analysis, Problem analysis, Test plans, Project, Testing, Deployment, Maintenance.
+</p>
+<h3>Organizzazione del sistema finale in Sprint</h3>
+<p>Ogni Sprint costruisce un <b>sottosistema compiuto</b> (incrementale):</p>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Sprint</th><th>Sottosistema</th><th>Modello/codice</th></tr>
+    <tr><td><b>Sprint 0 (core)</b></td>
+        <td>flusso nominale: <code>loadrequest</code> &rarr; riserva slot &rarr;
+        IOPort&rarr;slot5(marcatura)&rarr;slot riservato &rarr; HOME (container assunto presente;
+        display/LED come log)</td>
+        <td><a href="../cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a></td></tr>
+    <tr><td>Sprint 1</td><td>aggiunge il <b>sensor dell'IOPort</b> (rilevamento container) e il
+        <b>timeout</b> di 30s</td><td>&ndash;</td></tr>
+    <tr><td>Sprint 2</td><td>aggiunge <b>Out of service</b> (sospetto guasto del sensor) e il
+        display come <b>web-gui</b></td><td>&ndash;</td></tr>
+    <tr><td>Sprint 3</td><td>rifiniture: marker come evento/barcode, gestione delle richieste
+        concorrenti</td><td>&ndash;</td></tr>
+</table>
+<div class="remark">
+Il <b>modello qak</b> del core (Sprint 0) e' gia' nel repository:
+<a href="../cargoservice26/src/cargoservice26.qak">cargoservice26/src/cargoservice26.qak</a>
+(con <a href="../cargoservice26/utils/domain/Hold.java">Hold</a>,
+<a href="../cargoservice26/utils/devices/DisplaySim.java">DisplaySim</a>,
+<a href="../cargoservice26/utils/devices/LedSim.java">LedSim</a>). Vedi le sezioni
+<i>Project</i>/<i>Testing</i>.
+</div>
+
+<br>
+
+<h2>Requirements</h2>
+<p>Testo <b>esatto del committente</b> (Protobook, cap. 31 &ndash; TemaFinale26):</p>
+<div class="req">
+<i>"A Maritime Cargo shipping company (from now on, simply company) intends to automate the
+operations of load of containers in the ship's cargo hold (or simply hold). To this end, the
+company plans to employ a Differential Drive Robot (from now, called cargorobot). The hold is
+a rectangular, flat area with an Input/Output port (IOPort). The area provides 4 slots to store
+the containers and a slot named slot5."</i>
+<br><br>
+<i>"&bull; The slots1-4 depict the hold areas reserved to store one container each.</i><br>
+<i>&bull; The slot5 depicts an area, where the cargorobot must temporarily store a container,
+before to place it in one of the slots1-4. During temporary storage, a `marker' device labels
+the container with an identification barcode and signals when this marking activity is completed.</i><br>
+<i>&bull; The IOPort is a device with a pushbutton and a display. The pushbutton is pressed by
+the customer in order to send a request to load a container on the cargo. The display is used to
+show the answer to the request and to show the current state of the hold.</i><br>
+<i>&bull; The sensor associated to the IOPort is a device (a sonar) used to detect the presence
+of a container, when it measures a distance D, such that D &lt; DFREE/2, during a reasonable time
+(e.g. 3 secs)."</i>
+</div>
+<p><b>TF2026 Requirements</b> &ndash; testo esatto:</p>
+<div class="req">
+<i>"The company asks us to build service named cargoservice that should work as follows. The
+cargoservice is able to receive a request to load a container sent by some customer by using the
+pushbutton of the IOPort.</i>
+<br><br>
+<i>&bull; It sends the answer retrylater, if the IOPort is currently occupied by a container or
+if the system is Out of service.</i><br>
+<i>&bull; It rejects the request when the hold is already full, i.e. the slots1-4 are already
+occupied.</i><br>
+<i>&bull; Otherwise, it considers the system as engaged, detects a free slot and returns as
+answer the name of such a reserved slot. While engaged, the system must blink a Led. When the
+request to load is accepted, the customer must move the container in the sensor area within
+prefixed amount of time (e.g. 30 secs), otherwise the systems becomes disengaged. Then, the
+cargoservice uses the cargorobot to move the container from the IOPort to the slot5 (for marking
+the container) and then to the reserved slot. The service must also show on the display on the
+IOPort:</i><br>
+<i>&nbsp;&nbsp;&bull; the current state of the hold;</i><br>
+<i>&nbsp;&nbsp;&bull; the message `Service working', when it is all is going well;</i><br>
+<i>&nbsp;&nbsp;&bull; the message `Out of service' if the sonar sensor measures a distance
+D &gt; DFREE for at least 3 secs (perhaps a failure of the sonar)."</i>
+</div>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p><b>Goal</b>: formalizzare le entita' del dominio togliendo le ambiguita' del linguaggio naturale.</p>
+
+<h3>Layout e formalizzazione dell'area</h3>
+<p>La figura del tema e' <b>illustrativa</b> (posizioni relative). Per ragionare senza ambiguita' e
+rendere il test automatizzabile, l'area si formalizza come <b>matrice di celle</b> a coordinate
+<code>(X,Y)</code>; lo stato della stiva e' definito da quali celle-slot sono occupate.</p>
+<pre>
+            X=0    X=1    X=2    X=3    X=4    X=5
+         +------+------+------+------+------+------+
+   Y=0   |  H   |  .   |  .   |  .   |  I   |  .   |     H      = HOME (0,0)
+         +------+------+------+------+------+------+     I      = IOPort (4,0)
+   Y=1   |  .   |  S1  |  .   |  .   |  .   |  .   |     S1..S5 = slot (occupato se pieno)
+         +------+------+------+------+------+------+     .      = cella libera
+   ...   (posizioni autorevoli dalla mappa built-in del DDR, cfr. D1)
+</pre>
+<div class="remark">
+Le coordinate <b>autorevoli</b> di HOME/IOPort/slot provengono dalla <b>mappa built-in</b> del DDR
+(cfr. <b>D1</b>) e dai comandi del docente (<code>Robotsmart26Cmds</code>: IOPort=(4,0), HOME=(0,0)):
+vanno <b>lette da quella mappa</b>, non inventate.
+</div>
+
+<h3>Entita' formalizzate</h3>
+<p><b>Container</b> &mdash; merce da caricare; riceve un barcode solo durante la marcatura in slot5.</p>
+<p><b>Slot</b> &mdash; area di stoccaggio (slot1..slot4 di carico; slot5 di marcatura): <code>name</code>,
+posizione <code>(X,Y)</code>, <code>occupied</code>, <code>isMarkingArea</code>.</p>
+<p><b>Hold</b> &mdash; aggregato degli slot: <code>ioportOccupied()</code>, <code>isFull()</code>,
+<code>reserveFreeSlot()</code>, <code>confirmStored()</code>, <code>freeSlot()</code> (POJO, vedi
+<a href="../cargoservice26/utils/domain/Hold.java">Hold.java</a>).</p>
+<p><b>IOPort</b> &mdash; <b>pushbutton</b> (input richiesta) + <b>display</b> (output). Il
+<b>sensor</b> che rileva il container e' un dispositivo <b>separato associato</b> all'IOPort, non
+parte di esso.</p>
+<p><b>Sensor dell'IOPort (sonar)</b> &mdash; misura la distanza <code>D</code>: container presente
+se <code>D&lt;DFREE/2</code> per ~3s; sospetto guasto se <code>D&gt;DFREE</code> per &ge;3s. Cosa sia
+esattamente e come fornisca il dato e' da <b>chiarire col committente</b>; va tenuto distinto dal
+sonar del robot in WEnv (estraneo all'applicazione).</p>
+<p><b>Marker</b> &mdash; in slot5, etichetta il container e <b>segnala</b> il completamento (al
+cargoservice basta il segnale).</p>
+<p><b>LED</b> &mdash; <b>indicatore di stato</b> (non un attuatore) che lampeggia mentre il sistema
+e' <i>engaged</i>; collocazione non specificata dai requisiti.</p>
+<p><b>CargoRobot</b> &mdash; il DDR fornito. Il committente dispone di <i>piu' software</i> (POJO
+<code>RobotObj26</code>, servizi <code>RobotService26</code> / <code>robotsmart</code>): quale usare
+va <b>analizzato e motivato</b> (vedi Sprint 1), non solo rinviato.</p>
+
+<h3>Macro-parti del sistema</h3>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Macro-parte</th><th>Fornito / da sviluppare</th><th>Natura</th></tr>
+    <tr><td><b>cargoservice</b></td><td>da sviluppare</td><td>attore (servizio a messaggi)</td></tr>
+    <tr><td><b>cargorobot</b> (DDR)</td><td>fornito</td><td>service esterno (robotsmart)</td></tr>
+    <tr><td><b>sensor</b> dell'IOPort</td><td>fornito/simulato</td><td>sorgente di distanza D</td></tr>
+    <tr><td><b>pushbutton</b>+<b>display</b></td><td>forniti/simulati</td><td>richiesta / output (web-gui)</td></tr>
+    <tr><td><b>marker</b> (slot5)</td><td>fornito/simulato</td><td>segnala il completamento</td></tr>
+    <tr><td><b>LED</b></td><td>fornito/simulato</td><td>indicatore di stato (engaged)</td></tr>
+</table>
+
+<h3>Requisiti come user stories</h3>
+<div class="req">
+<b>US1.</b> Come <b>customer</b>, voglio inviare una richiesta col pushbutton, per caricare un container.<br>
+<b>US2.</b> Come <b>customer</b>, voglio la risposta sul display (reserved | retrylater | reject).<br>
+<b>US3.</b> Come <b>committente</b>, voglio il <b>reject</b> a stiva piena.<br>
+<b>US4.</b> Come <b>committente</b>, voglio <b>retrylater</b> se IOPort occupato o Out of service.<br>
+<b>US5.</b> Come <b>customer</b>, devo depositare il container entro ~30s, altrimenti disengage.<br>
+<b>US6.</b> Come <b>committente</b>, voglio il trasporto IOPort&rarr;slot5(marcatura)&rarr;slot riservato.<br>
+<b>US7.</b> Come <b>committente</b>, voglio il ritorno a HOME a fine ciclo.<br>
+<b>US8.</b> Come <b>operatore</b>, voglio vedere stato hold e messaggi sul display.<br>
+<b>US9.</b> Come <b>committente</b>, voglio il LED lampeggiante mentre <i>engaged</i>.<br>
+<b>US10.</b> Come <b>committente</b>, voglio Out of service se il sonar segnala guasto (D&gt;DFREE per &ge;3s).
+</div>
+<p>Riferimento: <a href="https://www.atlassian.com/agile/project-management/user-stories" target="_blank">user stories</a>.</p>
+
+<br>
+
+<h2>Problem analysis</h2>
+<p>
+L'analisi del problema (natura dei componenti pojo/service/attore, scelta motivata del DDR,
+modello delle interazioni, comportamento atteso) e' sviluppata nel documento dedicato:
+<a href="Sprint1_v1.html">Sprint 1 (v1) &ndash; Analisi del Problema</a>.
+</p>
+
+<br>
+
+<h2>Test plans</h2>
+<p>Il cargoservice mantiene lo stato della stiva: il test e' <b>automatizzabile</b> confrontando lo
+stato finale con quello atteso (PASS/FAIL).</p>
+<pre>
+TP1  CARICO NOMINALE  (test significativo per la demo)
+  pre   : available; IOPort libero; almeno uno slot libero (es. slot2)
+  azione: loadrequest()                       -> answer(reserved(slot2))
+  seq   : moverobot(IOPort) -> moverobot(slot5) -> [marcatura] -> moverobot(slot2) -> moverobot(HOME)
+  PASS sse: hold.slot("slot2").occupied==true ; robot==HOME ; cargoservice==available
+
+TP2  STIVA PIENA       : slot1..4 occupati -> answer(reject) ; stiva INVARIATA
+TP3  RETRYLATER        : IOPort occupato / Out of service -> answer(retrylater) ; stiva INVARIATA
+TP4  TIMEOUT (Sprint1) : container non arriva entro 30s -> disengage ; slot liberato
+TP5  OUT OF SERVICE (Sprint2): D&gt;DFREE per &ge;3s -> display "Out of service"; richieste retrylater
+</pre>
+<div class="remark"><b>TP1</b> e' il Test Plan automatizzato significativo per la demo (copre l'intero ciclo del core).</div>
+
+<br>
+
+<h2>Project</h2>
+<p>
+Le scelte architetturali (cargoservice come <b>attore</b>, cargorobot realizzato da <b>robotsmart</b>,
+natura dei flussi) sono motivate nello <a href="Sprint1_v1.html">Sprint 1</a>. Il <b>modello qak</b>
+del core e' in <a href="../cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a> (struttura e
+build modellate su <code>robotsmart26usage</code>).
+</p>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+Il test significativo <b>TP1</b> e' progettato per essere eseguito sul modello
+<code>cargoservice26.qak</code> verificando lo stato finale della stiva (asserzioni PASS/FAIL).
+<b>Stato:</b> il modello e' scritto; la generazione del codice (plugin QAK), la build e
+l'esecuzione del test sono il <b>passo immediato successivo</b> (vedi
+<a href="../cargoservice26/README.md">cargoservice26/README</a>).
+</p>
+
+<br>
+
+<h2>Deployment</h2>
+<pre>
+1) docker compose -f ../../robotsmart26/yamls/unibobasic26.yaml up   (VirtualRobot + GUI + mosquitto)
+2) cd ../../robotsmart26 ; ./gradlew run                              (servizio DDR del docente, 8020)
+3) cd ../cargoservice26  ; ./gradlew run                              (cargoservice26, ctxcargo 8030)
+4) inviare una loadrequest dal caller del pushbutton
+</pre>
+<div class="remark">Con mosquitto in Docker usare l'<b>IP reale</b> del PC (non <code>localhost</code>).</div>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+I dispositivi (sensor, display, LED, marker) sono <b>simulati</b>; poiche' il cargoservice dipende
+solo dall'<i>informazione</i> scambiata (non dal dispositivo), sostituire un simulato con
+l'hardware reale (es. il PicoW per il sonar) <b>non modifica</b> il cargoservice.
+</p>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>

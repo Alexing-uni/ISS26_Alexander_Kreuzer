@@ -1,0 +1,220 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>TemaFinale26 &ndash; Sprint 1 (v1)</title>
+</head>
+
+<body>
+<div id="top">
+<h1>TemaFinale26 &ndash; Sprint 1 (v1)</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+<p>
+Questo documento (template del corso) e' focalizzato sull'<b>analisi del problema</b> del
+<b>cargoservice</b>. Costruisce un <b>modello logico</b> della soluzione &mdash; <i>di che tipo</i>
+sono i componenti, <i>come</i> interagiscono e <i>quale</i> comportamento ci si attende &mdash;
+<b>senza</b> fissare i dettagli di realizzazione (codice qak concreto, classi, trasporto), che
+sono Progetto/Development. Requisiti e analisi dei requisiti sono in
+<a href="Sprint0_v1.html">Sprint 0 (v1)</a>.
+</p>
+<div class="req">
+<b>Goal dello Sprint 1</b> (sottoinsieme del testo del committente): analizzare e modellare il
+<b>core business</b> &mdash; <i>"the cargoservice uses the cargorobot to move the container from
+the IOPort to the slot5 (for marking the container) and then to the reserved slot"</i>, con
+ritorno a HOME e sistema pronto per una nuova richiesta.
+</div>
+
+<br>
+
+<h2>Requirements</h2>
+<p>
+Il testo esatto del committente e' riportato in <a href="Sprint0_v1.html">Sprint 0 (v1) &ndash;
+Requirements</a>. In sintesi, per il core: ricevuta una richiesta valida (pushbutton), il
+cargoservice riserva uno slot e usa il cargorobot per portare il container
+IOPort&rarr;slot5(marcatura)&rarr;slot riservato, poi torna a HOME.
+</p>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p>
+Le entita' del dominio (Container, Slot, Hold, IOPort, sensor, marker, LED, cargorobot), la
+formalizzazione dell'area e le user stories sono in <a href="Sprint0_v1.html">Sprint 0 (v1) &ndash;
+Requirement analysis</a>. Qui se ne analizza la <b>natura come componenti software</b> e le
+<b>interazioni</b>.
+</p>
+
+<br>
+
+<h2>Problem analysis</h2>
+
+<h3>Perche' qak (QActor): motivazione</h3>
+<p>
+La scelta del modello a <b>attori</b> non e' arbitraria: il <code>cargoservice</code> e' insieme
+<b>proattivo</b> (guida una sessione di carico in piu' passi mantenendo uno stato) e
+<b>reattivo</b> (pushbutton, sensor, marker, timeout). Questa combinazione &laquo;macchina a stati
++ reazione a messaggi/eventi + temporizzazione&raquo; e' cio' che QActor rende di prima classe:
+</p>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Esigenza del problema</th><th>Costrutto QActor</th></tr>
+    <tr><td>comportamento a fasi con memoria</td><td><code>State</code>/<code>Transition</code> + variabili</td></tr>
+    <tr><td>richiesta con risposta (pushbutton, robot)</td><td><code>whenRequest</code>/<code>replyTo</code> ; <code>request</code>/<code>whenReply</code></td></tr>
+    <tr><td>notifiche asincrone (sensor, marker)</td><td><code>whenEvent</code></td></tr>
+    <tr><td>guasto che interrompe da qualunque stato</td><td><code>whenInterruptEvent</code></td></tr>
+    <tr><td>timeout dei 30 s</td><td><code>whenTime</code></td></tr>
+</table>
+
+<h3>Di che tipo sono i componenti? (pojo / service / attore)</h3>
+<ul>
+    <li><b>POJO</b>: oggetto passivo, invocato in modo sincrono; incapsula dati/stato.</li>
+    <li><b>Service</b>: espone operazioni e <i>risponde</i> a richieste; reattivo, non ha piano proprio.</li>
+    <li><b>Attore (QActor)</b>: autonomo, con stato, proattivo + reattivo, comunica solo per messaggi.</li>
+</ul>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Entita'</th><th>Discussione</th><th>Natura</th></tr>
+    <tr><td><b>cargoservice</b></td><td>guida una sessione in piu' passi e reagisce a eventi: un pojo/service non basta</td><td><b>attore</b></td></tr>
+    <tr><td><b>cargorobot</b></td><td>fornito; raggiunge una posizione su comando (vedi sotto)</td><td><b>service esterno</b></td></tr>
+    <tr><td><b>sensor</b> dell'IOPort</td><td>fornisce la distanza D; il <b>sonar e' una sua parte</b>; natura da chiarire</td><td>sorgente di notifiche &mdash; <i>aperto</i></td></tr>
+    <tr><td><b>IOPort</b></td><td>pushbutton (sorgente di richiesta = requisito) + display (output; forse <b>web-gui</b>)</td><td>pushbutton + display</td></tr>
+    <tr><td><b>marker</b></td><td>segnala il completamento</td><td>service/attore (evento)</td></tr>
+    <tr><td><b>LED</b></td><td>riflette lo stato engaged</td><td><b>indicatore di stato</b></td></tr>
+    <tr><td><b>Hold</b></td><td>stato del dominio, invocato in modo sincrono</td><td><b>POJO</b></td></tr>
+</table>
+
+<h3>Quale software per il cargorobot, e perche'</h3>
+<p>
+Il committente fornisce <b>piu' componenti</b> per il DDR: <code>RobotObj26</code> (POJO, mosse
+elementari: troppo basso livello), <code>RobotService26</code> (service, ancora a livello di mosse),
+<code>robotsmart</code> (service con <code>moverobot(X,Y)</code> orientato all'obiettivo + A*). Il
+problema chiede di <b>raggiungere una posizione</b> (IOPort, slot5, slot, HOME): e' l'astrazione di
+<code>moverobot(X,Y)</code>. Si sceglie quindi, <b>motivandolo</b>, <b>robotsmart</b> come service
+esterno di cui il cargoservice e' client (come <code>boundaryworker</code> usa
+<code>robotservice</code>). La versione esatta e' rifinitura di Progetto.
+</p>
+
+<h3>Modello delle interazioni</h3>
+<p>Ruoli, flussi e <i>natura</i> di ciascuno (non una semplice lista di messaggi):</p>
+<pre>
+        richiesta di carico / risposta
+  customer  &lt;----------------------&gt;  CARGOSERVICE  &lt;----&gt; cargorobot   (raggiungi posizione / esito)
+            (pushbutton + display)            |  ^
+        presenza container / guasto  sensor --+  +-- marker  (marcatura completata)
+                                              |
+                          stato hold (display/web-gui) ; engaged (LED)
+</pre>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Flusso</th><th>Natura</th><th>Altitudine</th></tr>
+    <tr><td>pushbutton &rarr; cargoservice</td><td>request/reply</td><td><b>requisito</b></td></tr>
+    <tr><td>sensor &rarr; cargoservice</td><td>notifica &rarr; evento (alt.: dispatch)</td><td>analisi (motivata)</td></tr>
+    <tr><td>marker &rarr; cargoservice</td><td>notifica "fatto" &rarr; evento</td><td>analisi</td></tr>
+    <tr><td>cargoservice &rarr; cargorobot</td><td>request/reply (moverobot)</td><td>contratto robotsmart</td></tr>
+    <tr><td>cargoservice &rarr; display/LED</td><td>output di stato</td><td>progetto / aperto</td></tr>
+</table>
+<div class="remark">Il <b>trasporto</b> (TCP/CoAP/MQTT) non e' deciso qui: e' Progetto.</div>
+
+<h3>Formalizzazione (qak) delle interazioni di base</h3>
+<p>L'interazione request/reply del pushbutton (un <b>requisito</b>) e il contratto del cargorobot si
+formalizzano come <b>interfacce di messaggi</b> (non realizzazione):</p>
+<pre>
+Request loadrequest  : loadrequest()
+Reply   answer       : answer(RESP)   for loadrequest      RESP = reserved(SLOT)|retrylater|reject
+
+Request moverobot      : moverobot(TARGETX, TARGETY, STEPTIME)        // contratto di robotsmart
+Reply   moverobotdone  : moverobotok(ARG)                     for moverobot
+Reply   moverobotfailed: moverobotfailed(PLANDONE, PLANTODO)  for moverobot
+</pre>
+<div class="remark">La FSM completa (stati, <code>withobj</code>, codice) e' <b>realizzazione</b>: vedi la sezione
+<i>Project</i> e il modello <a href="../cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a>.</div>
+
+<h3>Comportamento atteso (livello di problema)</h3>
+<pre>
+disponibile -> (richiesta valida) engaged: riserva slot, LED on
+            -> container all'IOPort -> cargorobot: IOPort -> slot5 (marcatura) -> slot riservato
+            -> ritorno a HOME -> disponibile
+Vincoli: una sola richiesta per volta; stiva piena -> reject; IOPort occupato/Out of service -> retrylater.
+</pre>
+
+<h3>Core business e strategia incrementale</h3>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Iterazione</th><th>Cosa realizza</th></tr>
+    <tr><td><b>Sprint 0 (core)</b></td><td>flusso nominale (container assunto presente); display/LED come log</td></tr>
+    <tr><td>Sprint 1</td><td>sensor dell'IOPort + timeout 30s</td></tr>
+    <tr><td>Sprint 2</td><td>Out of service + display web-gui</td></tr>
+</table>
+
+<h3>Decisioni e domande aperte</h3>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Tema</th><th>Altitudine</th><th>Stato</th></tr>
+    <tr><td>deposito = il robot <b>raggiunge</b> la posizione (no attuatore di presa)</td><td>analisi</td><td>confermato</td></tr>
+    <tr><td>cargorobot = robotsmart</td><td>analisi (motivata)</td><td>versione &rarr; Progetto</td></tr>
+    <tr><td>natura del sensor / del display (web-gui?)</td><td>analisi</td><td><b>aperta</b></td></tr>
+    <tr><td>trasporto (MQTT/TCP/CoAP)</td><td>progetto</td><td>rinviato</td></tr>
+</table>
+
+<br>
+
+<h2>Test plans</h2>
+<p>
+Il cargoservice mantiene lo stato della stiva: il test e' <b>automatizzabile</b> (PASS/FAIL).
+Il caso significativo (<b>TP1, carico nominale</b>) verifica a fine ciclo: slot riservato occupato,
+robot a HOME, cargoservice disponibile. Casi aggiuntivi: stiva piena (reject), IOPort occupato/Out
+of service (retrylater), timeout (disengage). Dettaglio in
+<a href="Sprint0_v1.html">Sprint 0 (v1) &ndash; Test plans</a>.
+</p>
+
+<br>
+
+<h2>Project</h2>
+<p>
+La traduzione del modello logico in una <b>FSM qak</b> concreta e' realizzata nel modello
+<a href="../cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a> (con
+<a href="../cargoservice26/utils/domain/Hold.java">Hold</a>,
+<a href="../cargoservice26/utils/devices/DisplaySim.java">DisplaySim</a>,
+<a href="../cargoservice26/utils/devices/LedSim.java">LedSim</a>): il cargoservice e' un QActor
+client di <code>robotsmart</code>, struttura e build modellate su <code>robotsmart26usage</code>.
+</p>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+<b>TP1</b> e' progettato per girare sul modello verificando lo stato finale della stiva. <b>Stato:</b>
+il modello e' scritto; generazione (plugin QAK), build ed esecuzione sono il passo successivo
+(<a href="../cargoservice26/README.md">cargoservice26/README</a>).
+</p>
+
+<br>
+
+<h2>Deployment</h2>
+<p>Vedi <a href="Sprint0_v1.html">Sprint 0 (v1) &ndash; Deployment</a>: Docker (VR+GUI+mosquitto) +
+<code>robotsmart26</code> (8020) + <code>cargoservice26</code> (8030). Con mosquitto in Docker
+usare l'IP reale del PC.</p>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+Poiche' il cargoservice dipende solo dall'<i>informazione</i> scambiata (eventi logici via
+iosensor), sostituire i dispositivi simulati con l'hardware reale non modifica il cargoservice.
+</p>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>

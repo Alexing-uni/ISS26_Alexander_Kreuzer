@@ -1,0 +1,111 @@
+System cargoservice26
+	mqttBroker "127.0.0.1" : 1883   eventTopic "cargoservice26in"
+/*
+ * WARNING: con mosquitto in Docker, "localhost" puo' non ricevere i messaggi:
+ *          usare l'IP reale del PC sia qui sia nei dispositivi.
+ *
+ * ============================================================
+ *  cargoservice26.qak  -  modello (QActor) del cargoservice  -  TemaFinale26
+ *  Sprint 0 (core business):
+ *     loadrequest -> riserva slot -> IOPort -> slot5 (marcatura) -> slot riservato -> HOME
+ *  Il container e' assunto presente all'IOPort (il sensor e' Sprint 1).
+ *  Out-of-service, timeout 30s e marker-come-evento: Sprint successivi.
+ *  Contratto del cargorobot preso da robotsmart
+ *  (vedi robotsmart26usage/src/robotsmart26tf26.qak).
+ * ============================================================
+ */
+
+/* ---- pushbutton -> cargoservice   (REQUISITO: request/reply) ---- */
+Request loadrequest    : loadrequest()
+Reply   answer         : answer(RESP)   for loadrequest   "RESP = reserved(SLOT)|retrylater|reject"
+
+/* ---- cargoservice -> cargorobot   (contratto di robotsmart) ---- */
+Request moverobot      : moverobot(TARGETX, TARGETY, STEPTIME)
+Reply   moverobotdone  : moverobotok(ARG)                     for moverobot
+Reply   moverobotfailed: moverobotfailed(PLANDONE, PLANTODO)  for moverobot
+
+Context ctxcargo      ip [host="localhost" port=8030]
+Context ctxrobotsmart ip [host="127.0.0.1" port=8020]
+
+ExternalQActor robotsmart context ctxrobotsmart
+
+QActor cargoservice context ctxcargo
+        withobj hold    using "domain.Hold()"
+        withobj display using "devices.DisplaySim()"
+        withobj led     using "devices.LedSim()" {
+   [# var Slot     = ""
+      val StepTime = 345
+   #]
+   State s0 initial {
+      println("$name | starts") color blue
+      [# display.show("serviceworking") #]
+   }
+   Goto available
+
+   State available {                                   //Service working
+      println("$name | available (attende loadrequest)") color yellow
+   }
+   Transition t0
+      whenRequest loadrequest -> evalRequest
+
+   State evalRequest {
+      onMsg( loadrequest : loadrequest() ){
+         [# Slot = "" #]
+         if [# hold.ioportOccupied() #] {
+            replyTo loadrequest with answer : answer(retrylater)
+            [# display.show("retrylater") #]
+         }
+         if [# !hold.ioportOccupied() && hold.isFull() #] {
+            replyTo loadrequest with answer : answer(reject)
+            [# display.show("reject") #]
+         }
+         if [# !hold.ioportOccupied() && !hold.isFull() #] {
+            [# Slot = hold.reserveFreeSlot() #]
+            replyTo loadrequest with answer : answer(reserved($Slot))
+            [# display.show("reserved " + Slot); led.blink(true) #]    //engaged
+         }
+      }
+   }
+   Goto goToIOPort if [# Slot != "" #] else available
+
+   State goToIOPort {                                  //HOME -> IOPort (presa astratta)
+      [# val IX = hold.ioportX(); val IY = hold.ioportY() #]
+      request robotsmart -m moverobot : moverobot($IX, $IY, $StepTime)
+   }
+   Transition t0
+      whenReply moverobotdone -> carryToSlot5
+
+   State carryToSlot5 {                                //IOPort -> slot5 (marcatura)
+      [# val SX = hold.slotX("slot5"); val SY = hold.slotY("slot5") #]
+      request robotsmart -m moverobot : moverobot($SX, $SY, $StepTime)
+   }
+   Transition t0
+      whenReply moverobotdone -> marking
+
+   State marking {                                     //marker simulato nel core (Sprint succ.: evento markingDone)
+      println("$name | marcatura in slot5 ...") color cyan
+      delay 1000
+   }
+   Goto carryToReserved
+
+   State carryToReserved {                             //slot5 -> slot riservato
+      [# val SX = hold.slotX(Slot); val SY = hold.slotY(Slot) #]
+      request robotsmart -m moverobot : moverobot($SX, $SY, $StepTime)
+   }
+   Transition t0
+      whenReply moverobotdone -> goHome
+
+   State goHome {                                      //ritorno a HOME
+      [# hold.confirmStored(Slot)
+         val HX = hold.homeX(); val HY = hold.homeY() #]
+      request robotsmart -m moverobot : moverobot($HX, $HY, $StepTime)
+   }
+   Transition t0
+      whenReply moverobotdone -> doneRequest
+
+   State doneRequest {
+      [# led.blink(false); display.show("holdstate") #]
+      println("$name | richiesta completata: container in " + Slot) color green
+   }
+   Goto available
+}
