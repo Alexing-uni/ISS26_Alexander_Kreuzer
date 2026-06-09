@@ -14,18 +14,20 @@
 
 <h2>Introduction</h2>
 <p>
-Questo documento (template del corso) e' focalizzato sull'<b>analisi del problema</b> del
-<b>cargoservice</b>. Costruisce un <b>modello logico</b> della soluzione &mdash; <i>di che tipo</i>
-sono i componenti, <i>come</i> interagiscono e <i>quale</i> comportamento ci si attende &mdash;
-<b>senza</b> fissare i dettagli di realizzazione (codice qak concreto, classi, trasporto), che
-sono Progetto/Development. Requisiti e analisi dei requisiti sono in
-<a href="https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint0/userDocs/Sprint0_v1.html">Sprint 0 (v1)</a>.
+Questo documento (template del corso) parte dall'<b>analisi del problema</b> del
+<b>cargoservice</b> &mdash; <i>di che tipo</i> sono i componenti, <i>come</i> interagiscono e
+<i>quale</i> comportamento ci si attende &mdash; e arriva al <b>sottosistema eseguibile</b> dello
+Sprint 1 (sezioni <i>Project</i>/<i>Testing</i>). Requisiti e analisi dei requisiti sono in
+<a href="https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint0/userDocs/Sprint0_v1.html">Sprint 0 (v1)</a>;
+qui si analizza la <b>natura</b> dei componenti e le <b>interazioni</b>, e si <b>realizza</b>
+l'incremento dello Sprint 1.
 </p>
 <div class="req">
-<b>Goal dello Sprint 1</b> (sottoinsieme del testo del committente): analizzare e modellare il
-<b>core business</b> &mdash; <i>"the cargoservice uses the cargorobot to move the container from
-the IOPort to the slot5 (for marking the container) and then to the reserved slot"</i>, con
-ritorno a HOME e sistema pronto per una nuova richiesta.
+<b>Goal dello Sprint 1</b> (sottoinsieme del testo del committente): oltre al core
+(<i>"the cargoservice uses the cargorobot to move the container from the IOPort to the slot5
+&hellip; and then to the reserved slot"</i>), realizzare l'<b>aggancio del sensor dell'IOPort</b> e
+il <b>timeout</b>: <i>"the customer must move the container in the sensor area within a prefixed
+amount of time (e.g. 30 secs), otherwise the system becomes disengaged"</i>.
 </div>
 
 <br>
@@ -120,29 +122,39 @@ esterno di cui il cargoservice e' client (come <code>boundaryworker</code> usa
 <p>L'interazione request/reply del pushbutton (un <b>requisito</b>) e il contratto del cargorobot si
 formalizzano come <b>interfacce di messaggi</b> (non realizzazione):</p>
 <pre>
-Request loadrequest  : loadrequest()
-Reply   answer       : answer(RESP)   for loadrequest      RESP = reserved(SLOT)|retrylater|reject
+Request loadrequest    : loadrequest()
+Reply   answer         : answer(RESP)   for loadrequest      RESP = reserved(SLOT)|retrylater|reject
+
+Event   containerInPlace : containerInPlace(WHERE)           // notifica logica del sensor dell'IOPort
 
 Request moverobot      : moverobot(TARGETX, TARGETY, STEPTIME)        // contratto di robotsmart
 Reply   moverobotdone  : moverobotok(ARG)                     for moverobot
 Reply   moverobotfailed: moverobotfailed(PLANDONE, PLANTODO)  for moverobot
 </pre>
-<div class="remark">La FSM completa (stati, <code>withobj</code>, codice) e' <b>realizzazione</b>: vedi la sezione
-<i>Project</i> e il modello <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint0/cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a>.</div>
+<div class="remark">Il <b>sensor dell'IOPort</b> e' una <b>sorgente di notifiche</b>: la presenza del container
+(sonar: <code>D&lt;DFREE/2</code> per ~3s) e' astratta nell'evento <b>logico</b>
+<code>containerInPlace</code> (il formato/trasporto fisico e' Progetto; distinto dal
+<code>sonaralarm</code> di WEnv, estraneo all'app). La FSM completa (stati, <code>withobj</code>,
+codice) e' <b>realizzazione</b>: vedi <i>Project</i> e il modello
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint1/cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a>.</div>
 
 <h3>Comportamento atteso (livello di problema)</h3>
 <pre>
-disponibile -> (richiesta valida) engaged: riserva slot, LED on
-            -> container all'IOPort -> cargorobot: IOPort -> slot5 (marcatura) -> slot riservato
-            -> ritorno a HOME -> disponibile
+disponibile -> (richiesta valida) ENGAGED: riserva slot, LED on
+            -> attende il container nell'area del sensor (max 30s):
+                 . containerInPlace  -> cargorobot: IOPort -> slot5 (marcatura) -> slot riservato
+                                      -> ritorno a HOME -> disponibile
+                 . scadono 30s       -> DISENGAGE: libera lo slot, LED off -> disponibile
 Vincoli: una sola richiesta per volta; stiva piena -> reject; IOPort occupato/Out of service -> retrylater.
 </pre>
+<p>Lo <b>Sprint 1</b> aggiunge al core proprio i due rami in grassetto: l'attesa del
+<code>containerInPlace</code> dal sensor e il <b>timeout 30s &rarr; disengage</b>.</p>
 
 <h3>Core business e strategia incrementale</h3>
 <table style="margin-left:10px;">
     <tr style="background:#e1f4d7;"><th>Iterazione</th><th>Cosa realizza</th></tr>
     <tr><td><b>Sprint 0 (core)</b></td><td>flusso nominale (container assunto presente); display/LED come log</td></tr>
-    <tr><td>Sprint 1</td><td>sensor dell'IOPort + timeout 30s</td></tr>
+    <tr style="background:#fff7d6;"><td><b>Sprint 1 (questo)</b></td><td><b>realizzato</b>: sensor dell'IOPort (<code>containerInPlace</code>) + timeout 30s &rarr; disengage</td></tr>
     <tr><td>Sprint 2</td><td>Out of service + display web-gui</td></tr>
 </table>
 
@@ -151,7 +163,8 @@ Vincoli: una sola richiesta per volta; stiva piena -> reject; IOPort occupato/Ou
     <tr style="background:#e1f4d7;"><th>Tema</th><th>Altitudine</th><th>Stato</th></tr>
     <tr><td>deposito = il robot <b>raggiunge</b> la posizione (no attuatore di presa)</td><td>analisi</td><td>confermato</td></tr>
     <tr><td>cargorobot = robotsmart</td><td>analisi (motivata)</td><td>versione &rarr; Progetto</td></tr>
-    <tr><td>natura del sensor / del display (web-gui?)</td><td>analisi</td><td><b>aperta</b></td></tr>
+    <tr><td>sensor dell'IOPort</td><td>analisi &rarr; progetto</td><td>interfaccia <b>logica</b> definita (<code>containerInPlace</code>); formato fisico del sonar &rarr; Progetto</td></tr>
+    <tr><td>natura del display (web-gui?)</td><td>analisi</td><td><b>aperta</b> (Sprint 2)</td></tr>
     <tr><td>trasporto (MQTT/TCP/CoAP)</td><td>progetto</td><td>rinviato</td></tr>
 </table>
 
@@ -170,25 +183,47 @@ of service (retrylater), timeout (disengage). Dettaglio in
 
 <h2>Project</h2>
 <p>
-La traduzione del modello logico in una <b>FSM qak</b> concreta e' realizzata nel modello
-<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint0/cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a> (con
-<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint0/cargoservice26/utils/domain/Hold.java">Hold</a>,
-<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint0/cargoservice26/utils/devices/DisplaySim.java">DisplaySim</a>,
-<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint0/cargoservice26/utils/devices/LedSim.java">LedSim</a>): il cargoservice e' un QActor
-client di <code>robotsmart</code>, struttura e build modellate su <code>robotsmart26usage</code>.
-</p>
+Il modello logico e' realizzato nel <b>sottosistema eseguibile</b> dello Sprint 1
+(<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint1/cargoservice26">TemaFinale26/Sprint1/cargoservice26</a>): la
+<b>FSM qak</b> <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint1/cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a> con i POJO
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint1/cargoservice26/utils/domain/Hold.java">Hold</a>,
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint1/cargoservice26/utils/devices/DisplaySim.java">DisplaySim</a>,
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint1/cargoservice26/utils/devices/LedSim.java">LedSim</a>. Il cargoservice e' un QActor client di
+<code>robotsmart</code> (<code>ExternalQActor</code>); struttura e build modellate su
+<code>robotsmart26usage</code>.</p>
+<p><b>Incremento dello Sprint 1</b> rispetto al core, con la fonte di ogni costrutto qak:</p>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Elemento</th><th>Costrutto qak</th><th>Fonte del pattern</th></tr>
+    <tr><td>notifica del sensor dell'IOPort</td><td><code>Event containerInPlace</code> + <code>whenEvent</code></td><td><code>firefly100.qak</code>, <code>griddisplay.qak</code></td></tr>
+    <tr><td>attesa engaged con scadenza</td><td><code>State waitContainer</code>: <code>whenEvent containerInPlace -&gt; goToIOPort</code> &amp; <code>whenTime 30000 -&gt; disengage</code></td><td><code>firefly100.qak</code> (whenTime+whenEvent)</td></tr>
+    <tr><td>timeout &rarr; libera lo slot</td><td><code>State disengage</code> &rarr; <code>hold.freeSlot(Slot)</code>, LED off</td><td>requisito (e.g. 30 secs)</td></tr>
+    <tr><td>sensor simulato</td><td><code>QActor iosensor</code>: dopo un delay <code>emit containerInPlace</code></td><td><code>demoSendReceiveEmit.qak</code></td></tr>
+    <tr><td>pushbutton simulato</td><td><code>QActor pushbutton</code>: <code>request cargoservice -m loadrequest</code></td><td>request/reply standard</td></tr>
+</table>
+<div class="remark">I dispositivi (sensor, pushbutton) sono <b>simulati</b> per <b>eseguire</b> il modello senza
+hardware; il cargoservice dipende solo dall'informazione scambiata, quindi sono sostituibili dai
+dispositivi reali (es. il PicoW) senza modificare la FSM.</div>
 
 <br>
 
 <h2>Testing</h2>
 <p>
-<b>TP1</b> e' progettato per girare sul modello verificando lo stato finale della stiva. <b>Stato:</b>
-il POJO <code>Hold</code> e' <b>compilato ed eseguito</b> con il test
-<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint0/cargoservice26/utils/test/TestHold.java">TestHold</a>
-(<b>16 PASS, 0 FAIL</b>: logica <code>reserved/retrylater/reject</code>, slot5 mai riservato,
-posizioni IOPort/HOME); la generazione del modello (plugin QAK), la build e l'esecuzione di TP1
-sono il passo successivo
-(<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint0/cargoservice26/README.md">cargoservice26/README</a>).
+Il POJO <code>Hold</code> e' <b>compilato ed eseguito</b> con il test
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint1/cargoservice26/utils/test/TestHold.java">TestHold</a>
+&mdash; <b>20 PASS, 0 FAIL</b>: logica <code>reserved/retrylater/reject</code> (TP2/TP3), slot5 mai
+riservato, posizioni IOPort/HOME e, nuovo nello Sprint 1, il <b>disengage da timeout</b> (TP4: lo
+slot riservato torna libero e riservabile).
+</p>
+<pre>
+&gt; javac -d build/testclasses utils/domain/Hold.java utils/test/TestHold.java
+&gt; java  -cp build/testclasses test.TestHold
+PASS  T8 disengage: slot liberato
+PASS  T8 disengage: lo slot e' di nuovo riservabile        (... 20 asserzioni ...)
+TestHold (Sprint1): 20 PASS, 0 FAIL
+</pre>
+<p>La generazione del modello qak (plugin QAK), la build e l'esecuzione end-to-end di TP1 con
+<code>robotsmart</code> sono il passo successivo
+(<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint1/cargoservice26/README.md">cargoservice26/README</a>).
 </p>
 
 <br>

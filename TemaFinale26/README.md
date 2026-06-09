@@ -18,7 +18,7 @@ Convenzione del corso (come `ConwayLife/SprintN/...`).
 | Sprint | Sottosistema compiuto | Documento (`_vN`) | Codice |
 |--------|-----------------------|-------------------|--------|
 | **Sprint 0 (core)** | flusso nominale: `loadrequest` → riserva slot → IOPort → slot5 (marcatura) → slot riservato → HOME (container assunto presente) | [Sprint0_v1.html](Sprint0/userDocs/Sprint0_v1.html) · [pdf](Sprint0/userDocs/Sprint0_v1.pdf) | [cargoservice26/](Sprint0/cargoservice26) (qak + POJO testati) |
-| **Sprint 1** | analisi del problema (natura pojo/service/attore, scelta DDR motivata, interazioni) + sensor dell'IOPort + timeout 30s | [Sprint1_v1.html](Sprint1/userDocs/Sprint1_v1.html) · [pdf](Sprint1/userDocs/Sprint1_v1.pdf) | _incremento dopo l'esecuzione del core_ |
+| **Sprint 1** | analisi del problema (natura pojo/service/attore, scelta DDR motivata, interazioni) + **sensor dell'IOPort** (`containerInPlace`) + **timeout 30s → disengage** | [Sprint1_v1.html](Sprint1/userDocs/Sprint1_v1.html) · [pdf](Sprint1/userDocs/Sprint1_v1.pdf) | [cargoservice26/](Sprint1/cargoservice26) (qak + POJO: 20 PASS) |
 | Sprint 2 | + Out of service (guasto sensor) + display come web-gui | _da fare_ | — |
 | Sprint 3 | rifiniture (marker/barcode, richieste concorrenti) | _da fare_ | — |
 
@@ -38,13 +38,18 @@ TemaFinale26/
 │   └── userDocs/
 │       ├── Sprint0_v1.html / .pdf          doc del corso (8 sezioni del template)
 │       └── css/  img/
-└── Sprint1/                       SOTTOSISTEMA: analisi del problema (+ sensor/timeout, da costruire)
+└── Sprint1/                       SOTTOSISTEMA: core + sensor dell'IOPort + timeout 30s
+    ├── cargoservice26/            codice evoluto (eseguibile/testato)
+    │   ├── src/cargoservice26.qak     FSM + Event containerInPlace + whenTime 30s + disengage
+    │   ├── utils/...                  Hold, DisplaySim, LedSim
+    │   ├── utils/test/TestHold.java   test (ESEGUITO: 20 PASS, 0 FAIL, incluso disengage)
+    │   └── build.gradle  settings.gradle
     └── userDocs/
         ├── Sprint1_v1.html / .pdf
         └── css/  img/
 ```
 
-I POJO sono **compilati e testati** (`javac` + `java test.TestHold` → **16 PASS, 0 FAIL**).
+I POJO sono **compilati e testati** (Sprint 0: **16 PASS**; Sprint 1: **20 PASS**, con il disengage).
 I documenti contengono **solo link** a parti di codice corrette sintatticamente ed
 eseguite/testate, come richiesto.
 
