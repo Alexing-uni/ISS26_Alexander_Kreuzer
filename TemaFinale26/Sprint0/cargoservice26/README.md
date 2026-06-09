@@ -1,5 +1,7 @@
 # cargoservice26 — modello qak (Sprint 0, core)
 
+Posizione: `TemaFinale26/Sprint0/cargoservice26/` (sottosistema dello Sprint 0).
+
 Modello a **QActor** del `cargoservice` del TemaFinale26. Realizza il **core business**
 dello Sprint 0: ricevuta una `loadrequest`, riserva uno slot e comanda il cargorobot
 **IOPort → slot5 (marcatura) → slot riservato → HOME**. Il container e' assunto presente
@@ -19,7 +21,7 @@ cargoservice26/
 ## Test eseguito (POJO)
 
 ```
-cd TemaFinale26/cargoservice26
+cd TemaFinale26/Sprint0/cargoservice26
 javac -d build/testclasses utils/domain/Hold.java utils/test/TestHold.java
 java  -cp build/testclasses test.TestHold        =>  TestHold: 16 PASS, 0 FAIL
 ```
@@ -34,7 +36,7 @@ Il cargoservice e' **client di robotsmart**: usa `moverobot(X,Y,STEPTIME)` con r
 ## Come generare ed eseguire
 1. Aprire il progetto nell'IDE col **plugin QAK** e generare il codice Kotlin da
    `src/cargoservice26.qak` (context `ctxcargo` → `it.unibo.ctxcargo.MainCtxcargoKt`).
-2. Avviare l'infrastruttura: `docker compose -f ../../robotsmart26/yamls/unibobasic26.yaml up`
+2. Avviare l'infrastruttura: `docker compose -f ../../../robotsmart26/yamls/unibobasic26.yaml up`
    e `robotsmart26` (`gradlew run`, porta 8020).
 3. `gradlew run` di questo progetto; inviare una `loadrequest` (caller del pushbutton).
 

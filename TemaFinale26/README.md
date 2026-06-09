@@ -7,43 +7,77 @@ display), un *sensor* (sonar) associato all'IOPort, marcatura in slot5 e LED ind
 
 Studente: **Alexander Kreuzer** (Erasmus) — sviluppo individuale.
 
-## Organizzazione del sistema in Sprint (stile Scrum)
+## Organizzazione del sistema finale in Sprint (Protobook §32.1)
 
-Ogni Sprint costruisce un **sottosistema compiuto** del sistema finale. Ogni documento
-segue il template del corso (Requirements, Requirement analysis, Problem analysis, Test
-plans, Project, Testing, Deployment, Maintenance) ed è versionato `_vN`.
+Ogni Sprint è la **costruzione di un sottosistema compiuto** del sistema finale ed è una
+cartella a sé. Dentro ogni cartella: il **doc** (`SprintN_vX`, sezioni del
+[templateToFill.html](https://anatali.github.io/issLab2026/_static/templateToFill.html)) e,
+quando previsto, il **sottosistema di codice** (modello qak + POJO + build, eseguibile/testato).
+Convenzione del corso (come `ConwayLife/SprintN/...`).
 
-| Sprint | Sottosistema | Documento | Modello qak |
-|--------|--------------|-----------|-------------|
-| **Sprint 0 (core)** | flusso nominale IOPort→slot5(marcatura)→slot riservato→HOME (container assunto presente) | [Sprint0_v1.html](userDocs/Sprint0_v1.html) · [pdf](userDocs/Sprint0_v1.pdf) | [cargoservice26.qak](cargoservice26/src/cargoservice26.qak) |
-| **Sprint 1** | analisi del problema + sensor dell'IOPort + timeout 30s | [Sprint1_v1.html](userDocs/Sprint1_v1.html) · [pdf](userDocs/Sprint1_v1.pdf) | — |
-| Sprint 2 | + Out of service (guasto sensor) + display web-gui | _da fare_ | — |
+| Sprint | Sottosistema compiuto | Documento (`_vN`) | Codice |
+|--------|-----------------------|-------------------|--------|
+| **Sprint 0 (core)** | flusso nominale: `loadrequest` → riserva slot → IOPort → slot5 (marcatura) → slot riservato → HOME (container assunto presente) | [Sprint0_v1.html](Sprint0/userDocs/Sprint0_v1.html) · [pdf](Sprint0/userDocs/Sprint0_v1.pdf) | [cargoservice26/](Sprint0/cargoservice26) (qak + POJO testati) |
+| **Sprint 1** | analisi del problema (natura pojo/service/attore, scelta DDR motivata, interazioni) + sensor dell'IOPort + timeout 30s | [Sprint1_v1.html](Sprint1/userDocs/Sprint1_v1.html) · [pdf](Sprint1/userDocs/Sprint1_v1.pdf) | _incremento dopo l'esecuzione del core_ |
+| Sprint 2 | + Out of service (guasto sensor) + display come web-gui | _da fare_ | — |
 | Sprint 3 | rifiniture (marker/barcode, richieste concorrenti) | _da fare_ | — |
 
-## Modello qak (codice)
+## Struttura delle cartelle
 
 ```
-cargoservice26/
-  src/cargoservice26.qak              modello (FSM) del cargoservice — core (Sprint 0)
-  utils/domain/Hold.java              stato della stiva (POJO) + posizioni dalla mappa del DDR
-  utils/devices/DisplaySim.java       display simulato (output a video)
-  utils/devices/LedSim.java           LED simulato (indicatore di stato)
-  utils/test/TestHold.java            test di unita' di Hold (ESEGUITO: 16 PASS, 0 FAIL)
-  build.gradle  settings.gradle       build (pattern di robotsmart26usage)
+TemaFinale26/
+├── README.md                      questo file (organizzazione in Sprint)
+├── Sprint0/                       SOTTOSISTEMA: core business
+│   ├── cargoservice26/            codice (eseguibile/testato)
+│   │   ├── src/cargoservice26.qak     modello (FSM) del cargoservice
+│   │   ├── utils/domain/Hold.java     stato della stiva (POJO) + posizioni dalla mappa del DDR
+│   │   ├── utils/devices/DisplaySim.java   display simulato
+│   │   ├── utils/devices/LedSim.java       LED simulato (indicatore di stato)
+│   │   ├── utils/test/TestHold.java        test di unità (ESEGUITO: 16 PASS, 0 FAIL)
+│   │   └── build.gradle  settings.gradle   build (pattern di robotsmart26usage)
+│   └── userDocs/
+│       ├── Sprint0_v1.html / .pdf          doc del corso (8 sezioni del template)
+│       └── css/  img/
+└── Sprint1/                       SOTTOSISTEMA: analisi del problema (+ sensor/timeout, da costruire)
+    └── userDocs/
+        ├── Sprint1_v1.html / .pdf
+        └── css/  img/
 ```
 
 I POJO sono **compilati e testati** (`javac` + `java test.TestHold` → **16 PASS, 0 FAIL**).
+I documenti contengono **solo link** a parti di codice corrette sintatticamente ed
+eseguite/testate, come richiesto.
 
-Il cargoservice è un **QActor** client di `robotsmart` (`moverobot(X,Y)`); generazione del
-codice `.kt` col plugin QAK nell'IDE. Contratto preso da `robotsmart26usage/src/robotsmart26tf26.qak`.
-Dettagli e stato in [cargoservice26/README.md](cargoservice26/README.md).
+## Come importarlo nel tuo computer
 
-## Esecuzione
+Il progetto vive nel repo GitHub. Sulla tua macchina:
 
 ```
-1) docker compose -f ../robotsmart26/yamls/unibobasic26.yaml up   (VR + GUI + mosquitto)
-2) cd ../robotsmart26 ; ./gradlew run                              (servizio del docente, 8020)
-3) cd cargoservice26  ; ./gradlew run                              (cargoservice26, ctxcargo 8030)
+# 1) prendere l'ultima versione (sei già nel repo locale)
+git pull origin main
+
+# 2) il sottosistema del core è in:
+cd TemaFinale26/Sprint0/cargoservice26
+
+# 3) compilare ed eseguire il test dei POJO (nessuna dipendenza esterna):
+javac -d build/testclasses utils/domain/Hold.java utils/devices/DisplaySim.java utils/devices/LedSim.java utils/test/TestHold.java
+java  -cp build/testclasses test.TestHold        # => TestHold: 16 PASS, 0 FAIL
+
+# 4) generare il codice Kotlin dal modello qak (nell'IDE Eclipse col PLUGIN QAK):
+#    aprire src/cargoservice26.qak  ->  genera context ctxcargo  ->  it.unibo.ctxcargo.MainCtxcargoKt
+#    poi:  ./gradlew build
+```
+
+> Il passo 4 (generazione `.kt`) richiede l'**IDE Eclipse con il plugin QAK** del corso
+> (lo stesso usato per `robotsmart26usage`); non è uno step da riga di comando.
+
+## Esecuzione del sistema (dopo la generazione del .kt)
+
+```
+(dalla cartella TemaFinale26/Sprint0/cargoservice26/)
+1) docker compose -f ../../../robotsmart26/yamls/unibobasic26.yaml up   (VR + GUI + mosquitto)
+2) cd ../../../robotsmart26 ; ./gradlew run                            (servizio del docente, 8020)
+3) (in Sprint0/cargoservice26)  ./gradlew run                          (cargoservice26, ctxcargo 8030)
 4) inviare una loadrequest dal caller del pushbutton
 ```
 

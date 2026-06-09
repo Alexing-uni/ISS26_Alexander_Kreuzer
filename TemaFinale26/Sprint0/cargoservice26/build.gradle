@@ -2,7 +2,7 @@
 ================================================================================
  cargoservice26 build.gradle
  Modellato su robotsmart26usage/build.gradle (pattern del docente).
- Cambia solo: rootProject, mainClass (ctxcargo), flatDir (../../unibolibs),
+ Cambia solo: rootProject, mainClass (ctxcargo), flatDir (../../../unibolibs),
  distributionBaseName e i file .pl inclusi.
 ================================================================================
 */
@@ -26,7 +26,7 @@ kotlin {
 
 repositories {
     mavenCentral()
-    flatDir {   dirs '../../unibolibs'	 }
+    flatDir {   dirs '../../../unibolibs'	 }
 }
 
 dependencies {
@@ -65,7 +65,7 @@ dependencies {
     implementation group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.13'
     implementation group: 'commons-io', name: 'commons-io', version: '2.11.0'
 
-    /* UNIBO (in ../../unibolibs) */
+    /* UNIBO (in ../../../unibolibs) */
     implementation name: 'uniboInterfaces'
     implementation name: '2p301'
     implementation name: 'unibo.qakactor23-5.0'
