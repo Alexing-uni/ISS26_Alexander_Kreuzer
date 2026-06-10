@@ -26,12 +26,22 @@ il container nell'area del sensor**:
 ```
 cargoservice26/
   src/cargoservice26.qak              modello (FSM) + iosensor e pushbutton simulati
+  src/it/unibo/cargoservice/          Cargoservice.kt   (codice del modello, pattern del generatore QAK)
+  src/it/unibo/iosensor/              Iosensor.kt       (sensor simulato: emit containerInPlace)
+  src/it/unibo/pushbutton/            Pushbutton.kt     (pushbutton simulato: loadrequest)
+  src/it/unibo/ctxcargo/              MainCtxcargo.kt   (main del context, porta 8030)
+  cargoservice26.pl  sysRules.pl      descrizione del sistema (contexts, qactor, msg)
   utils/domain/Hold.java              stato della stiva (POJO) + posizioni dalla mappa
   utils/devices/DisplaySim.java       display simulato (output a video)
   utils/devices/LedSim.java           LED simulato (indicatore di stato)
   utils/test/TestHold.java            test di unita' (ESEGUITO: 20 PASS, 0 FAIL, incluso il disengage)
   build.gradle  settings.gradle       build (come robotsmart26usage)
+  gradlew  gradlew.bat  gradle/       Gradle wrapper 8.6 (del corso) + gradle.properties
 ```
+
+> Il codice in `src/it/unibo/` e' scritto seguendo **esattamente il pattern del codice generato**
+> dal plugin QAK nei progetti del corso (`sistemasqak`, `firefly`, `robotsmart26usage`); da
+> rigenerare/validare col plugin nell'IDE a partire da `src/cargoservice26.qak`.
 
 ## Test eseguito (POJO)
 ```
@@ -42,15 +52,14 @@ java  -cp build/testclasses test.TestHold        =>  TestHold (Sprint1): 20 PASS
 Il test T8 verifica la logica del **disengage da timeout** (TP4): lo slot riservato torna
 libero e di nuovo riservabile.
 
-## Come generare ed eseguire
-1. Aprire il progetto nell'IDE col **plugin QAK** e generare il codice Kotlin da
-   `src/cargoservice26.qak` (context `ctxcargo` → `it.unibo.ctxcargo.MainCtxcargoKt`).
-2. Avviare l'infrastruttura: `docker compose -f ../../../robotsmart26/yamls/unibobasic26.yaml up`
-   e `robotsmart26` (`gradlew run`, porta 8020).
-3. `gradlew run` di questo progetto. Demo: il `pushbutton` invia la `loadrequest`, l'`iosensor`
-   notifica dopo 5s → ciclo completo. Per il TIMEOUT: portare il delay dell'iosensor a > 30s.
+## Come eseguire
+1. Infrastruttura: `docker compose -f ../../../robotsmart26/yamls/unibobasic26.yaml up`
+   (VirtualRobot + GUI + mosquitto).
+2. `cd ../../../robotsmart26 ; ./gradlew run` (servizio del docente, porta 8020).
+3. In questa cartella: `./gradlew run`. Demo: il `pushbutton` invia la `loadrequest`
+   (→ `reserved(slot1)`, LED on), l'`iosensor` notifica `containerInPlace` dopo 5s →
+   trasporto IOPort → slot5 → slot riservato → HOME. Per provare il **TIMEOUT/disengage**:
+   portare il delay dell'`iosensor` a > 30s.
 
-> Stato: i POJO sono **compilati e testati** (`TestHold`: 20 PASS, 0 FAIL). Il **modello qak**
-> e' scritto con sintassi allineata ai sorgenti del corso (`firefly100.qak`,
-> `demoSendReceiveEmit.qak`, `robotsmart26tf26.qak`); generazione `.kt` (plugin QAK), build ed
-> esecuzione end-to-end (con robotsmart) = passo successivo.
+> NB (pattern del corso): il `cargoservice` fa `subscribe "cargoservice26in_out"` per percepire
+> gli eventi emessi via MQTT (come `robotsmart26tf26.qak` con `robotsmart26in_out`).

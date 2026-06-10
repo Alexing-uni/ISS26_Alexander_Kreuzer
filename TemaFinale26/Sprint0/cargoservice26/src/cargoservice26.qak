@@ -16,7 +16,7 @@ System cargoservice26
  */
 
 /* ---- pushbutton -> cargoservice   (REQUISITO: request/reply) ---- */
-Request loadrequest    : loadrequest()
+Request loadrequest    : loadrequest(CALLER)   "CALLER don't care (stile del docente: arg sempre presente)"
 Reply   answer         : answer(RESP)   for loadrequest   "RESP = reserved(SLOT)|retrylater|reject"
 
 /* ---- cargoservice -> cargorobot   (contratto di robotsmart) ---- */
@@ -49,7 +49,7 @@ QActor cargoservice context ctxcargo
       whenRequest loadrequest -> evalRequest
 
    State evalRequest {
-      onMsg( loadrequest : loadrequest() ){
+      onMsg( loadrequest : loadrequest(CALLER) ){
          [# Slot = "" #]
          if [# hold.ioportOccupied() #] {
             replyTo loadrequest with answer : answer(retrylater)

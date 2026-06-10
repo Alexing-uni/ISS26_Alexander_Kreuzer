@@ -11,12 +11,22 @@ all'IOPort (il *sensor* e' lo Sprint 1; *Out of service* e timeout sono Sprint s
 ```
 cargoservice26/
   src/cargoservice26.qak              modello (FSM) del cargoservice
+  src/it/unibo/cargoservice/          Cargoservice.kt  (codice del modello, pattern del generatore QAK)
+  src/it/unibo/ctxcargo/              MainCtxcargo.kt  (main del context, porta 8030)
+  cargoservice26.pl  sysRules.pl      descrizione del sistema (contexts, qactor, msg)
   utils/domain/Hold.java              stato della stiva (POJO) + posizioni dalla mappa
   utils/devices/DisplaySim.java       display simulato (output a video)
   utils/devices/LedSim.java           LED simulato (indicatore di stato)
   utils/test/TestHold.java            test di unita' di Hold (ESEGUITO: 16 PASS, 0 FAIL)
   build.gradle  settings.gradle       build (come robotsmart26usage)
+  gradlew  gradlew.bat  gradle/       Gradle wrapper 8.6 (del corso) + gradle.properties
 ```
+
+> Il codice in `src/it/unibo/` e' scritto seguendo **esattamente il pattern del codice generato**
+> dal plugin QAK nei progetti del corso (`sistemasqak`, `robotsmart26usage`); da
+> rigenerare/validare col plugin nell'IDE a partire da `src/cargoservice26.qak`.
+> `gradlew build` = BUILD SUCCESSFUL. Il core attende una `loadrequest`: il caller
+> (pushbutton simulato) e' introdotto nello **Sprint 1**.
 
 ## Test eseguito (POJO)
 
@@ -33,13 +43,14 @@ cfr. TP2/TP3), slot5 mai riservato come slot di carico, posizioni IOPort=(4,0) e
 Il cargoservice e' **client di robotsmart**: usa `moverobot(X,Y,STEPTIME)` con risposta
 `moverobotok` / `moverobotfailed` (vedi `robotsmart26usage/src/robotsmart26tf26.qak`).
 
-## Come generare ed eseguire
-1. Aprire il progetto nell'IDE col **plugin QAK** e generare il codice Kotlin da
-   `src/cargoservice26.qak` (context `ctxcargo` → `it.unibo.ctxcargo.MainCtxcargoKt`).
-2. Avviare l'infrastruttura: `docker compose -f ../../../robotsmart26/yamls/unibobasic26.yaml up`
-   e `robotsmart26` (`gradlew run`, porta 8020).
-3. `gradlew run` di questo progetto; inviare una `loadrequest` (caller del pushbutton).
+## Come eseguire
+1. Infrastruttura: `docker compose -f ../../../robotsmart26/yamls/unibobasic26.yaml up`
+   (VirtualRobot + GUI + mosquitto).
+2. `cd ../../../robotsmart26 ; ./gradlew run` (servizio del docente, porta 8020).
+3. In questa cartella: `./gradlew run` (context `ctxcargo`, porta 8030). Il servizio si avvia
+   e **attende una `loadrequest`**; il caller (pushbutton simulato) e' nello **Sprint 1**,
+   che esegue l'intero ciclo.
 
-> Stato: i POJO sono **compilati e testati** (`TestHold`: 16 PASS, 0 FAIL). Il **modello qak**
-> e' scritto con sintassi allineata ai sorgenti del corso (`robotsmart26tf26.qak`, `firefly`,
-> `robotservice26`); generazione `.kt` (plugin QAK), build ed esecuzione di TP1 = passo successivo.
+> Stato: i POJO sono **compilati e testati** (`TestHold`: 16 PASS, 0 FAIL); `gradlew build` =
+> **BUILD SUCCESSFUL** (modello + codice). Il ciclo completo e' **eseguito nello Sprint 1**
+> (vedi `../../Sprint1/cargoservice26/`).

@@ -22,7 +22,7 @@ System cargoservice26
  */
 
 /* ---- pushbutton -> cargoservice   (REQUISITO: request/reply) ---- */
-Request loadrequest    : loadrequest()
+Request loadrequest    : loadrequest(CALLER)   "CALLER don't care (stile del docente: arg sempre presente)"
 Reply   answer         : answer(RESP)   for loadrequest   "RESP = reserved(SLOT)|retrylater|reject"
 
 /* ---- sensor dell'IOPort -> cargoservice   (NOTIFICA logica; formato fisico = Progetto) ---- */
@@ -47,6 +47,8 @@ QActor cargoservice context ctxcargo
    #]
    State s0 initial {
       println("$name | starts") color blue
+      subscribe "cargoservice26in_out"   //per percepire containerInPlace emesso dall'iosensor via MQTT
+                                         //(pattern: robotsmart26tf26.qak, subscribe "robotsmart26in_out")
       [# display.show("serviceworking") #]
    }
    Goto available
@@ -58,7 +60,7 @@ QActor cargoservice context ctxcargo
       whenRequest loadrequest -> evalRequest
 
    State evalRequest {
-      onMsg( loadrequest : loadrequest() ){
+      onMsg( loadrequest : loadrequest(CALLER) ){
          [# Slot = "" #]
          if [# hold.ioportOccupied() #] {
             replyTo loadrequest with answer : answer(retrylater)
@@ -93,18 +95,21 @@ QActor cargoservice context ctxcargo
    Goto available
 
    State goToIOPort {                                  //HOME -> IOPort (presa astratta)
+      println("$name | containerInPlace ricevuto -> cargorobot verso IOPort") color blue
       [# val IX = hold.ioportX(); val IY = hold.ioportY() #]
       request robotsmart -m moverobot : moverobot($IX, $IY, $StepTime)
    }
    Transition t0
-      whenReply moverobotdone -> carryToSlot5
+      whenReply moverobotdone   -> carryToSlot5
+      whenReply moverobotfailed -> robotFailure
 
    State carryToSlot5 {                                //IOPort -> slot5 (marcatura)
       [# val SX = hold.slotX("slot5"); val SY = hold.slotY("slot5") #]
       request robotsmart -m moverobot : moverobot($SX, $SY, $StepTime)
    }
    Transition t0
-      whenReply moverobotdone -> marking
+      whenReply moverobotdone   -> marking
+      whenReply moverobotfailed -> robotFailure
 
    State marking {                                     //marker simulato nel core (Sprint succ.: evento markingDone)
       println("$name | marcatura in slot5 ...") color cyan
@@ -117,7 +122,8 @@ QActor cargoservice context ctxcargo
       request robotsmart -m moverobot : moverobot($SX, $SY, $StepTime)
    }
    Transition t0
-      whenReply moverobotdone -> goHome
+      whenReply moverobotdone   -> goHome
+      whenReply moverobotfailed -> robotFailure
 
    State goHome {                                      //ritorno a HOME
       [# hold.confirmStored(Slot)
@@ -125,7 +131,15 @@ QActor cargoservice context ctxcargo
       request robotsmart -m moverobot : moverobot($HX, $HY, $StepTime)
    }
    Transition t0
-      whenReply moverobotdone -> doneRequest
+      whenReply moverobotdone   -> doneRequest
+      whenReply moverobotfailed -> doneRequest         //container GIA' stoccato: HOME e' best-effort
+
+   //SPRINT1: il cargorobot fallisce PRIMA dello stoccaggio -> slot liberato, servizio di nuovo disponibile
+   State robotFailure {
+      [# hold.freeSlot(Slot); led.blink(false); display.show("robotfailure"); Slot = "" #]
+      println("$name | moverobotfailed: slot liberato, servizio disponibile") color red
+   }
+   Goto available
 
    State doneRequest {
       [# led.blink(false); display.show("holdstate") #]
@@ -146,12 +160,12 @@ QActor cargoservice context ctxcargo
 //Per provare il TIMEOUT: portare il delay a > 30000 (o non emettere).
 QActor iosensor context ctxcargo {
    State s0 initial {
-      println("$name | sensor IOPort attivo (simulato)") color white
+      println("$name | sensor IOPort attivo (simulato)") color cyan
       delay 5000
    }
    Goto detect
    State detect {
-      println("$name | container rilevato -> emit containerInPlace") color white
+      println("$name | container rilevato -> emit containerInPlace") color cyan
       emit containerInPlace : containerInPlace(ioport)
    }
 }
@@ -161,7 +175,7 @@ QActor pushbutton context ctxcargo {
    State s0 initial {
       delay 1000
       println("$name | premuto -> loadrequest") color green
-      request cargoservice -m loadrequest : loadrequest()
+      request cargoservice -m loadrequest : loadrequest(pushbutton)
    }
    Transition t0
       whenReply answer -> showAnswer
