@@ -1,0 +1,266 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>TemaFinale26 &ndash; Sprint 2 (v1)</title>
+</head>
+
+<body>
+<div id="top">
+<h1>TemaFinale26 &ndash; Sprint 2 (v1)</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+<p>
+Questo documento (template del corso) descrive lo <b>Sprint 2</b> del sistema <b>cargoservice</b>.
+Lo Sprint 0 (<a href="https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint0/userDocs/Sprint0_v1.html">Sprint0_v1</a>)
+ha formalizzato requisiti e core business; lo Sprint 1
+(<a href="https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint1/userDocs/Sprint1_v1.html">Sprint1_v1</a>)
+ha realizzato il sottosistema eseguibile core + sensor dell'IOPort + timeout 30s.
+</p>
+<div class="req">
+<b>Goal dello Sprint 2</b> (sottoinsieme del testo del committente):
+<i>"It sends the answer retrylater, if &hellip; the system is <b>Out of service</b>"</i> e
+<i>"the message <b>'Out of service'</b> if the sonar sensor measures a distance D &gt; DFREE for at
+least 3 secs (perhaps a failure of the sonar)"</i> &mdash; piu' il <b>display</b> dell'IOPort
+realizzato come <b>web-gui</b> (domanda aperta D5 dello Sprint 1, ora chiusa).
+</div>
+<h3>Sintesi dello Sprint precedente (punto di partenza)</h3>
+<p>
+Il prototipo dello Sprint 1 e' <b>eseguito e testato</b>: ciclo nominale
+<code>loadrequest &rarr; reserved(slot) &rarr; containerInPlace &rarr; IOPort &rarr; slot5(marcatura)
+&rarr; slot riservato &rarr; HOME</code>, timeout 30s &rarr; disengage, gestione
+<code>moverobotfailed</code>. Architettura: <code>cargoservice</code> (QActor) client di
+<code>robotsmart</code> (ExternalQActor, contratto <code>moverobot(X,Y,STEPTIME)</code>),
+POJO <code>Hold</code> testato (20 PASS).
+Modello: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint1/cargoservice26/src/cargoservice26.qak">Sprint1/cargoservice26.qak</a>.
+</p>
+
+<br>
+
+<h2>Requirements</h2>
+<p>
+Testo esatto del committente in <a href="https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint0/userDocs/Sprint0_v1.html">Sprint 0 (v1) &ndash; Requirements</a>.
+Requisiti oggetto di questo Sprint:
+</p>
+<div class="req">
+<i>&bull; "It sends the answer <b>retrylater</b>, if the IOPort is currently occupied by a container
+or if the system is <b>Out of service</b>."</i><br>
+<i>&bull; "The service must also show on the display on the IOPort: &hellip; the message
+<b>'Out of service'</b> if the sonar sensor measures a distance <b>D &gt; DFREE</b> for at least
+<b>3 secs</b> (perhaps a failure of the sonar)."</i><br>
+<i>&bull; "The display is used to show the answer to the request and to show the current state
+of the hold."</i>
+</div>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<p>Approfondimento del sottoproblema dello Sprint (le entita' generali sono nello Sprint 0):</p>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Termine</th><th>Analisi</th></tr>
+    <tr><td><b>DFREE</b></td><td>il testo <b>non lo fissa</b>: e' un <b>parametro di calibrazione</b>
+        del dispositivo (qui 60 cm, da tarare sul dispositivo reale col committente)</td></tr>
+    <tr><td><b>"for at least 3 secs"</b></td><td>condizione <b>sostenuta nel tempo</b>, non sul
+        singolo campione: serve chi <b>osserva il flusso</b> di distanze e ne deriva lo stato</td></tr>
+    <tr><td><b>Out of service</b></td><td>stato del <b>sistema</b> (non del solo sensor): le richieste
+        ricevono <code>retrylater</code>; il display lo mostra. Il testo non definisce il
+        <b>rientro</b>: si assume (decisione, da confermare col committente) il rientro quando
+        D &le; DFREE in modo sostenuto (~3s)</td></tr>
+    <tr><td><b>display</b></td><td>mostra risposta e stato corrente: realizzato come <b>web-gui</b>
+        (browser), coerente con la natura distribuita del sistema</td></tr>
+</table>
+
+<br>
+
+<h2>Problem analysis</h2>
+<h3>Architettura logica del sottosistema</h3>
+<p>
+Lo Sprint 1 aveva astratto il sensor nella notifica logica <code>containerInPlace</code>. Con
+l'Out of service serve anche il <b>dato grezzo</b>: la distanza <code>D</code>. Si introduce quindi
+la separazione (architettura logica):
+</p>
+<pre>
+  iosensor (PicoW reale o simulato)
+      |  Event sonaralarm : distance(D)     (dato GREZZO, formato del PicoW reale)
+      v
+  SENSORMONITOR  -- D &lt; DFREE/2 per ~3s --&gt;  containerInPlace   --&gt;  CARGOSERVICE
+                 -- D &gt; DFREE  per &gt;=3s --&gt;  outofservice(on)   --&gt;  (stato outOfService:
+                 -- D &le; DFREE  per ~3s  --&gt;  outofservice(off)  --&gt;   retrylater + display)
+</pre>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Scelta</th><th>Motivazione</th></tr>
+    <tr><td><code>sonaralarm : distance(D)</code> come <b>Event</b></td>
+        <td>formato <b>compatibile col PicoW reale</b>
+        (<code>msg(sonaralarm,event,picow,none,distance(D),0)</code>, vedi
+        <code>Picow/Sonar/sonarMqtt.py</code>): il dispositivo reale sostituisce il simulato
+        <b>senza modifiche</b> al resto del sistema</td></tr>
+    <tr><td><b>sensormonitor</b> attore dedicato</td>
+        <td>la logica "sostenuta per 3s" e' <b>stato + tempo</b>: natura da attore; separa il
+        livello dispositivo dal livello servizio (colma l'abstraction gap)</td></tr>
+    <tr><td>notifiche logiche come <b>Dispatch</b> (point-to-point)</td>
+        <td>alternativa <b>gia' prevista</b> nell'analisi dello Sprint 1 ("notifica &rarr; evento,
+        alt.: dispatch"): il destinatario e' uno solo (cargoservice) e si evita il broadcast
+        del flusso di eventi a tutti gli attori</td></tr>
+    <tr><td><b>display web-gui</b> via MQTT/websocket</td>
+        <td>mosquitto espone websocket (porta 9001, gia' nel deployment del corso): la pagina
+        si sottoscrive al topic del display; il cargoservice <b>non cambia</b> (dipende solo
+        dall'informazione: <code>display.show(msg)</code>)</td></tr>
+</table>
+
+<h3>Comportamento atteso (livello di problema)</h3>
+<pre>
+disponibile --(outofservice(on))--&gt; OUT OF SERVICE: display "Out of service"
+   OUT OF SERVICE --(loadrequest)--&gt; answer(retrylater)         (requisito)
+   OUT OF SERVICE --(outofservice(off))--&gt; disponibile: display "serviceworking"
+(il resto del comportamento e' quello dello Sprint 1)
+</pre>
+
+<h3>Piano di lavoro (previsione, ore/uomo)</h3>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Attivita'</th><th>Previsione</th><th>Effettivo</th></tr>
+    <tr><td>analisi (sensormonitor, Out of service, rientro)</td><td>2 h</td><td>~2 h</td></tr>
+    <tr><td>modello qak + codice (sensormonitor, stati OOS, scenario demo)</td><td>3 h</td><td>~3 h</td></tr>
+    <tr><td>display web-gui (DisplayMqtt + pagina)</td><td>2 h</td><td>~1.5 h</td></tr>
+    <tr><td>test (unita' + end-to-end con robotsmart/VirtualRobot)</td><td>2 h</td><td>~2.5 h</td></tr>
+    <tr><td><b>totale</b></td><td><b>9 h</b></td><td><b>~9 h</b> (tempi rispettati)</td></tr>
+</table>
+<p>Distribuzione dei compiti: progetto <b>individuale</b> (Alexander Kreuzer): analisi, sviluppo e
+test svolti dalla stessa persona.</p>
+
+<h3>Diario di bordo dello Sprint</h3>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Data</th><th>Attivita'</th></tr>
+    <tr><td>09/06</td><td>consegnati Sprint0_v1/Sprint1_v1 (struttura in Sprint approvata dal docente);
+        prototipo Sprint 1 eseguito end-to-end con robotsmart/VirtualRobot</td></tr>
+    <tr><td>10/06</td><td>analisi Out of service (DFREE, finestra 3s, rientro); introdotto il
+        <b>sensormonitor</b> e il dato grezzo <code>distance(D)</code> nel formato del PicoW reale</td></tr>
+    <tr><td>10/06</td><td>display come <b>web-gui</b> (DisplayMqtt + pagina mqtt/websocket :9001);
+        scenario demo TP1+TP5+TP6; build e demo eseguite; documento Sprint2_v1</td></tr>
+</table>
+
+<br>
+
+<h2>Test plans</h2>
+<pre>
+TP1  CARICO NOMINALE   (Sprint1, regressione): loadrequest -&gt; reserved(slot1); containerInPlace;
+     IOPort -&gt; slot5(marcatura) -&gt; slot1 -&gt; HOME;  PASS sse "richiesta completata: container in slot1"
+TP4  TIMEOUT           (Sprint1, regressione): nessun container in 30s -&gt; disengage; slot liberato
+TP5  OUT OF SERVICE    (questo Sprint):
+  pre   : sistema disponibile
+  azione: il sensor misura D=90 &gt; DFREE per ~3s
+  attesi: display "Out of service" ; loadrequest -&gt; answer(retrylater)
+  PASS sse: la risposta alla richiesta durante il guasto e' retrylater e il display mostra Out of service
+TP6  RIENTRO IN SERVIZIO (questo Sprint):
+  azione: D rientra (&le; DFREE) per ~3s
+  attesi: display "serviceworking" ; loadrequest -&gt; answer(reserved(slot2)) ; ciclo 2 completo
+  PASS sse: "richiesta completata: container in slot2"
+</pre>
+<div class="remark">La <b>demo significativa</b> esegue TP1+TP5+TP6 in un'unica run (scenario
+dell'<code>iosensor</code>): ciclo nominale &rarr; guasto &rarr; retrylater &rarr; rientro &rarr; secondo ciclo.</div>
+
+<br>
+
+<h2>Project</h2>
+<p>
+Sottosistema eseguibile:
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint2/cargoservice26">TemaFinale26/Sprint2/cargoservice26</a> &mdash; modello
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint2/cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a>:
+</p>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Componente</th><th>Realizzazione</th></tr>
+    <tr><td>cargoservice</td><td>FSM Sprint1 + stati <code>checkOos / outOfService / oosRetry / checkOosExit</code>;
+        le notifiche logiche arrivano come <b>dispatch</b> (<code>whenMsg</code>)</td></tr>
+    <tr><td><b>sensormonitor</b> (nuovo)</td><td><a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint2/cargoservice26/src/it/unibo/sensormonitor/Sensormonitor.kt">Sensormonitor.kt</a>:
+        contatori di campioni consecutivi (finestra ~3s a ~1Hz); <code>forward</code> al cargoservice</td></tr>
+    <tr><td>iosensor (simulato)</td><td>emette <code>sonaralarm:distance(D)</code> secondo lo scenario
+        della demo (presenza/guasto/rientro/presenza); sostituibile dal <b>PicoW reale</b></td></tr>
+    <tr><td><b>display web-gui</b></td><td><a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint2/cargoservice26/utils/devices/DisplayMqtt.java">DisplayMqtt.java</a>
+        pubblica su MQTT (<code>cargoservice26display</code>);
+        <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint2/cargoservice26/webgui/display.html">webgui/display.html</a>
+        (mqtt.js su websocket :9001) mostra stato e log nel browser</td></tr>
+    <tr><td>pushbutton (simulato)</td><td>3 richieste: nominale / durante il guasto / dopo il rientro</td></tr>
+</table>
+<div class="remark">Limite noto (scelta di Sprint): <code>outofservice</code> e' gestito negli stati
+<code>available</code>/<code>outOfService</code>; durante un trasporto il dispatch resta in coda ed e'
+servito al ritorno in <code>available</code>. Copertura con <code>whenInterruptEvent</code>: Sprint 3.</div>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+<b>POJO</b>: <code>Hold</code> invariato, test di regressione
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint2/cargoservice26/utils/test/TestHold.java">TestHold</a>
+= <b>20 PASS, 0 FAIL</b>. <b>Build</b>: <code>gradlew build</code> = BUILD SUCCESSFUL.
+</p>
+<p><b>Demo eseguita</b> (TP1+TP5+TP6 in un'unica run, con robotsmart + VirtualRobot + mosquitto):</p>
+<pre>
+pushbutton | premuto (1) -&gt; loadrequest        -&gt; risposta (1): reserved(slot1)   [engaged, LED on]
+sensormonitor | presenza container -&gt; containerInPlace
+cargoservice  | trasporto IOPort -&gt; slot5 (marcatura) -&gt; slot1 -&gt; HOME
+cargoservice  | richiesta completata: container in slot1                          [TP1 PASS]
+sensormonitor | D&gt;DFREE per ~3s -&gt; outofservice(on)
+cargoservice  | OUT OF SERVICE ; [DISPLAY] Out of service
+pushbutton | premuto (2) -&gt; loadrequest        -&gt; risposta (2): retrylater        [TP5 PASS]
+sensormonitor | sensor rientrato -&gt; outofservice(off) ; [DISPLAY] serviceworking
+pushbutton | premuto (3) -&gt; loadrequest        -&gt; risposta (3): reserved(slot2)
+cargoservice  | richiesta completata: container in slot2                          [TP6 PASS]
+</pre>
+
+<br>
+
+<h2>Deployment</h2>
+<pre>
+(da TemaFinale26/Sprint2/cargoservice26/)
+1) docker compose -f ../../../robotsmart26/yamls/unibobasic26.yaml up    (VirtualRobot + GUI + mosquitto)
+2) aprire http://localhost:8090 nel browser          (SCENA WebGL del VirtualRobot - OBBLIGATORIO:
+                                                      la scena ESEGUE i movimenti; senza pagina aperta
+                                                      i moverobot non terminano mai)
+3) cd ../../../robotsmart26 ; ./gradlew run                             (servizio del docente, 8020)
+4) ./gradlew run                                                        (cargoservice26, ctxcargo 8030)
+5) aprire webgui/display.html nel browser            (display IOPort web-gui, ws://localhost:9001)
+</pre>
+<div class="remark"><b>NB</b> (verificato durante il testing): la scena WebGL (punto 2) va aperta <b>prima</b>
+di lanciare le richieste e va <b>riaperta/ricaricata</b> se si riavvia il container <code>wenv</code>
+(la pagina si registra alla connessione). Con mosquitto in Docker usare l'<b>IP reale</b> del PC
+(non <code>localhost</code>) quando i dispositivi sono su altri host (es. PicoW reale).</div>
+
+<br>
+
+<h2>Maintenance</h2>
+<p>
+Il cargoservice dipende solo dall'<b>informazione</b> scambiata: l'<code>iosensor</code> simulato si
+sostituisce col <b>PicoW reale</b> (stesso messaggio <code>distance(D)</code>) e il display a video
+con la <b>web-gui</b> senza toccare la FSM. <code>DFREE</code> e la finestra dei 3s sono
+<b>parametri</b> del sensormonitor.
+</p>
+
+<h3>Sintesi finale dello Sprint e goal del prossimo</h3>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Sprint</th><th>Stato</th></tr>
+    <tr><td><b>Sprint 2 (questo)</b></td><td><b>completato</b>: Out of service + rientro + display
+        web-gui; demo TP1+TP5+TP6; tempi rispettati (~9 h come previsto)</td></tr>
+    <tr><td><b>Goal Sprint 3</b></td><td>rifiniture: <b>marker come attore</b> (evento
+        <code>markingDone</code> al posto del delay), gestione richieste durante il trasporto
+        (retrylater immediato), <code>whenInterruptEvent</code> per outofservice in ogni stato,
+        barcode; slides (&lt;10) e preparazione della demo finale</td></tr>
+</table>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>

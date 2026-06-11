@@ -19,8 +19,8 @@ Convenzione del corso (come `ConwayLife/SprintN/...`).
 |--------|-----------------------|-------------------|--------|
 | **Sprint 0 (core)** | flusso nominale: `loadrequest` → riserva slot → IOPort → slot5 (marcatura) → slot riservato → HOME (container assunto presente) | [Sprint0_v1.html](Sprint0/userDocs/Sprint0_v1.html) · [pdf](Sprint0/userDocs/Sprint0_v1.pdf) | [cargoservice26/](Sprint0/cargoservice26) (qak + POJO testati) |
 | **Sprint 1** | analisi del problema (natura pojo/service/attore, scelta DDR motivata, interazioni) + **sensor dell'IOPort** (`containerInPlace`) + **timeout 30s → disengage** | [Sprint1_v1.html](Sprint1/userDocs/Sprint1_v1.html) · [pdf](Sprint1/userDocs/Sprint1_v1.pdf) | [cargoservice26/](Sprint1/cargoservice26) (qak + POJO: 20 PASS) |
-| Sprint 2 | + Out of service (guasto sensor) + display come web-gui | _da fare_ | — |
-| Sprint 3 | rifiniture (marker/barcode, richieste concorrenti) | _da fare_ | — |
+| **Sprint 2** | + **Out of service** (sensormonitor dal dato grezzo `distance(D)` stile PicoW; retrylater + display "Out of service"; rientro) + **display web-gui** (MQTT/websocket) | [Sprint2_v1.html](Sprint2/userDocs/Sprint2_v1.html) · [pdf](Sprint2/userDocs/Sprint2_v1.pdf) | [cargoservice26/](Sprint2/cargoservice26) (demo TP1+TP5+TP6) |
+| Sprint 3 | rifiniture (marker/barcode come attore, tester TP1 automatizzato) | _in lavorazione_ | — |
 
 ## Struttura delle cartelle
 
