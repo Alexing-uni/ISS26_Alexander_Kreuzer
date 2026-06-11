@@ -20,12 +20,12 @@
 <h1>IOPort display &mdash; cargoservice26 (Sprint 2, web-gui)</h1>
 <div id="stato" class="warn">in attesa del servizio ...</div>
 <div id="log"></div>
-<p class="hint">topic MQTT: <b>cargoservice26display</b> &middot; broker: ws://localhost:9001
+<p class="hint">topic MQTT: <b>cargoservice26display</b> &middot; broker: ws://127.0.0.1:9001
 (con mosquitto in Docker su altro host usare l'IP reale del PC)</p>
 <script>
   const stato = document.getElementById("stato");
   const log   = document.getElementById("log");
-  const client = mqtt.connect("ws://localhost:9001");
+  const client = mqtt.connect("ws://127.0.0.1:9001");
   client.on("connect", () => {
       client.subscribe("cargoservice26display");
       addLog("connesso al broker, in ascolto su cargoservice26display");
