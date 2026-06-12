@@ -105,7 +105,7 @@ QActor cargoservice context ctxcargo
 
    State doneRequest {
       [# led.blink(false); display.show("holdstate") #]
-      println("$name | richiesta completata: container in " + Slot) color green
+      println("$name | richiesta completata: container in $Slot") color green
    }
    Goto available
 }

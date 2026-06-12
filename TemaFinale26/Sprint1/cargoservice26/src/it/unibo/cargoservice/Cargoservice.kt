@@ -190,7 +190,7 @@ class Cargoservice ( name: String, scope: CoroutineScope, isconfined: Boolean=fa
 				state("doneRequest") { //this:State
 					action { //it:State
 						 led.blink(false); display.show("holdstate")
-						CommUtils.outgreen("$name | richiesta completata: container in " + Slot)
+						CommUtils.outgreen("$name | richiesta completata: container in $Slot")
 						//genTimer( actor, state )
 					}
 					//After Lenzi Aug2002

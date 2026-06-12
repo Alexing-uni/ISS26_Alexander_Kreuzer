@@ -58,6 +58,7 @@ QActor cargoservice context ctxcargo
         withobj led     using "devices.LedSim()" {
    [# var Slot     = ""
       var Oos      = false
+      var Retry    = 0     //ritenti del trasporto (robustezza: un passo del DDR puo' fallire)
       val StepTime = 345
    #]
    State s0 initial {
@@ -85,7 +86,7 @@ QActor cargoservice context ctxcargo
             [# display.show("reject") #]
          }
          if [# !hold.ioportOccupied() && !hold.isFull() #] {
-            [# Slot = hold.reserveFreeSlot() #]
+            [# Slot = hold.reserveFreeSlot(); Retry = 0 #]
             replyTo loadrequest with answer : answer(reserved($Slot))
             [# display.show("reserved " + Slot); led.blink(true) #]    //engaged
          }
@@ -146,7 +147,15 @@ QActor cargoservice context ctxcargo
    }
    Transition t0
       whenReply moverobotdone   -> carryToSlot5
-      whenReply moverobotfailed -> robotFailure
+      whenReply moverobotfailed -> retryIOPort
+
+   //ROBUSTEZZA: un passo del DDR puo' fallire (es. frame della scena in ritardo):
+   //si RIPROVA lo stesso target (robotsmart ripianifica dalla posizione corrente)
+   State retryIOPort {
+      [# Retry = Retry + 1 #]
+      println("$name | moverobotfailed: riprovo verso IOPort (tentativo $Retry)") color yellow
+   }
+   Goto goToIOPort if [# Retry <= 2 #] else robotFailure
 
    State carryToSlot5 {                                //IOPort -> slot5 (marcatura)
       [# val SX = hold.slotX("slot5"); val SY = hold.slotY("slot5") #]
@@ -154,7 +163,13 @@ QActor cargoservice context ctxcargo
    }
    Transition t0
       whenReply moverobotdone   -> marking
-      whenReply moverobotfailed -> robotFailure
+      whenReply moverobotfailed -> retrySlot5
+
+   State retrySlot5 {
+      [# Retry = Retry + 1 #]
+      println("$name | moverobotfailed: riprovo verso slot5 (tentativo $Retry)") color yellow
+   }
+   Goto carryToSlot5 if [# Retry <= 2 #] else robotFailure
 
    State marking {                                     //marker simulato (Sprint3: evento markingDone)
       println("$name | marcatura in slot5 ...") color cyan
@@ -168,7 +183,13 @@ QActor cargoservice context ctxcargo
    }
    Transition t0
       whenReply moverobotdone   -> goHome
-      whenReply moverobotfailed -> robotFailure
+      whenReply moverobotfailed -> retryReserved
+
+   State retryReserved {
+      [# Retry = Retry + 1 #]
+      println("$name | moverobotfailed: riprovo verso $Slot (tentativo $Retry)") color yellow
+   }
+   Goto carryToReserved if [# Retry <= 2 #] else robotFailure
 
    State goHome {                                      //ritorno a HOME
       [# hold.confirmStored(Slot)
@@ -188,7 +209,7 @@ QActor cargoservice context ctxcargo
 
    State doneRequest {
       [# led.blink(false); display.show("holdstate") #]
-      println("$name | richiesta completata: container in " + Slot) color green
+      println("$name | richiesta completata: container in $Slot") color green
    }
    Goto available
 }
@@ -282,7 +303,7 @@ QActor pushbutton context ctxcargo {
       whenReply answer -> showAnswer1
    State showAnswer1 {
       onMsg( answer : answer(RESP) ){
-         println("$name | risposta (1): " + payloadArg(0)) color green
+         println("$name | risposta (1): ${payloadArg(0)}") color green
       }
       delay 73000
       println("$name | premuto (2) -> loadrequest (sistema Out of service?)") color green
@@ -292,7 +313,7 @@ QActor pushbutton context ctxcargo {
       whenReply answer -> showAnswer2
    State showAnswer2 {
       onMsg( answer : answer(RESP) ){
-         println("$name | risposta (2): " + payloadArg(0)) color green
+         println("$name | risposta (2): ${payloadArg(0)}") color green
       }
       delay 16000
       println("$name | premuto (3) -> loadrequest (rientrato in servizio?)") color green
@@ -302,7 +323,7 @@ QActor pushbutton context ctxcargo {
       whenReply answer -> showAnswer3
    State showAnswer3 {
       onMsg( answer : answer(RESP) ){
-         println("$name | risposta (3): " + payloadArg(0)) color green
+         println("$name | risposta (3): ${payloadArg(0)}") color green
       }
    }
 }

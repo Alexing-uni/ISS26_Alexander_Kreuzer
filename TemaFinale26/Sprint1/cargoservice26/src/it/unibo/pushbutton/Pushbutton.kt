@@ -48,7 +48,7 @@ class Pushbutton ( name: String, scope: CoroutineScope, isconfined: Boolean=fals
 					action { //it:State
 						if( checkMsgContent( Term.createTerm("answer(RESP)"), Term.createTerm("answer(RESP)"),
 						                        currentMsg.msgContent()) ) { //set msgArgList
-								CommUtils.outgreen("$name | risposta del cargoservice: " + payloadArg(0))
+								CommUtils.outgreen("$name | risposta del cargoservice: ${payloadArg(0)}")
 						}
 						//genTimer( actor, state )
 					}

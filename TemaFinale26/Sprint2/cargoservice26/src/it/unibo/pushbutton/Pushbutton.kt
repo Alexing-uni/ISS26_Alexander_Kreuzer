@@ -51,7 +51,7 @@ class Pushbutton ( name: String, scope: CoroutineScope, isconfined: Boolean=fals
 					action { //it:State
 						if( checkMsgContent( Term.createTerm("answer(RESP)"), Term.createTerm("answer(RESP)"),
 						                        currentMsg.msgContent()) ) { //set msgArgList
-								CommUtils.outgreen("$name | risposta (1): " + payloadArg(0))
+								CommUtils.outgreen("$name | risposta (1): ${payloadArg(0)}")
 						}
 						delay(73000)
 						CommUtils.outgreen("$name | premuto (2) -> loadrequest (sistema Out of service?)")
@@ -67,7 +67,7 @@ class Pushbutton ( name: String, scope: CoroutineScope, isconfined: Boolean=fals
 					action { //it:State
 						if( checkMsgContent( Term.createTerm("answer(RESP)"), Term.createTerm("answer(RESP)"),
 						                        currentMsg.msgContent()) ) { //set msgArgList
-								CommUtils.outgreen("$name | risposta (2): " + payloadArg(0))
+								CommUtils.outgreen("$name | risposta (2): ${payloadArg(0)}")
 						}
 						delay(16000)
 						CommUtils.outgreen("$name | premuto (3) -> loadrequest (rientrato in servizio?)")
@@ -83,7 +83,7 @@ class Pushbutton ( name: String, scope: CoroutineScope, isconfined: Boolean=fals
 					action { //it:State
 						if( checkMsgContent( Term.createTerm("answer(RESP)"), Term.createTerm("answer(RESP)"),
 						                        currentMsg.msgContent()) ) { //set msgArgList
-								CommUtils.outgreen("$name | risposta (3): " + payloadArg(0))
+								CommUtils.outgreen("$name | risposta (3): ${payloadArg(0)}")
 						}
 						//genTimer( actor, state )
 					}

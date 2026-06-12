@@ -36,6 +36,7 @@ class Cargoservice ( name: String, scope: CoroutineScope, isconfined: Boolean=fa
 		val display = devices.DisplayMqtt()
 		val led     = devices.LedSim()
 		 var Slot     = ""
+		 var Retry    = 0     //ritenti del trasporto (robustezza)
 		 var Oos      = false
 		 val StepTime = 345
 		return { //this:ActionBasciFsm
@@ -75,7 +76,7 @@ class Cargoservice ( name: String, scope: CoroutineScope, isconfined: Boolean=fa
 									 display.show("reject")
 								}
 								if(  !hold.ioportOccupied() && !hold.isFull()  ){
-									 Slot = hold.reserveFreeSlot()
+									 Slot = hold.reserveFreeSlot(); Retry = 0
 									answer("loadrequest", "answer", "answer(reserved($Slot))"   )
 									 display.show("reserved " + Slot); led.blink(true)     //engaged
 								}
@@ -186,7 +187,7 @@ class Cargoservice ( name: String, scope: CoroutineScope, isconfined: Boolean=fa
 					sysaction { //it:State
 					}
 					 transition(edgeName="t03",targetState="carryToSlot5",cond=whenReply("moverobotdone"))
-					transition(edgeName="t03f",targetState="robotFailure",cond=whenReply("moverobotfailed"))
+					transition(edgeName="t03f",targetState="retryIOPort",cond=whenReply("moverobotfailed"))
 				}
 				state("carryToSlot5") { //this:State                       //IOPort -> slot5 (marcatura)
 					action { //it:State
@@ -198,7 +199,7 @@ class Cargoservice ( name: String, scope: CoroutineScope, isconfined: Boolean=fa
 					sysaction { //it:State
 					}
 					 transition(edgeName="t04",targetState="marking",cond=whenReply("moverobotdone"))
-					transition(edgeName="t04f",targetState="robotFailure",cond=whenReply("moverobotfailed"))
+					transition(edgeName="t04f",targetState="retrySlot5",cond=whenReply("moverobotfailed"))
 				}
 				state("marking") { //this:State                            //marker simulato (Sprint3: markingDone)
 					action { //it:State
@@ -221,7 +222,7 @@ class Cargoservice ( name: String, scope: CoroutineScope, isconfined: Boolean=fa
 					sysaction { //it:State
 					}
 					 transition(edgeName="t05",targetState="goHome",cond=whenReply("moverobotdone"))
-					transition(edgeName="t05f",targetState="robotFailure",cond=whenReply("moverobotfailed"))
+					transition(edgeName="t05f",targetState="retryReserved",cond=whenReply("moverobotfailed"))
 				}
 				state("goHome") { //this:State                             //ritorno a HOME
 					action { //it:State
@@ -235,6 +236,50 @@ class Cargoservice ( name: String, scope: CoroutineScope, isconfined: Boolean=fa
 					}
 					 transition(edgeName="t06",targetState="doneRequest",cond=whenReply("moverobotdone"))
 					transition(edgeName="t06f",targetState="doneRequest",cond=whenReply("moverobotfailed"))  //container GIA' stoccato: HOME best-effort
+				}
+				//ROBUSTEZZA: un passo del DDR puo' fallire (es. frame della scena in ritardo):
+				//si RIPROVA lo stesso target (robotsmart ripianifica dalla posizione corrente)
+				state("retryIOPort") { //this:State
+					action { //it:State
+						 Retry = Retry + 1
+						CommUtils.outyellow("$name | moverobotfailed: riprovo verso IOPort (tentativo $Retry)")
+						//genTimer( actor, state )
+					}
+					//After Lenzi Aug2002
+					sysaction { //it:State
+					}
+					 transition( edgeName="goto",targetState="goToIOPort", cond=doswitchGuarded({ Retry <= 2
+					}) )
+					transition( edgeName="goto",targetState="robotFailure", cond=doswitchGuarded({! ( Retry <= 2
+					) }) )
+				}
+				state("retrySlot5") { //this:State
+					action { //it:State
+						 Retry = Retry + 1
+						CommUtils.outyellow("$name | moverobotfailed: riprovo verso slot5 (tentativo $Retry)")
+						//genTimer( actor, state )
+					}
+					//After Lenzi Aug2002
+					sysaction { //it:State
+					}
+					 transition( edgeName="goto",targetState="carryToSlot5", cond=doswitchGuarded({ Retry <= 2
+					}) )
+					transition( edgeName="goto",targetState="robotFailure", cond=doswitchGuarded({! ( Retry <= 2
+					) }) )
+				}
+				state("retryReserved") { //this:State
+					action { //it:State
+						 Retry = Retry + 1
+						CommUtils.outyellow("$name | moverobotfailed: riprovo verso $Slot (tentativo $Retry)")
+						//genTimer( actor, state )
+					}
+					//After Lenzi Aug2002
+					sysaction { //it:State
+					}
+					 transition( edgeName="goto",targetState="carryToReserved", cond=doswitchGuarded({ Retry <= 2
+					}) )
+					transition( edgeName="goto",targetState="robotFailure", cond=doswitchGuarded({! ( Retry <= 2
+					) }) )
 				}
 				//il cargorobot fallisce PRIMA dello stoccaggio -> slot liberato
 				state("robotFailure") { //this:State
@@ -251,7 +296,7 @@ class Cargoservice ( name: String, scope: CoroutineScope, isconfined: Boolean=fa
 				state("doneRequest") { //this:State
 					action { //it:State
 						 led.blink(false); display.show("holdstate")
-						CommUtils.outgreen("$name | richiesta completata: container in " + Slot)
+						CommUtils.outgreen("$name | richiesta completata: container in $Slot")
 						//genTimer( actor, state )
 					}
 					//After Lenzi Aug2002

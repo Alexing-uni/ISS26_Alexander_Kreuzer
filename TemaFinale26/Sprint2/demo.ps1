@@ -37,7 +37,7 @@ docker restart wenv | Out-Null   # azzera le connessioni-scena rimaste appese
 Start-Sleep 6
 Start-Process "msedge" @("--user-data-dir=$prof","--no-first-run","--new-window",
                          "--disable-background-timer-throttling","--disable-renderer-backgrounding",
-                         "--disable-backgrounding-occluded-windows","http://localhost:8090")
+                         "--disable-backgrounding-occluded-windows","--disable-features=CalculateNativeWinOcclusion","http://localhost:8090")
 Write-Host "    scena aperta: TENERLA IN PRIMO PIANO durante la demo" -ForegroundColor Yellow
 Write-Host "    (NON aprire localhost:8090 in altre schede!)" -ForegroundColor Yellow
 Start-Sleep 8

@@ -183,6 +183,11 @@ Sottosistema eseguibile:
         (mqtt.js su websocket :9001) mostra stato e log nel browser</td></tr>
     <tr><td>pushbutton (simulato)</td><td>3 richieste: nominale / durante il guasto / dopo il rientro</td></tr>
 </table>
+<div class="remark"><b>Robustezza del trasporto</b>: un singolo passo del DDR puo' fallire
+(<code>moverobotfailed</code>, es. frame della scena WebGL in ritardo): il cargoservice
+<b>riprova lo stesso target fino a 2 volte</b> (stati <code>retryIOPort/retrySlot5/retryReserved</code>;
+robotsmart ripianifica dalla posizione corrente) e solo dopo libera lo slot
+(<code>robotFailure</code>), restando disponibile.</div>
 <div class="remark">Limite noto (scelta di Sprint): <code>outofservice</code> e' gestito negli stati
 <code>available</code>/<code>outOfService</code>; durante un trasporto il dispatch resta in coda ed e'
 servito al ritorno in <code>available</code>. Copertura con <code>whenInterruptEvent</code>: Sprint 3.</div>
