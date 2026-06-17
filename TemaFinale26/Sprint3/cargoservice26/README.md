@@ -105,6 +105,49 @@ cd TemaFinale26/Sprint3/cargoservice26 ;  ./gradlew build     #  -> BUILD SUCCES
 
 ---
 
+## Requisiti del committente → realizzazione (Sprint 3)
+| Requisito (tema del docente) | Dove / come |
+|---|---|
+| richiesta col **pushbutton** dell'IOPort | bottone della web-gui → EVENT `loadrequest` |
+| **display**: risposta + stato della stiva | `display.show(reserved/retrylater/reject)` e `hold.stateDescription()` (web-gui via MQTT) |
+| risposte **reserved / retrylater / reject** | `evalRequest` + `Hold.reserveFreeSlot()/isFull()` |
+| **LED** lampeggia mentre engaged | `led.blink(true/false)` (`LedSim`) |
+| **sensor (sonar)**, container entro ~30s o disengage | `sensormonitor` (D<DFREE/2 per ~3s → `containerInPlace`) + `waitContainer whenTime 30000 → disengage` |
+| **Out of service** se D>DFREE per ≥3s | `sensormonitor` → `outofservice(on)`; stato `outOfService` → `retrylater`; rientro `outofservice(off)` |
+| **trasporto** IOPort → slot5 → slot (cargorobot) | client di `robotsmart` (`moverobot`), stati `goToIOPort/carryToSlot5/carryToReserved/goHome` |
+| **marker**: barcode + **segnala** il completamento | attore `marker` (`domark` → `markingDone(BARCODE)`); barcode memorizzato in `Hold` e mostrato sul display |
+| robustezza ai fallimenti del robot | `retryIOPort/retrySlot5/retryReserved` (max 2) → `robotFailure` libera lo slot |
+
+**Evoluzione rispetto al Project (Sprint 1) e alla revisione del docente (Sprint 2):**
+- l'`iosensor` (QActor che filtrava il sonar) diventa il `sensormonitor`, alimentato dalla **web-gui
+  giocabile** invece che dal mock Python hard-coded (richiesta del docente: *sensor con cui giocare,
+  non hard-coded*);
+- l'IOPort diventa **web-gui interattiva servita e aperta dall'app** (richiesta del docente: *bottone +
+  la pagina la apre l'applicazione*);
+- il punto aperto **D1** del Project (posizioni slot *da confermare sulla mappa*) è **risolto**:
+  verificate su `tf25map` col pianificatore A*, `slot3=(3,2)` e `slot4=(5,3)` erano su ostacoli →
+  corrette a `(4,3)` e `(4,2)` (raggiungibili).
+
+## Demo di difesa (colloquio, ~10-15 min) — passo passo
+1. **Prima della difesa**: avvia tutto (`demo.ps1` oppure i passi B). Verifica: robot **at home**,
+   scena **8090 visibile**, web-gui aperta su **8095** ("connesso al broker" in verde), bodega vuota.
+2. **Presenta l'architettura** (slide 6): sistema distribuito di attori; IOPort = boundary realizzato
+   come web-gui; `robotsmart` = service esterno del docente.
+3. **Carico nominale** (slide 5 + live): nella web-gui premi **PREMI** → display `reserved slot1`, LED on.
+   Abbassa lo **slider** a ~20 → a ~3s il robot trasporta IOPort → slot5 (marcatura `bc1`) → slot1 → HOME
+   → display `slot1=PIENO(bc1)`. Spiega: la risposta è **sul display**, il barcode lo assegna il **marker**.
+4. **Riempi la stiva**: ripeti per slot2, slot3, slot4 → `slot1..slot4 = PIENO` (mostra le coordinate corrette).
+5. **Out of service**: slider a ~95 per qualche secondo → display `Out of service`; premi PREMI → `retrylater`.
+   Riporta lo slider a ~45 → `serviceworking`.
+6. **Timeout**: premi PREMI (`reserved`), **non** toccare il sensore → dopo 30s `disengage` (slot liberato).
+7. **(facoltativo) TP1 automatizzato**: in un'altra finestra `./gradlew runTp1` → `*** TP1 PASS ***`.
+8. **Discussione "da ingegneri"**: perché web-gui + MQTT/websocket (trasparenza del dispositivo, il PicoW
+   reale sostituisce la GUI), **canali separati** pushbutton/sensor, **ruolo dell'analisi** (prima il
+   tipo del componente, poi la tecnologia), e il **finding** sulle coordinate (rigore del testing).
+> Tieni la **scena (8090) visibile** durante i movimenti del robot.
+
+---
+
 ## Note operative (affidabilità della scena WebGL)
 - **Una sola** scheda della scena (8090); più schede = robot desincronizzato.
 - Tenerla **in primo piano/visibile**: in background il WebGL rallenta e gli step possono fallire.
