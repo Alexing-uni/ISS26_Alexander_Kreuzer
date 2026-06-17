@@ -29,8 +29,17 @@ public class WebIoPort {
 
     public WebIoPort() {
         try {
-            byte[] page = loadPage();
+            byte[] page    = loadAsset("ioport.html");
+            byte[] mqttLib = loadAsset("mqtt.min.js");   // SPRINT3: libreria MQTT servita in locale (no Internet)
             server = HttpServer.create(new InetSocketAddress(PORT), 0);
+            // la libreria MQTT e' servita come FILE SEPARATO: context piu' specifico di "/", quindi ha
+            // precedenza per questo path. Cosi' la pagina la carica con <script src="mqtt.min.js"> senza
+            // dipendere da Internet e senza doverla inlineare (l'inline rompeva il tag <script>).
+            server.createContext("/mqtt.min.js", exchange -> {
+                exchange.getResponseHeaders().set("Content-Type", "application/javascript; charset=utf-8");
+                exchange.sendResponseHeaders(200, mqttLib.length);
+                try (OutputStream os = exchange.getResponseBody()) { os.write(mqttLib); }
+            });
             server.createContext("/", exchange -> {
                 byte[] body = page;
                 exchange.getResponseHeaders().set("Content-Type", "text/html; charset=utf-8");
@@ -47,18 +56,14 @@ public class WebIoPort {
         }
     }
 
-    /** cerca ioport.html nei path tipici (cwd = cartella del progetto quando si fa gradlew run) */
-    private byte[] loadPage() throws Exception {
-        String[] candidates = {
-            "webgui/ioport.html",
-            "./webgui/ioport.html",
-            "cargoservice26/webgui/ioport.html"
-        };
-        for (String c : candidates) {
-            Path p = Paths.get(c);
+    /** cerca un asset della web-gui nei path tipici (cwd = cartella del progetto quando si fa gradlew run) */
+    private byte[] loadAsset(String filename) throws Exception {
+        String[] dirs = { "webgui/", "./webgui/", "cargoservice26/webgui/" };
+        for (String d : dirs) {
+            Path p = Paths.get(d + filename);
             if (Files.exists(p)) return Files.readAllBytes(p);
         }
-        throw new Exception("ioport.html non trovato (cwd=" + Paths.get("").toAbsolutePath() + ")");
+        throw new Exception(filename + " non trovato (cwd=" + Paths.get("").toAbsolutePath() + ")");
     }
 
     /**
