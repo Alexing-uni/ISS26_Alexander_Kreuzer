@@ -221,6 +221,7 @@ class Cargoservice ( name: String, scope: CoroutineScope, isconfined: Boolean=fa
 				state("carryToSlot5") { //this:State                       //IOPort -> slot5 (marcatura)
 					action { //it:State
 						 val SX = hold.slotX("slot5"); val SY = hold.slotY("slot5")
+						display.show("verso slot5 (marcatura)")   //SPRINT3: rende VISIBILE sul display il passaggio per l'area di marcatura
 						request("moverobot", "moverobot($SX,$SY,$StepTime)" ,"robotsmart" )
 						//genTimer( actor, state )
 					}
@@ -246,6 +247,7 @@ class Cargoservice ( name: String, scope: CoroutineScope, isconfined: Boolean=fa
 						if( checkMsgContent( Term.createTerm("markingDone(BARCODE)"), Term.createTerm("markingDone(BARCODE)"),
 						                        currentMsg.msgContent()) ) { //set msgArgList
 								 Barcode = payloadArg(0)    //memorizza il barcode per lo stoccaggio
+								display.show("slot5: barcode " + payloadArg(0))   //SPRINT3: barcode assegnato NELL'area di marcatura slot5
 								CommUtils.outcyan("$name | marcatura completata, barcode=${payloadArg(0)}")
 						}
 						//genTimer( actor, state )

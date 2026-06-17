@@ -185,7 +185,8 @@ QActor cargoservice context ctxcargo
    Goto goToIOPort if [# Retry <= 2 #] else robotFailure
 
    State carryToSlot5 {                                //IOPort -> slot5 (marcatura)
-      [# val SX = hold.slotX("slot5"); val SY = hold.slotY("slot5") #]
+      [# val SX = hold.slotX("slot5"); val SY = hold.slotY("slot5")
+         display.show("verso slot5 (marcatura)") #]   //rende VISIBILE sul display il passaggio per l'area di marcatura
       request robotsmart -m moverobot : moverobot($SX, $SY, $StepTime)
    }
    Transition t0
@@ -207,7 +208,8 @@ QActor cargoservice context ctxcargo
 
    State markingCompleted {
       onMsg( markingDone : markingDone(BARCODE) ){
-         [# Barcode = payloadArg(0) #]    //memorizza il barcode per lo stoccaggio
+         [# Barcode = payloadArg(0)
+            display.show("slot5: barcode " + payloadArg(0)) #]    //barcode assegnato NELL'area di marcatura slot5
          println("$name | marcatura completata, barcode=${payloadArg(0)}") color cyan
       }
    }
