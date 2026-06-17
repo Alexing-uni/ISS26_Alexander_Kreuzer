@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>cargoservice26 - display IOPort (web-gui)</title>
+<!-- mqtt.js: MQTT su websocket (mosquitto espone la porta 9001, vedi unibobasic26.yaml) -->
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<style>
+  body  { font-family: Consolas, monospace; background:#101820; color:#e8e8e8; margin:0; padding:24px; }
+  h1    { color:#7fd4ff; font-size:20px; }
+  #stato{ font-size:42px; font-weight:bold; padding:18px 26px; border-radius:10px;
+          background:#1d2b36; display:inline-block; min-width:420px; }
+  .ok   { color:#7CFC00; }  .warn { color:#ffd24a; }  .err { color:#ff5c5c; }
+  #log  { margin-top:22px; font-size:14px; color:#9fb3c8; max-width:640px; }
+  #log div { border-bottom:1px solid #223; padding:3px 0; }
+  .hint { color:#5e7184; font-size:12px; margin-top:18px; }
+</style>
+</head>
+<body>
+<h1>IOPort display &mdash; cargoservice26 (Sprint 2, web-gui)</h1>
+<div id="stato" class="warn">in attesa del servizio ...</div>
+<div id="log"></div>
+<p class="hint">topic MQTT: <b>cargoservice26display</b> &middot; broker: ws://127.0.0.1:9001
+(con mosquitto in Docker su altro host usare l'IP reale del PC)</p>
+<script>
+  const stato = document.getElementById("stato");
+  const log   = document.getElementById("log");
+  const client = mqtt.connect("ws://127.0.0.1:9001");
+  client.on("connect", () => {
+      client.subscribe("cargoservice26display");
+      addLog("connesso al broker, in ascolto su cargoservice26display");
+  });
+  client.on("message", (topic, payload) => {
+      const msg = payload.toString();
+      stato.textContent = msg;
+      stato.className = msg.startsWith("Out of service") ? "err"
+                      : (msg.startsWith("retrylater") || msg.startsWith("reject")
+                         || msg.startsWith("disengaged") || msg.startsWith("robotfailure")) ? "warn"
+                      : "ok";
+      addLog(msg);
+  });
+  client.on("error", e => addLog("errore: " + e.message));
+  function addLog(t){
+      const d = document.createElement("div");
+      d.textContent = new Date().toLocaleTimeString() + "  " + t;
+      log.prepend(d);
+  }
+</script>
+</body>
+</html>

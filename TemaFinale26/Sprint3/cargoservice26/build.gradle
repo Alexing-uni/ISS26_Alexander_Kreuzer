@@ -1,0 +1,127 @@
+/*
+================================================================================
+ cargoservice26 build.gradle
+ Modellato su robotsmart26usage/build.gradle (pattern del docente).
+ Cambia solo: rootProject, mainClass (ctxcargo), flatDir (../../../unibolibs),
+ distributionBaseName e i file .pl inclusi.
+================================================================================
+*/
+plugins {
+    id 'application'
+    id 'java'
+    id 'eclipse'
+    id "org.jetbrains.kotlin.jvm" version "1.9.22"
+}
+
+version '1.0'
+
+java {
+    toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+}
+kotlin {
+  jvmToolchain {
+    languageVersion.set(JavaLanguageVersion.of("17"))
+  }
+}
+
+repositories {
+    mavenCentral()
+    flatDir {   dirs '../../../unibolibs'	 }
+}
+
+dependencies {
+    implementation platform('org.jetbrains.kotlin:kotlin-bom')
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
+    implementation 'com.google.guava:guava:30.1.1-jre'
+    testImplementation 'org.jetbrains.kotlin:kotlin-test'
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:1.9.22"
+
+    /* COROUTINES */
+    implementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core', version: "$kotlinVersion"
+    implementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core-jvm', version: "$kotlinVersion"
+
+    //HTTP
+    implementation 'org.apache.httpcomponents:httpclient:4.5'
+
+    /* MQTT */
+    implementation group: 'org.eclipse.paho', name: 'org.eclipse.paho.client.mqttv3', version: '1.2.5'
+
+    /* JSON */
+    implementation 'com.googlecode.json-simple:json-simple:1.1.1'
+    implementation group: 'org.json', name: 'json', version: '20180130'
+
+    /* COAP */
+    implementation group: 'org.eclipse.californium', name: 'californium-core', version: '3.5.0'
+    implementation group: 'org.eclipse.californium', name: 'californium-proxy2', version: '3.5.0'
+
+    //OkHttp (websocket)
+    implementation group: 'com.squareup.okhttp3', name: 'okhttp', version: '4.9.3'
+    testImplementation group: 'com.squareup.okhttp3', name: 'mockwebserver', version: '4.9.3'
+
+    /* LOG */
+    implementation 'ch.qos.logback:logback-classic:1.2.11'
+
+    /* HTTP */
+    implementation group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.13'
+    implementation group: 'commons-io', name: 'commons-io', version: '2.11.0'
+
+    /* UNIBO (in ../../../unibolibs) */
+    implementation name: 'uniboInterfaces'
+    implementation name: '2p301'
+    implementation name: 'unibo.qakactor23-5.0'
+    implementation name: 'unibo.basicomm23-1.0'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir 'utils'
+            srcDir 'src'   // Importante per i file generati Qak
+            exclude 'main/**'
+        }
+    }
+}
+
+tasks.withType(Copy).configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+application {
+    //classe main generata dal context ctxcargo
+    mainClassName = 'it.unibo.ctxcargo.MainCtxcargoKt'
+}
+
+jar {
+    duplicatesStrategy(DuplicatesStrategy.EXCLUDE)
+    from sourceSets.main.allSource
+    from('./') {
+      include '*.pl'
+      include '*.json'
+    }
+    manifest {
+        attributes 'Main-Class': "$mainClassName"
+    }
+}
+
+distributions {
+    main {
+        distributionBaseName = 'cargoservice26'
+    }
+}
+
+task run0(type: JavaExec) {
+    group = "Execution"
+    description = "Run the main class with JavaExecTask"
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'it.unibo.ctxcargo.MainCtxcargoKt'
+}
+
+//prova TP1 automatizzata (tester): gradlew runTp1
+task runTp1(type: JavaExec) {
+    group = "Execution"
+    description = "Esegue la prova TP1 automatizzata (cargoservice26tp1.pl)"
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'it.unibo.ctxcargo.MainCtxcargotp1Kt'
+}
+//gradlew run --warning-mode all   (demo interattiva: web-gui)
+//gradlew runTp1                    (prova TP1 automatizzata)

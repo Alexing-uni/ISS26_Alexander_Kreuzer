@@ -1,0 +1,11 @@
+# Sprint 3 — escludi gli strumenti di GENERAZIONE delle slide:
+# si pubblica solo il .pptx finale (e il documento), non il codice che lo crea.
+userDocs/slides/node_modules/
+userDocs/slides/gen_slides.js
+userDocs/slides/package.json
+userDocs/slides/package-lock.json
+
+# artefatti di build (gia' ignorati a livello globale, qui per sicurezza)
+**/build/
+**/.gradle/
+**/bin/

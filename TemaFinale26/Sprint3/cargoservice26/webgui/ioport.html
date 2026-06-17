@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>IOPort &mdash; cargoservice26</title>
+<!--
+  IOPort web-gui INTERATTIVA (Sprint 3).
+  Realizza il dispositivo IOPort del committente come pagina web:
+    - PUSHBUTTON : il bottone invia la richiesta di carico (loadrequest)
+    - DISPLAY    : mostra la risposta e lo stato della stiva
+    - SENSOR     : uno slider/bottoni con cui l'utente "muove" il container
+                   (distanza D del sonar) -> sostituisce il PicoW e il codice
+                   hard-coded: si puo' GIOCARE col sensore in tempo reale.
+  Trasporto: MQTT su websocket (mosquitto, porta 9001). La pagina e' SERVITA
+  e APERTA dall'applicazione (WebIoPort): non e' un file aperto a mano.
+  Formato dei messaggi = quello del runtime QAK / del PicoW reale
+  (msg(MSGID,event,SENDER,none,CONTENT,SEQ)), cosi' i dispositivi reali sono
+  sostituibili senza modifiche al sistema.
+-->
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<style>
+  :root{ --bg:#0f1722; --panel:#18232f; --ink:#e8eef5; --mut:#8aa0b4;
+         --ok:#39d353; --warn:#ffd24a; --err:#ff5c5c; --accent:#2f9be8; }
+  *{ box-sizing:border-box; }
+  body{ font-family:Segoe UI, Calibri, sans-serif; background:var(--bg); color:var(--ink);
+        margin:0; padding:22px; }
+  h1{ font-size:20px; margin:0 0 4px 0; }
+  .sub{ color:var(--mut); font-size:12px; margin-bottom:18px; }
+  .row{ display:flex; gap:18px; flex-wrap:wrap; }
+  .card{ background:var(--panel); border-radius:12px; padding:18px 20px; flex:1; min-width:300px;
+         box-shadow:0 2px 10px rgba(0,0,0,.25); }
+  .card h2{ font-size:14px; color:var(--accent); margin:0 0 12px 0; text-transform:uppercase; letter-spacing:1px; }
+  /* DISPLAY */
+  #display{ font-family:Consolas, monospace; font-size:30px; font-weight:bold; padding:16px 18px;
+            border-radius:8px; background:#0b121a; min-height:64px; }
+  #holdstate{ font-family:Consolas, monospace; font-size:14px; color:var(--mut); margin-top:10px; min-height:20px; }
+  .ok{ color:var(--ok);} .warn{ color:var(--warn);} .err{ color:var(--err);} .neutral{ color:var(--ink);}
+  /* PUSHBUTTON */
+  #pushbtn{ width:100%; font-size:20px; font-weight:bold; padding:18px; border:none; border-radius:10px;
+            background:var(--accent); color:white; cursor:pointer; transition:filter .1s; }
+  #pushbtn:hover{ filter:brightness(1.12);} #pushbtn:active{ transform:translateY(1px);}
+  /* SENSOR */
+  .slbl{ display:flex; justify-content:space-between; font-size:13px; color:var(--mut); margin-bottom:6px; }
+  #dval{ color:var(--ink); font-weight:bold; font-size:16px; }
+  input[type=range]{ width:100%; }
+  .quick{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .quick button{ flex:1; min-width:90px; padding:9px; border:1px solid #2c3e4d; border-radius:8px;
+                 background:#13202c; color:var(--ink); cursor:pointer; font-size:12px; }
+  .quick button:hover{ border-color:var(--accent); }
+  .legend{ font-size:11px; color:var(--mut); margin-top:10px; line-height:1.5; }
+  #conn{ font-size:11px; margin-top:14px; }
+  #log{ font-family:Consolas, monospace; font-size:11px; color:var(--mut); margin-top:8px; max-height:120px; overflow:auto; }
+  #log div{ border-bottom:1px solid #1d2a36; padding:2px 0; }
+</style>
+</head>
+<body>
+<h1>IOPort &mdash; cargoservice26 <span style="color:var(--mut);font-weight:normal;">(web-gui interattiva, Sprint 3)</span></h1>
+<div class="sub">pushbutton + display + sensor, via MQTT/websocket. Pagina servita e aperta dall'applicazione.</div>
+
+<div class="row">
+  <!-- ============ DISPLAY ============ -->
+  <div class="card">
+    <h2>Display</h2>
+    <div id="display" class="warn">in attesa del servizio &hellip;</div>
+    <div id="holdstate"></div>
+  </div>
+
+  <!-- ============ PUSHBUTTON ============ -->
+  <div class="card" style="max-width:320px;">
+    <h2>Pushbutton</h2>
+    <button id="pushbtn">PREMI &mdash; carica un container</button>
+    <div class="legend">Invia <code>loadrequest</code> al cargoservice.
+       La risposta (reserved/retrylater/reject) appare sul display.</div>
+  </div>
+</div>
+
+<div class="row" style="margin-top:18px;">
+  <!-- ============ SENSOR ============ -->
+  <div class="card">
+    <h2>Sensor dell'IOPort (sonar) &mdash; gioca col container</h2>
+    <div class="slbl"><span>distanza misurata D</span><span><span id="dval">45</span> cm</span></div>
+    <input type="range" id="dist" min="0" max="100" value="45">
+    <div class="quick">
+      <button data-d="20">Container presente (D=20)</button>
+      <button data-d="45">Nessun container (D=45)</button>
+      <button data-d="95">Guasto sonar (D=95)</button>
+    </div>
+    <div class="legend">
+      D &lt; DFREE/2 (=30) per ~3s &rarr; <b>container presente</b> &middot;
+      D &gt; DFREE (=60) per ~3s &rarr; <b>Out of service</b>.<br>
+      Muovendo lo slider invii <code>distance(D)</code>: <b>tu</b> sei il sensore (niente PicoW, niente codice fisso).
+    </div>
+    <div id="conn" class="warn">connessione al broker &hellip;</div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+  // ---- broker: stesso mosquitto del sistema, via websocket :9001 ----
+  // 127.0.0.1 esplicito (localhost potrebbe risolvere a ::1 e un altro broker)
+  const BROKER = "ws://127.0.0.1:9001";
+  const TOPIC_IN    = "cargoservice26in_out";  // pushbutton -> SOLO il cargoservice ascolta qui
+  const TOPIC_SONAR = "cargoservice26sonar";   // sensor    -> SOLO il sensormonitor ascolta qui
+  const TOPIC_DSP   = "cargoservice26display"; // stato dal sistema verso il display
+  // Canali SEPARATI di proposito: cosi' ogni messaggio e' parsato da UN solo
+  // attore. Se pushbutton e sensor condividono un topic, due attori parsano lo
+  // stesso messaggio in parallelo e il runtime (tuProlog, non thread-safe) cade.
+
+  const display   = document.getElementById("display");
+  const holdstate = document.getElementById("holdstate");
+  const conn      = document.getElementById("conn");
+  const logEl     = document.getElementById("log");
+  let seq = 0;
+
+  const client = mqtt.connect(BROKER);
+
+  client.on("connect", () => {
+    conn.className = "ok"; conn.textContent = "connesso al broker " + BROKER;
+    client.subscribe(TOPIC_DSP);
+    log("connesso; in ascolto su " + TOPIC_DSP);
+  });
+  client.on("error", e => { conn.className = "err"; conn.textContent = "errore broker: " + e.message; });
+
+  // ---- DISPLAY: mostra cio' che il cargoservice pubblica ----
+  client.on("message", (t, payload) => {
+    const msg = payload.toString();
+    if (msg.startsWith("holdstate") || msg.startsWith("hold:")) { holdstate.textContent = msg; return; }
+    display.textContent = msg;
+    display.className =
+        msg.startsWith("Out of service")                ? "err"
+      : (msg.startsWith("retrylater") || msg.startsWith("reject")
+         || msg.startsWith("disengaged") || msg.startsWith("robotfailure")) ? "warn"
+      : "ok";
+    log(msg);
+  });
+
+  // ---- helper: pubblica un EVENTO nel formato del runtime QAK ----
+  function emit(msgId, content, topic) {
+    const m = `msg(${msgId},event,webioport,none,${content},${++seq})`;
+    client.publish(topic || TOPIC_IN, m);
+    log("-> " + m);
+  }
+
+  // ---- PUSHBUTTON: invia loadrequest ----
+  document.getElementById("pushbtn").addEventListener("click", () => {
+    emit("loadrequest", "loadrequest(customer)");
+  });
+
+  // ---- SENSOR: lo slider/bottoni pubblicano distance(D) ----
+  // Il sonar REALE misura in CONTINUO: la web-gui pubblica la distanza corrente
+  // OGNI secondo, sul canale DEDICATO del sensor (cargoservice26sonar, letto solo
+  // dal sensormonitor -> nessun parsing concorrente, quindi e' sicuro emettere
+  // di continuo). Vantaggio: l'interazione e' ROBUSTA e INDIPENDENTE DALL'ORDINE
+  // -- l'utente mette lo slider dove vuole e preme il bottone quando vuole; il
+  // sistema carica quando c'e' una richiesta E un container (D<30 per ~3s).
+  // Niente "tieni premuto al momento giusto": qualunque sequenza funziona.
+  const dist = document.getElementById("dist"), dval = document.getElementById("dval");
+  dist.addEventListener("input", () => { dval.textContent = dist.value; });
+  // i bottoni rapidi spostano lo slider; ci pensa l'emettitore continuo a inviare
+  document.querySelectorAll(".quick button").forEach(b =>
+    b.addEventListener("click", () => { dist.value = b.dataset.d; dval.textContent = b.dataset.d; }));
+  setInterval(() => {
+    if (client && client.connected) emit("sonaralarm", "distance(" + dist.value + ")", TOPIC_SONAR);
+  }, 1000);
+
+  function log(t){ const d=document.createElement("div");
+    d.textContent = new Date().toLocaleTimeString() + "  " + t; logEl.prepend(d); }
+</script>
+</body>
+</html>

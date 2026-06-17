@@ -1,0 +1,383 @@
+System cargoservice26
+	mqttBroker "127.0.0.1" : 1883   eventTopic "cargoservice26in"
+/*
+ * ============================================================
+ *  cargoservice26.qak  -  modello (QActor) del cargoservice  -  TemaFinale26
+ *  SPRINT 3 (sistema finale):
+ *    - IOPORT come WEB-GUI INTERATTIVA (webgui/ioport.html), SERVITA e APERTA
+ *      dall'applicazione (withobj webio = devices.WebIoPort):
+ *         * il PUSHBUTTON e' un bottone che emette l'evento loadrequest;
+ *         * il SENSOR e' uno slider con cui l'utente "muove" il container
+ *           (emette sonaralarm:distance(D)) -> sostituisce PicoW e codice
+ *           hard-coded: si gioca col sensore in tempo reale;
+ *         * il DISPLAY mostra risposta e stato (sottoscrive il topic del display).
+ *      => loadrequest e' un EVENT (non piu' request/reply): la "risposta" alla
+ *         richiesta e' mostrata sul DISPLAY (requisito: "the display is used to
+ *         show the answer to the request"), non un reply sincrono.
+ *    - MARKER come ATTORE: domark -> markingDone(BARCODE) (il marker "signals
+ *      when this marking activity is completed").
+ *    - display mostra lo STATO REALE della stiva (hold.stateDescription()).
+ *    - TESTER (TP1 automatizzato): genera da solo pushbutton+sensor e verifica.
+ *
+ *  sensor (sonar): dato GREZZO sonaralarm:distance(D), formato del PicoW reale
+ *  (msg(sonaralarm,event,...,distance(D),0), vedi Picow/Sonar/sonarMqtt.py):
+ *  il dispositivo reale sostituisce la web-gui senza modifiche al sistema.
+ *  sensormonitor: D<DFREE/2 ~3s -> containerInPlace ; D>DFREE ~3s -> outofservice.
+ *  DFREE = 60 cm: PARAMETRO di calibrazione (da confermare col committente).
+ *  Contratto del cargorobot preso da robotsmart (robotsmart26usage/robotsmart26tf26.qak).
+ * ============================================================
+ */
+
+/* ---- IOPort web-gui -> cargoservice : pushbutton come EVENTO ---- */
+Event   loadrequest : loadrequest(CALLER)   "il pushbutton della web-gui; la risposta appare sul display"
+
+/* ---- sensor (sonar) dell'IOPort: dato grezzo, formato del PicoW reale ----
+   Viaggia su un canale MQTT DEDICATO ("cargoservice26sonar"), distinto da quello
+   del pushbutton ("cargoservice26in_out"): cosi' ogni messaggio e' parsato da UN
+   solo attore (il sensormonitor). Se i due eventi condividessero il canale, sia
+   cargoservice sia sensormonitor ne farebbero il parsing in parallelo e il runtime
+   (tuProlog, non thread-safe) cadrebbe sotto la raffica di letture del sensor. ---- */
+Event   sonaralarm : distance(D)   "emesso dal sensor: web-gui (slider) o PicoW reale; canale cargoservice26sonar"
+
+/* ---- sensormonitor -> cargoservice: notifiche LOGICHE (dispatch point-to-point) ---- */
+Dispatch containerInPlace : containerInPlace(WHERE)   "container nell'area del sensor"
+Dispatch outofservice     : outofservice(V)           "V = on|off"
+
+/* ---- cargoservice <-> marker (marcatura come interazione, non delay) ---- */
+Dispatch domark      : domark(SLOT)            "richiesta di marcatura in slot5"
+Dispatch markingDone : markingDone(BARCODE)    "marcatura completata, barcode assegnato"
+
+/* ---- notifica di fine carico (per il display web e per il tester) ---- */
+Event   loaddone : loaddone(SLOT)   "carico completato nello slot SLOT"
+
+/* ---- interrogazione dello stato della stiva (pattern getrobotstate del docente) ---- */
+Request getholdstate : getholdstate(ARG)   "ARG unused"
+Reply   holdinfo     : holdinfo(STATE)   for getholdstate   "STATE = holdstate(slot1(pieno|libero),...)"
+
+/* ---- cargoservice -> cargorobot   (contratto di robotsmart) ---- */
+Request moverobot      : moverobot(TARGETX, TARGETY, STEPTIME)
+Reply   moverobotdone  : moverobotok(ARG)                     for moverobot
+Reply   moverobotfailed: moverobotfailed(PLANDONE, PLANTODO)  for moverobot
+
+Context ctxcargo      ip [host="localhost" port=8030]
+Context ctxrobotsmart ip [host="127.0.0.1" port=8020]
+
+ExternalQActor robotsmart context ctxrobotsmart
+
+QActor cargoservice context ctxcargo
+        withobj hold    using "domain.Hold()"
+        withobj display using "devices.DisplayMqtt()"
+        withobj webio   using "devices.WebIoPort()"
+        withobj led     using "devices.LedSim()" {
+   [# var Slot     = ""
+      var Oos      = false
+      var Retry    = 0     //ritenti del trasporto (robustezza: un passo del DDR puo' fallire)
+      var Barcode  = ""    //barcode assegnato dal marker, memorizzato nello slot
+      val StepTime = 345
+   #]
+   State s0 initial {
+      println("$name | starts") color blue
+      subscribe "cargoservice26in_out"   //per percepire loadrequest dalla web-gui (via MQTT)
+      [# display.show("serviceworking") #]
+   }
+   Goto available
+
+   State available {                                   //Service working
+      println("$name | available (attende loadrequest)") color yellow
+   }
+   Transition t0
+      whenEvent   loadrequest      -> evalRequest       //pushbutton dalla web-gui
+      whenRequest getholdstate     -> tellHoldState     //query dello stato della stiva
+      whenMsg     outofservice     -> checkOos
+      whenMsg     containerInPlace -> dropStale         //notifica in coda senza richiesta attiva
+
+   //risponde con lo stato della stiva come termine (per il tester)
+   State tellHoldState {
+      onMsg( getholdstate : getholdstate(ARG) ){
+         [# val HS = hold.stateTerm() #]
+         replyTo getholdstate with holdinfo : holdinfo($HS)
+      }
+   }
+   Goto available
+
+   State dropStale {
+      println("$name | containerInPlace senza richiesta attiva: scartato") color yellow
+   }
+   Goto available
+
+   //la RISPOSTA alla richiesta e' mostrata sul DISPLAY (web-gui), non un reply
+   State evalRequest {
+      onMsg( loadrequest : loadrequest(CALLER) ){
+         [# Slot = "" #]
+         if [# hold.ioportOccupied() #] {
+            [# display.show("retrylater") #]
+         }
+         if [# !hold.ioportOccupied() && hold.isFull() #] {
+            [# display.show("reject") #]
+         }
+         if [# !hold.ioportOccupied() && !hold.isFull() #] {
+            [# Slot = hold.reserveFreeSlot(); Retry = 0
+               display.show("reserved " + Slot); led.blink(true) #]    //engaged
+         }
+      }
+   }
+   Goto waitContainer if [# Slot != "" #] else available
+
+   //OUT OF SERVICE (requisito: D > DFREE per >= 3s -> sospetto guasto del sonar)
+   State checkOos {
+      onMsg( outofservice : outofservice(V) ){
+         [# Oos = (payloadArg(0) == "on") #]
+      }
+   }
+   Goto outOfService if [# Oos #] else available
+
+   State outOfService {
+      [# display.show("Out of service") #]
+      println("$name | OUT OF SERVICE (sospetto guasto del sonar)") color red
+   }
+   Transition t0
+      whenEvent loadrequest  -> oosRetry
+      whenMsg   outofservice -> checkOosExit
+
+   State oosRetry {                                    //requisito: retrylater se Out of service
+      onMsg( loadrequest : loadrequest(CALLER) ){
+         [# display.show("retrylater") #]
+      }
+   }
+   Goto outOfService
+
+   State checkOosExit {
+      onMsg( outofservice : outofservice(V) ){
+         [# Oos = (payloadArg(0) == "on")
+            if (!Oos) display.show("serviceworking")    #]
+      }
+   }
+   Goto outOfService if [# Oos #] else available
+
+   //engaged -> attesa del container nell'area del sensor (max 30s)
+   State waitContainer {
+      println("$name | engaged: attendo il container nell'area del sensor (timeout 30s)") color magenta
+   }
+   Transition t0
+      whenTime 30000             -> disengage
+      whenMsg  containerInPlace  -> goToIOPort
+
+   //timeout scaduto -> disengage (libera lo slot riservato, LED off)
+   State disengage {
+      [# hold.freeSlot(Slot); led.blink(false); display.show("disengaged"); Slot = "" #]
+      println("$name | TIMEOUT: container non arrivato -> disengage, slot liberato") color red
+   }
+   Goto available
+
+   State goToIOPort {                                  //HOME -> IOPort (presa astratta)
+      [# val IX = hold.ioportX(); val IY = hold.ioportY() #]
+      request robotsmart -m moverobot : moverobot($IX, $IY, $StepTime)
+   }
+   Transition t0
+      whenReply moverobotdone   -> carryToSlot5
+      whenReply moverobotfailed -> retryIOPort
+
+   //ROBUSTEZZA: un passo del DDR puo' fallire; si RIPROVA lo stesso target
+   State retryIOPort {
+      [# Retry = Retry + 1 #]
+      println("$name | moverobotfailed: riprovo verso IOPort (tentativo $Retry)") color yellow
+   }
+   Goto goToIOPort if [# Retry <= 2 #] else robotFailure
+
+   State carryToSlot5 {                                //IOPort -> slot5 (marcatura)
+      [# val SX = hold.slotX("slot5"); val SY = hold.slotY("slot5") #]
+      request robotsmart -m moverobot : moverobot($SX, $SY, $StepTime)
+   }
+   Transition t0
+      whenReply moverobotdone   -> marking
+      whenReply moverobotfailed -> retrySlot5
+
+   State retrySlot5 {
+      [# Retry = Retry + 1 #]
+      println("$name | moverobotfailed: riprovo verso slot5 (tentativo $Retry)") color yellow
+   }
+   Goto carryToSlot5 if [# Retry <= 2 #] else robotFailure
+
+   State marking {                                     //marcatura delegata al marker
+      println("$name | chiedo la marcatura in slot5 ...") color cyan
+      forward marker -m domark : domark(slot5)
+   }
+   Transition t0
+      whenMsg markingDone -> markingCompleted
+
+   State markingCompleted {
+      onMsg( markingDone : markingDone(BARCODE) ){
+         [# Barcode = payloadArg(0) #]    //memorizza il barcode per lo stoccaggio
+         println("$name | marcatura completata, barcode=${payloadArg(0)}") color cyan
+      }
+   }
+   Goto carryToReserved
+
+   State carryToReserved {                             //slot5 -> slot riservato
+      [# val SX = hold.slotX(Slot); val SY = hold.slotY(Slot) #]
+      request robotsmart -m moverobot : moverobot($SX, $SY, $StepTime)
+   }
+   Transition t0
+      whenReply moverobotdone   -> goHome
+      whenReply moverobotfailed -> retryReserved
+
+   State retryReserved {
+      [# Retry = Retry + 1 #]
+      println("$name | moverobotfailed: riprovo verso $Slot (tentativo $Retry)") color yellow
+   }
+   Goto carryToReserved if [# Retry <= 2 #] else robotFailure
+
+   State goHome {                                      //ritorno a HOME
+      [# hold.confirmStored(Slot, Barcode)
+         val HX = hold.homeX(); val HY = hold.homeY() #]
+      request robotsmart -m moverobot : moverobot($HX, $HY, $StepTime)
+   }
+   Transition t0
+      whenReply moverobotdone   -> doneRequest
+      whenReply moverobotfailed -> doneRequest         //container GIA' stoccato: HOME e' best-effort
+
+   //il cargorobot fallisce PRIMA dello stoccaggio -> slot liberato, servizio disponibile
+   State robotFailure {
+      [# hold.freeSlot(Slot); led.blink(false); display.show("robotfailure"); Slot = "" #]
+      println("$name | moverobotfailed: slot liberato, servizio disponibile") color red
+   }
+   Goto available
+
+   State doneRequest {
+      [# led.blink(false); display.show(hold.stateDescription()) #]    //stato REALE della stiva
+      println("$name | richiesta completata: container in $Slot") color green
+      emit loaddone : loaddone($Slot)                                  //per display e tester
+   }
+   Goto available
+}
+
+/* =====================================================================
+ *  MARKER: in slot5 etichetta il container con un barcode e SEGNALA il
+ *  completamento (requisito). Simulato: tempo di marcatura 1s.
+ * ===================================================================== */
+QActor marker context ctxcargo {
+   [# var nMarked = 0 #]
+   State s0 initial {
+      println("$name | marker attivo (slot5)") color blue
+   }
+   Goto idle
+
+   State idle {
+   }
+   Transition t0
+      whenMsg domark -> doMarking
+
+   State doMarking {
+      onMsg( domark : domark(SLOT) ){
+         [# nMarked = nMarked + 1
+            val Barcode = "bc" + nMarked #]    //senza '-': in Prolog bc-1 = -(bc,1)
+         println("$name | marcatura in corso, barcode=$Barcode") color cyan
+         delay 1000
+         forward cargoservice -m markingDone : markingDone($Barcode)
+      }
+   }
+   Goto idle
+}
+
+/* =====================================================================
+ *  SENSORMONITOR: dal dato grezzo distance(D) (dalla web-gui o dal PicoW)
+ *  alle notifiche logiche. DFREE = 60 cm; finestra ~3 campioni (~3s).
+ * ===================================================================== */
+QActor sensormonitor context ctxcargo {
+   [# val DFREE   = 60
+      var nLow    = 0      // campioni consecutivi D < DFREE/2  (presenza)
+      var nHigh   = 0      // campioni consecutivi D > DFREE    (guasto)
+      var nOk     = 0      // campioni consecutivi D <= DFREE   (rientro)
+      var oosOn   = false
+   #]
+   State s0 initial {
+      println("$name | monitor del sensor attivo (DFREE=60)") color blue
+      subscribe "cargoservice26sonar"   //canale DEDICATO del sensor (web-gui slider o PicoW); evita il parsing condiviso col cargoservice
+   }
+   Goto monitoring
+
+   State monitoring {
+   }
+   Transition t0
+      whenEvent sonaralarm -> evalDistance
+
+   State evalDistance {
+      onMsg( sonaralarm : distance(D) ){
+         [# val D = payloadArg(0).toInt()
+            if (D < DFREE/2) nLow++  else nLow  = 0
+            if (D > DFREE)   nHigh++ else nHigh = 0
+            if (D <= DFREE)  nOk++   else nOk   = 0
+         #]
+         if [# nLow == 3 #] {
+            [# nLow = 0 #]    //reset: pronto per la prossima presenza (carichi ripetuti)
+            println("$name | presenza container (D<DFREE/2 per ~3s) -> containerInPlace") color cyan
+            forward cargoservice -m containerInPlace : containerInPlace(ioport)
+         }
+         if [# nHigh == 3 && !oosOn #] {
+            [# oosOn = true; nHigh = 0 #]
+            println("$name | D>DFREE per ~3s -> outofservice(on)") color red
+            forward cargoservice -m outofservice : outofservice(on)
+         }
+         if [# nOk == 3 && oosOn #] {
+            [# oosOn = false; nOk = 0 #]
+            println("$name | sensor rientrato -> outofservice(off)") color green
+            forward cargoservice -m outofservice : outofservice(off)
+         }
+      }
+   }
+   Goto monitoring
+}
+
+/* =====================================================================
+ *  TESTER (TP1 automatizzato, richiesto per la demo finale &sect;32.2).
+ *  Esercita il sistema SENZA interazione umana: emette il pushbutton
+ *  (loadrequest) e il sensor (sonaralarm:distance(20) per ~3s, presenza
+ *  container), poi INTERROGA lo stato della stiva (getholdstate) finche'
+ *  uno slot risulta pieno: stampa TP1 PASS / TP1 FAIL.
+ *  NB: si usa al posto della web-gui (modalita' di test, .pl dedicato).
+ * ===================================================================== */
+QActor tester context ctxcargo
+        withobj io using "devices.IoPortSim()" {    //simulatore headless dell'IOPort (canali separati, come la web-gui)
+   [# var NPoll = 0
+      var Done  = false #]
+   State s0 initial {
+      println("$name | TP1 (carico nominale automatizzato) START") color blue
+      delay 2000
+      println("$name | premo il pushbutton -> loadrequest") color green
+      [# io.loadrequest("tester") #]
+      delay 2000
+      println("$name | muovo il sensore: container presente (distance 20)") color green
+      [# for (i in 1..4) { io.distance(20); delay(1000) } #]
+   }
+   Goto pollHold
+
+   State pollHold {                       //attende il trasporto interrogando lo stato
+      [# NPoll = NPoll + 1 #]
+      delay 10000
+      request cargoservice -m getholdstate : getholdstate(tester)
+   }
+   Transition t0
+      whenReply holdinfo -> tp1Check
+
+   State tp1Check {
+      onMsg( holdinfo : holdinfo(STATE) ){
+         [# Done = payloadArg(0).contains("(pieno)") #]
+         if [# Done #] {
+            println("$name | *** TP1 PASS *** stiva: ${payloadArg(0)}") color green
+         }
+         if [# !Done #] {
+            println("$name | TP1 attendo ($NPoll): ${payloadArg(0)}") color blue
+         }
+      }
+   }
+   Goto tp1End if [# Done #] else pollAgain
+
+   State pollAgain { }
+   Goto pollHold if [# NPoll < 15 #] else tp1Fail
+
+   State tp1End { }
+
+   State tp1Fail {
+      println("$name | *** TP1 FAIL *** (timeout ~2,5 min)") color red
+   }
+}

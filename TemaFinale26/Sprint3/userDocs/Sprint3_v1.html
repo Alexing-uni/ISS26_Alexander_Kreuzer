@@ -1,0 +1,409 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mystyle.css">
+<title>TemaFinale26 &ndash; Sprint 3 (v1)</title>
+</head>
+
+<body>
+<div id="top">
+<h1>TemaFinale26 &ndash; Sprint 3 (v1) &mdash; sistema finale</h1>
+</div>
+
+<div class="body">
+
+<h2>Introduction</h2>
+<p>
+Questo documento (template del corso) descrive lo <b>Sprint 3</b>, che completa il sistema
+<b>cargoservice</b>. Percorso: Sprint 0 (requisiti e core business) &rarr; Sprint 1 (core
+eseguibile + sensor + timeout) &rarr; Sprint 2 (Out of service + display web-gui) &rarr;
+<b>Sprint 3</b> (questo): l'<b>IOPort</b> diventa una <b>web-gui interattiva</b> (pushbutton,
+display e <b>sensor con cui giocare</b>), <b>servita e aperta dall'applicazione</b>; il
+<b>marker</b> diventa un attore; il display mostra lo <b>stato reale</b> della stiva; è
+predisposto un <b>test automatizzato</b> (TP1).
+</p>
+<div class="req">
+<b>Goal dello Sprint 3</b> (sottoinsieme del testo del committente):
+<i>"The display is used to show the <b>answer to the request</b> and to show the <b>current state
+of the hold</b>"</i> e <i>"a 'marker' device labels the container with an identification
+<b>barcode</b> and <b>signals when this marking activity is completed</b>"</i>. A valle della
+revisione dello Sprint 2 il <b>committente ha richiesto</b> che l'<b>IOPort</b> non sia una pagina
+di sola uscita ma una <b>vera interfaccia</b> (con <b>pushbutton</b>) <b>aperta dal sistema</b>, e
+un modo per <b>interagire col sensore</b> senza il dispositivo fisico.
+</div>
+
+<div class="remark">
+<b>Osservazioni del committente (revisione Sprint 2) e risposte di questo Sprint:</b>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Osservazione</th><th>Risposta nello Sprint 3</th></tr>
+    <tr><td>la web-gui ridotta a pagina HTML di sola uscita <b>non basta</b>: manca il
+        <b>bottone</b> e <b>l'applicazione (o un servizio) deve aprire la pagina</b></td>
+        <td>l'IOPort è ora una pagina <b>interattiva</b> (<code>ioport.html</code>) con
+        <b>pushbutton</b>, display e sensore, <b>servita e aperta</b> dall'app
+        (<code>WebIoPort</code>, server HTTP interno)</td></tr>
+    <tr><td>discutere e <b>giustificare</b> la web-gui nel PDF (funzioni, tecnologia, perché)</td>
+        <td>sezione <i>"Web-GUI dell'IOPort"</i> nel Problem analysis: funzioni, scelta di
+        MQTT/websocket, perché servita dall'app, trasparenza del dispositivo</td></tr>
+    <tr><td>fornire un'<b>applicazione che faccia da sensore</b>, non hard-coded e senza la
+        Raspberry, con cui <b>giocare</b></td>
+        <td>il sensore è uno <b>slider</b> (+ bottoni rapidi) nella pagina: emette
+        <code>distance(D)</code> in tempo reale; rimossi gli attori <code>iosensor</code>/
+        <code>pushbutton</code> hard-coded</td></tr>
+</table>
+</div>
+
+<h3>Sintesi dello Sprint precedente (punto di partenza)</h3>
+<p>
+Lo Sprint 2 è <b>eseguito e testato</b>: Out of service (D&gt;DFREE per ~3s &rarr; display
+"Out of service", richieste &rarr; <code>retrylater</code>), rientro in servizio, display
+<b>web-gui</b> (MQTT/websocket), sensormonitor dal dato grezzo <code>distance(D)</code> in formato
+PicoW reale. Robustezza verificata: <code>moverobotfailed</code> &rarr; slot liberato, servizio
+disponibile. Documento:
+<a href="https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint2/userDocs/Sprint2_v1.html">Sprint2_v1</a>.
+</p>
+
+<br>
+
+<h2>Requirements</h2>
+<p>Requisiti oggetto di questo Sprint (testo esatto in
+<a href="https://htmlpreview.github.io/?https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint0/userDocs/Sprint0_v1.html">Sprint 0 &ndash; Requirements</a>):</p>
+<div class="req">
+<i>&bull; "The user makes a request to load a container <b>by pushing a button</b> of an
+<b>IOPort</b> device, that also has a <b>display</b>."</i><br>
+<i>&bull; "The <b>display</b> is used to <b>show the answer to the request</b> and to show the
+<b>current state of the hold</b>."</i><br>
+<i>&bull; "During temporary storage, a 'marker' device <b>labels the container with an
+identification barcode</b> and <b>signals when this marking activity is completed</b>."</i>
+</div>
+<p>Più la richiesta esplicita del committente alla revisione: l'IOPort va realizzato come
+<b>interfaccia con pulsante, aperta dal sistema</b>, e dev'essere possibile <b>interagire col
+sensore</b> (sonar) senza l'hardware.</p>
+
+<br>
+
+<h2>Requirement analysis</h2>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Termine</th><th>Analisi</th></tr>
+    <tr><td><b>IOPort</b> (pushbutton + display)</td><td>è un <b>boundary</b> del sistema: un
+        dispositivo di confine con cui l'utente interagisce. Identificato nell'analisi DDR come
+        confine input (pushbutton, sonar) e output (display). La sua realizzazione naturale è una
+        <b>GUI</b>: in questo progetto una <b>pagina web</b></td></tr>
+    <tr><td><b>"push a button"</b></td><td>l'utente <b>genera un evento</b>: il pushbutton non
+        attende un valore di ritorno sincrono, <b>notifica</b> la volontà di caricare &rarr;
+        <code>loadrequest</code> modellato come <b>EVENT</b> (non request/reply)</td></tr>
+    <tr><td><b>"show the answer to the request"</b></td><td>la risposta (reserved/retrylater/
+        reject) è comunicata <b>sul display</b>, in modo <b>asincrono</b>, esattamente come un
+        pannello pulsante+display reale. Quindi la "answer" è uno stato mostrato, non un reply
+        di protocollo</td></tr>
+    <tr><td><b>sensor (sonar)</b></td><td>misura la <b>distanza</b> del container nell'area
+        dell'IOPort: dato grezzo <code>distance(D)</code>. Per "giocarci" senza PicoW serve un
+        <b>generatore interattivo</b> dello stesso dato (uno slider)</td></tr>
+    <tr><td><b>marker che "segnala"</b></td><td>il completamento della marcatura è una
+        <b>notifica asincrona</b> di un dispositivo con un suo tempo proprio: natura da
+        <b>attore</b>; il cargoservice <b>attende il segnale</b>, non un tempo fisso</td></tr>
+    <tr><td><b>barcode</b></td><td>identificativo assegnato <b>durante</b> la marcatura: è un
+        <b>dato della notifica</b> (<code>markingDone(BARCODE)</code>); viene <b>memorizzato nello
+        slot</b> (<code>Hold.confirmStored(slot,barcode)</code>) e <b>mostrato sul display</b>
+        (es. <code>slot1=PIENO(bc1)</code>)</td></tr>
+    <tr><td><b>stato corrente della stiva</b></td><td>derivabile dal POJO <code>Hold</code>:
+        <code>stateDescription()</code> (quali slot pieni/liberi <b>+ barcode</b>) mostrato a fine ciclo</td></tr>
+    <tr><td><b>notifiche stale</b></td><td>un <code>containerInPlace</code> rimasto in coda senza
+        richiesta attiva non deve avviare trasporti: va <b>scartato</b></td></tr>
+</table>
+<div class="remark"><b>Ruolo dell'analisi.</b> La web-gui <b>non è una scelta estetica</b>: è la
+<b>realizzazione del boundary IOPort</b> individuato nell'analisi. La mappatura è 1:1 &mdash;
+pushbutton (confine di input) &rarr; bottone; sonar (confine di input) &rarr; slider; display
+(confine di output) &rarr; area di testo. Il design <b>segue l'analisi</b>: prima si è capito
+<i>cosa</i> è l'IOPort (un confine con due ingressi e un'uscita), poi si è scelto <i>come</i>
+realizzarlo (pagina web su MQTT).</div>
+
+<br>
+
+<h2>Problem analysis</h2>
+<h3>Architettura finale del sistema</h3>
+<pre>
+  WEB-GUI IOPort (browser)                         CARGOSERVICE  &lt;--moverobot/ok/failed--&gt;  ROBOTSMART (esterno)
+  ┌───────────────────────┐                          │  │  │                                   │
+  │ [pushbutton] ─emit loadrequest──────────────────&gt;│  │  │                                VirtualRobot
+  │ [sensor slider]─emit sonaralarm:distance(D)─&gt; SENSORMONITOR │                              (scena WebGL)
+  │ [display] &lt;─show (topic cargoservice26display)───│  │  containerInPlace / outofservice
+  └───────────────────────┘                          │  │──domark──&gt; MARKER ─markingDone(BARCODE)─&gt;
+   ▲ SERVITA e APERTA da WebIoPort (HTTP :8095)       │  │──blink──&gt; LED ; ─emit loaddone(SLOT)─&gt;
+   └── MQTT su websocket :9001 ◄══ broker mosquitto ══╧══╧══ (tutti gli attori sul broker :1883)
+</pre>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Scelta</th><th>Motivazione</th></tr>
+    <tr><td><b>IOPort = web-gui</b> (pushbutton+display+sensor) servita dall'app</td>
+        <td>realizza il boundary individuato in analisi; un'unica pagina raccoglie i tre confini
+        del dispositivo; l'app la <b>eroga e la apre</b> (come un device che "va online")</td></tr>
+    <tr><td><b>loadrequest come EVENT</b> (non request/reply)</td>
+        <td>il pushbutton <b>notifica</b>; la risposta è <b>sul display</b> (requisito), non un
+        reply sincrono: modello più fedele a un pannello pulsante+display reale</td></tr>
+    <tr><td><b>sensor = slider</b> che emette <code>distance(D)</code></td>
+        <td>l'utente "<b>diventa il sonar</b>": niente PicoW, niente codice hard-coded; stesso
+        dato grezzo del dispositivo reale</td></tr>
+    <tr><td><b>marker attore</b> con <code>domark</code>/<code>markingDone</code> (dispatch)</td>
+        <td>il requisito chiede un dispositivo che <b>segnala</b>: il cargoservice resta in
+        <code>marking</code> finché arriva <code>markingDone(BARCODE)</code>; il barcode viaggia
+        <b>nella notifica</b></td></tr>
+    <tr><td><b>Event loaddone(SLOT)</b></td>
+        <td>notifica di fine carico: chiude il ciclo verso display/tester senza accoppiare il
+        cargoservice al chiamante</td></tr>
+    <tr><td><b>dropStale</b> in <code>available</code></td>
+        <td>un <code>containerInPlace</code> senza richiesta attiva viene consumato e scartato
+        (osservato nei test dello Sprint 2)</td></tr>
+</table>
+
+<h3>Web-GUI dell'IOPort &mdash; scelta ingegneristica</h3>
+<p>L'IOPort è il <b>boundary</b> tra l'utente e il servizio. Realizzarlo come <b>pagina web</b>
+è una decisione di progetto che va giustificata su tre piani: <b>funzioni</b>, <b>tecnologia</b>
+e <b>responsabilità</b> (chi serve la pagina).</p>
+
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Elemento</th><th>Funzione</th><th>Messaggio (MQTT)</th></tr>
+    <tr><td><b>Pushbutton</b></td><td>l'utente chiede di caricare un container</td>
+        <td>emette <code>msg(loadrequest,event,webioport,none,loadrequest(customer),N)</code></td></tr>
+    <tr><td><b>Sensor</b> (slider 0&ndash;100 cm + bottoni rapidi)</td>
+        <td>l'utente "muove il container" / simula un guasto del sonar</td>
+        <td>emette <code>distance(D)</code> a ~3 campioni/s (come il sonar reale)</td></tr>
+    <tr><td><b>Display</b></td><td>mostra la <b>risposta</b> (reserved/retrylater/reject), gli
+        stati (engaged, Out of service, serviceworking) e lo <b>stato della stiva</b></td>
+        <td>sottoscrive il topic <code>cargoservice26display</code></td></tr>
+</table>
+
+<p><b>Perché MQTT su websocket (e non un endpoint HTTP dedicato).</b> La pagina parla lo
+<b>stesso protocollo</b> del resto del sistema: i messaggi hanno il formato
+<code>msg(ID,event,SENDER,RECEIVER,CONTENT,SEQ)</code>, identico a quello pubblicato dal
+<b>PicoW reale</b> (<code>Picow/Sonar/sonarMqtt.py</code>). Conseguenza ingegneristica chiave:
+la web-gui è <b>solo un altro partecipante MQTT</b>; il <b>dispositivo fisico</b> (sonar PicoW,
+pulsante hardware) può <b>sostituire</b> lo slider/bottone <b>senza modificare una riga</b> del
+cargoservice. Il sistema dipende dall'<b>informazione scambiata</b>, non dal dispositivo
+(<i>trasparenza del dispositivo</i> / basso accoppiamento). Il websocket (porta 9001) è ciò che
+permette al <b>browser</b> di parlare lo stesso bus MQTT degli attori.</p>
+
+<p><b>Canali separati (pushbutton vs sensor).</b> Il pushbutton e il sensor usano <b>topic MQTT
+distinti</b>: <code>cargoservice26in_out</code> (lo ascolta solo il <b>cargoservice</b>) e
+<code>cargoservice26sonar</code> (lo ascolta solo il <b>sensormonitor</b>). Scelta motivata dal
+<b>modello di esecuzione del runtime</b>: se i due eventi condividessero un unico topic, ogni
+messaggio verrebbe consegnato e <b>parsato in parallelo</b> da due attori, e il parser del runtime
+(tuProlog) <b>non è thread-safe</b> &rarr; sotto la <b>raffica</b> di letture del sensor la
+connessione MQTT cade. Separare i canali garantisce che <b>ogni messaggio sia parsato da un solo
+attore</b>: è una decisione di progetto guidata dai vincoli reali della piattaforma (osservata e
+corretta in fase di test).</p>
+
+<p><b>Perché la pagina è SERVITA e APERTA dall'applicazione.</b> Alla revisione il committente ha
+giustamente osservato che una pagina aperta a mano (<code>file://</code>) non è un dispositivo del
+sistema. Qui un piccolo <b>server HTTP interno</b> (<code>WebIoPort</code>, classe
+<code>com.sun.net.httpserver.HttpServer</code> &mdash; <b>già nel JDK, nessuna dipendenza
+nuova</b>) eroga <code>ioport.html</code> su <code>http://localhost:8095</code>, e il suo
+costruttore <b>apre il browser</b> all'avvio. L'IOPort quindi <b>"va online" col sistema</b>,
+come farebbe un device reale: è il sistema a renderlo disponibile, non l'operatore. È il pattern
+delle web-gui del corso (<i>conway26GuiAlone</i> con Javalin), qui ottenuto <b>senza aggiungere
+Javalin</b>.</p>
+
+<p><b>Perché un POJO (<code>withobj</code>) e non un QActor.</b> L'IOPort è un <b>dispositivo di
+confine</b>, non un attore logico del dominio. Coerentemente col pattern del corso
+(<code>devices.*</code>), i device sono POJO iniettati nel QActor con <code>withobj</code>
+(<code>withobj webio using "devices.WebIoPort()"</code>): l'interattività vive nel <b>browser</b>,
+il modello a attori resta pulito e si occupa solo della <b>logica</b> del servizio.</p>
+
+<p><b>Perché il web e non una GUI desktop.</b> Portabilità (qualunque browser, nessun runtime
+aggiuntivo), <b>decoupling</b> via MQTT (la GUI e il servizio non si conoscono), aderenza al
+pattern del corso e possibilità di <b>osservare/comandare anche da remoto</b>. La pagina è
+volutamente <b>thin</b>: nessuna logica di dominio, solo pubblicazione di eventi e
+visualizzazione di stato.</p>
+
+<h3>Piano di lavoro (previsione, ore/uomo)</h3>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Attività</th><th>Previsione</th><th>Effettivo</th></tr>
+    <tr><td>analisi (IOPort boundary, marker/barcode, stale)</td><td>1.5 h</td><td>~1.5 h</td></tr>
+    <tr><td>web-gui interattiva (ioport.html + WebIoPort) + modello qak</td><td>3.5 h</td><td>~4 h</td></tr>
+    <tr><td>test end-to-end + messa a punto della demo</td><td>2.5 h</td><td>~3 h (vedi scostamento)</td></tr>
+    <tr><td>documento + slides + preparazione colloquio</td><td>2 h</td><td>~2 h</td></tr>
+    <tr><td><b>totale</b></td><td><b>9.5 h</b></td><td><b>~10.5 h</b></td></tr>
+</table>
+<p><b>Scostamento</b>: +1 h, dovuto a (a) la messa a punto della web-gui interattiva e del server
+che la apre, e (b) l'ambiente robotico (la scena WebGL del VirtualRobot deve restare in primo
+piano: in background il browser rallenta i frame e gli step possono fallire). Documentato nel
+Deployment.</p>
+<p>Distribuzione dei compiti: progetto <b>individuale</b> (Alexander Kreuzer).</p>
+
+<h3>Diario di bordo dello Sprint</h3>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Data</th><th>Attività</th></tr>
+    <tr><td>10/06</td><td>marker come attore (domark/markingDone+barcode); stato reale della stiva
+        sul display (Hold.stateDescription)</td></tr>
+    <tr><td>11/06</td><td>tester TP1 automatizzato (loaddone); dropStale; test end-to-end</td></tr>
+    <tr><td>12/06</td><td>revisione del committente: IOPort &rarr; <b>web-gui interattiva</b>
+        (pushbutton + sensor giocabile) <b>servita e aperta</b> dall'app (WebIoPort);
+        <code>loadrequest</code> &rarr; EVENT; rimossi iosensor/pushbutton hard-coded; documento
+        e slides aggiornati</td></tr>
+    <tr><td>13&ndash;17/06</td><td>test end-to-end del carico di TUTTA la stiva: scoperta una
+        <b>incoerenza coordinate&harr;mappa</b> del DDR (vedi sotto) &mdash; <code>slot3=(3,2)</code>
+        e <code>slot4=(5,3)</code> cadono su <b>celle-ostacolo</b> della <code>tf25map</code>
+        (pianificatore A* &rarr; piano vuoto). Corrette su celle <b>raggiungibili</b>; verificate
+        le 4 cariche (stiva piena). Fix di affidabilita' della scena (ricreare il container, non
+        solo <code>restart</code>)</td></tr>
+</table>
+
+<div class="remark"><b>Incoerenza coordinate &harr; mappa del DDR (rilevata col testing, da confermare
+col committente).</b> Le posizioni degli slot provengono dai comandi del docente
+(<code>Robotsmart26Cmds</code>: <code>(1,1)(1,4)(3,2)(5,3)(4,3)(3,4)</code>). Verificandole sulla
+mappa built-in del robot (<code>robotsmart26/tf25map.txt</code>, X=riga Y=colonna) col
+<b>pianificatore A* del robot</b>: solo <code>(1,1)(1,4)(4,3)(3,4)</code> sono <b>raggiungibili</b>
+(cella libera); <code>(3,2)</code> e <code>(5,3)</code> cadono su un <b>ostacolo / sul muro</b> e
+l'A* restituisce <b>piano vuoto</b> (irraggiungibili). Percio' slot3 e slot4 (gia' annotati come
+<i>provvisori</i> in <code>Hold.java</code>) sono stati portati su celle libere &mdash;
+<code>slot3 &rarr; (4,3)</code> (coordinata del docente, <code>move43</code>) e
+<code>slot4 &rarr; (4,2)</code> (derivata dalla mappa, da confermare). Verifica diretta col robot:
+<code>buildPlan</code> a (4,3) = "lwrwwwwlww", a (4,2) = "lwrwwwwlw" (raggiungibili); a (3,2) e (5,3) = ''
+(irraggiungibili). Con la correzione le <b>4 cariche</b> vanno a buon fine
+(<code>slot1..slot4 = PIENO</code>).</div>
+
+<br>
+
+<h2>Test plans</h2>
+<pre>
+TP1  CARICO NOMINALE (AUTOMATIZZATO, demo finale)
+  il TESTER emette loadrequest + sonaralarm:distance(20) -&gt; interroga getholdstate
+  PASS sse uno slot risulta (pieno)                        -&gt; stampa "*** TP1 PASS ***"
+TP5  OUT OF SERVICE   (regressione Sprint2): slider D&gt;DFREE ~3s -&gt; "Out of service"; pushbutton -&gt; retrylater
+TP6  RIENTRO          (regressione Sprint2): slider D rientra ~3s -&gt; "serviceworking"; pushbutton -&gt; reserved
+TP7  MARCATURA (Sprint3): in slot5 il marker assegna il barcode (bcN) e segnala markingDone
+  PASS sse il trasporto prosegue SOLO dopo markingDone e il barcode è nel log
+TP8  NOTIFICA STALE (Sprint3): containerInPlace senza richiesta attiva -&gt; scartato
+  PASS sse il sistema resta available (nessun trasporto spontaneo)
+TP-GUI  IOPort INTERATTIVO (Sprint3): l'app apre la pagina; il pushbutton avvia il carico;
+  lo slider del sensore pilota presenza/Out-of-service; il display riflette risposta e stato stiva
+</pre>
+
+<br>
+
+<h2>Project</h2>
+<p>
+Sottosistema eseguibile finale:
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint3/cargoservice26">TemaFinale26/Sprint3/cargoservice26</a> &mdash; modello
+<a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint3/cargoservice26/src/cargoservice26.qak">cargoservice26.qak</a>:
+</p>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Componente</th><th>Realizzazione</th></tr>
+    <tr><td>cargoservice</td><td>FSM: <code>evalRequest</code> (whenEvent loadrequest),
+        <code>marking/markingCompleted</code> (attesa <code>markingDone</code>),
+        <code>dropStale</code>, <code>emit loaddone(SLOT)</code>, display con
+        <code>hold.stateDescription()</code>; <code>withobj webio</code> apre la web-gui</td></tr>
+    <tr><td><b>web-gui IOPort</b> (nuova)</td><td><a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint3/cargoservice26/webgui/ioport.html">ioport.html</a>:
+        pushbutton + sensor (slider) + display, su MQTT/websocket (:9001)</td></tr>
+    <tr><td><b>WebIoPort</b> (nuovo)</td><td><a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint3/cargoservice26/utils/devices/WebIoPort.java">WebIoPort.java</a>:
+        server HTTP (JDK) che <b>serve e apre</b> la pagina su :8095 (nessuna dipendenza nuova)</td></tr>
+    <tr><td><b>marker</b></td><td><a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint3/cargoservice26/src/it/unibo/marker/Marker.kt">Marker.kt</a>:
+        riceve <code>domark(SLOT)</code>, marca (1s, simulato), risponde
+        <code>markingDone(bcN)</code></td></tr>
+    <tr><td><b>tester</b> (TP1)</td><td><a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer/blob/main/TemaFinale26/Sprint3/cargoservice26/src/it/unibo/tester/Tester.kt">Tester.kt</a>:
+        emette loadrequest+sonaralarm e verifica lo stato; esito PASS/FAIL a video
+        (config <code>cargoservice26tp1.pl</code>, <code>gradlew runTp1</code>)</td></tr>
+    <tr><td>sensormonitor</td><td>come Sprint 2: dal grezzo <code>distance(D)</code> (slider o
+        PicoW) a <code>containerInPlace</code>/<code>outofservice</code></td></tr>
+    <tr><td>DisplayMqtt</td><td>pubblica lo stato (retained) su <code>cargoservice26display</code>;
+        autodetect dell'IP del sito (broker Docker)</td></tr>
+</table>
+<div class="remark"><b>Due configurazioni</b>: <code>cargoservice26.pl</code> (demo
+<b>interattiva</b>: cargoservice + sensormonitor + marker, l'utente usa la web-gui) e
+<code>cargoservice26tp1.pl</code> (prova <b>automatizzata</b> TP1, aggiunge il tester).</div>
+
+<br>
+
+<h2>Testing</h2>
+<p>
+<b>POJO</b>: <code>TestHold</code> = <b>28 PASS, 0 FAIL</b> (con <code>stateDescription</code>,
+<code>stateTerm</code>, <b>barcode memorizzato</b> e <b>coordinate corrette</b>). <b>Build</b>:
+<code>gradlew build</code> = BUILD SUCCESSFUL.
+<b>Demo ESEGUITA</b> (output reale, 13/06; robotsmart + VirtualRobot + mosquitto attivi): gli
+eventi del <b>pushbutton</b> e del <b>sensor</b> della web-gui pilotano il ciclo completo (il
+robot esegue il trasporto IOPort &rarr; slot5 &rarr; slot1 &rarr; HOME):
+</p>
+<pre>
+[DISPLAY] reserved slot1                              &lt;- pushbutton (loadrequest event) -&gt; riserva
+[LED] blink ON (engaged)
+cargoservice | engaged: attendo il container nell'area del sensor (timeout 30s)
+sensormonitor| presenza container (D&lt;DFREE/2 per ~3s) -&gt; containerInPlace   &lt;- sensor (slider)
+cargoservice | chiedo la marcatura in slot5 ...
+marker       | marcatura in corso, barcode=bc1                              [TP7]
+cargoservice | marcatura completata, barcode=bc1
+[DISPLAY] hold: slot1=PIENO slot2=libero slot3=libero slot4=libero          [stato reale]
+cargoservice | richiesta completata: container in slot1
+cargoservice | emit loaddone on cargoservice26in_out
+cargoservice | available (attende loadrequest)
+</pre>
+<div class="remark"><b>Demo interattiva</b> (TP-GUI, eseguita): all'avvio del cargoservice la pagina
+<code>ioport.html</code> si apre da sola (<code>WebIoPort</code>); premendo il <b>pushbutton</b>
+parte il carico, e muovendo lo <b>slider</b> del sensore si pilotano presenza container (D&lt;30 per
+~3s), <b>Out of service</b> (D&gt;60 per ~3s) e rientro: il <b>display</b> riflette risposta e stato
+della stiva in tempo reale. La prova <b>TP1 automatizzata</b> (<code>gradlew runTp1</code>) ottiene
+la stessa sequenza con l'attore <code>tester</code> al posto della web-gui, stampando
+<code>*** TP1 PASS ***</code>. Verificati inoltre <b>TP4</b> (nessuna presenza entro 30s &rarr;
+<code>disengage</code>) e <b>TP8</b> (notifica stale scartata).</div>
+
+<br>
+
+<h2>Deployment</h2>
+<pre>
+(da TemaFinale26/Sprint3/  &mdash; oppure: powershell -ExecutionPolicy Bypass -File demo.ps1)
+1) docker compose -f ../../robotsmart26/yamls/unibobasic26.yaml up   (VirtualRobot + GUI + mosquitto)
+   + abilitare il listener websockets :9001 di mosquitto (lo fa demo.ps1)
+2) aprire http://localhost:8090 e TENERLA IN PRIMO PIANO              (la scena WebGL ESEGUE i movimenti)
+3) cd ../../robotsmart26 ; ./gradlew run                             (servizio del docente, 8020)
+4) cd cargoservice26 ; ./gradlew run                                 (l'app APRE da sola la web-gui :8095)
+5) usare la web-gui: premere il pushbutton, muovere lo slider del sensore
+   (per la prova automatizzata: ./gradlew runTp1)
+</pre>
+<div class="remark"><b>Nota infrastruttura.</b> Su questa macchina convive un mosquitto nativo di
+Windows su <code>127.0.0.1:1883</code>: i publisher Java (DisplayMqtt) usano l'<b>IP del sito</b>
+per raggiungere il mosquitto <b>Docker</b> (dove c'è il websocket :9001 della pagina). Il
+fix definitivo è disabilitare il servizio nativo. Dettagli e script in <code>demo.ps1</code>.</div>
+
+<br>
+
+<h2>Maintenance &mdash; sintesi finale del sistema</h2>
+<p>Copertura dei requisiti del committente (architettura finale e dove ogni requisito è soddisfatto):</p>
+<table style="margin-left:10px;">
+    <tr style="background:#e1f4d7;"><th>Requisito</th><th>Dove</th><th>Sprint</th></tr>
+    <tr><td>richiesta col <b>pushbutton</b> dell'IOPort</td><td><b>web-gui</b> (bottone) &rarr;
+        EVENT <code>loadrequest</code></td><td><b>3</b></td></tr>
+    <tr><td>risposta reserved/retrylater/reject <b>sul display</b></td><td>FSM
+        <code>evalRequest</code> + <code>display.show()</code> (web-gui)</td><td>0&ndash;1, <b>3</b></td></tr>
+    <tr><td>LED lampeggiante mentre engaged</td><td><code>led.blink</code> (indicatore di stato)</td><td>0&ndash;1</td></tr>
+    <tr><td>container nell'area del sensor entro ~30s, altrimenti disengage</td><td><code>waitContainer</code> (whenTime 30000) + sensormonitor</td><td>1&ndash;2</td></tr>
+    <tr><td>trasporto IOPort &rarr; slot5 &rarr; slot riservato (cargorobot)</td><td>client di <b>robotsmart</b> (<code>moverobot</code>)</td><td>0&ndash;1</td></tr>
+    <tr><td>marcatura con barcode e segnale di completamento</td><td>attore <b>marker</b> (<code>markingDone(bcN)</code>)</td><td><b>3</b></td></tr>
+    <tr><td>retrylater se IOPort occupato o Out of service</td><td><code>evalRequest</code> / stato <code>outOfService</code></td><td>0, <b>2</b></td></tr>
+    <tr><td>reject a stiva piena</td><td><code>Hold.isFull()</code></td><td>0&ndash;1</td></tr>
+    <tr><td>display: risposta, <b>stato stiva</b>, Service working / Out of service</td><td><b>web-gui</b> MQTT + <code>stateDescription()</code></td><td><b>2&ndash;3</b></td></tr>
+    <tr><td>Out of service se D&gt;DFREE per &ge;3s (guasto sonar)</td><td><b>sensormonitor</b> (finestra 3 campioni)</td><td><b>2</b></td></tr>
+    <tr><td><b>interagire col sensore</b> senza hardware</td><td><b>slider</b> della web-gui &rarr; <code>distance(D)</code></td><td><b>3</b></td></tr>
+</table>
+<p>
+I dispositivi (sonar, pushbutton, marker, display, LED) sono <b>simulati ma sostituibili</b>:
+il cargoservice dipende solo dall'informazione scambiata (il PicoW reale pubblica già lo stesso
+<code>distance(D)</code> della web-gui). <code>DFREE</code>, finestra 3s, posizioni degli slot:
+<b>parametri</b> da confermare col committente.
+</p>
+<div class="remark"><b>Consegna</b> (&sect;32.2): questa fase viene pubblicata sul sito <b>48h prima del
+colloquio</b> con mail al docente; demo live 10&ndash;15 min con <b>web-gui interattiva</b> e
+<b>TP1 automatizzato</b>; slides (&lt;10) sul processo e sull'architettura finale.</div>
+
+<br><br>
+</div>
+
+<div style="background-color:rgba(86, 56, 253, 0.9); width:100%; padding: 15px; color:white; display:flex; align-items:center; gap: 20px; border-radius: 5px; box-sizing: border-box;">
+
+    <img src="./img/imageServlet.jpg" alt="Alexander Kreuzer" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid white;">
+
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <strong>By Alexander Kreuzer</strong><br>
+        Email: <a href="mailto:Alexander.kreuzer@studio.unibo.it" style="color: #ffcc00; text-decoration: none;">Alexander.kreuzer@studio.unibo.it</a><br>
+        GIT repo: <a href="https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer" style="color: #ffcc00; text-decoration: none;">https://github.com/Alexing-uni/ISS26_Alexander_Kreuzer</a>
+    </div>
+
+</div>
+</body>
+</html>
