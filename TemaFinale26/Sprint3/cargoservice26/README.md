@@ -30,7 +30,7 @@ cargoservice26/
   src/it/unibo/ctxcargo/              MainCtxcargo.kt (demo)  MainCtxcargotp1.kt (TP1)
   utils/domain/Hold.java              stato della stiva (slot, barcode, posizioni sulla mappa del DDR)
   utils/devices/                      WebIoPort.java DisplayMqtt.java LedSim.java IoPortSim.java
-  utils/test/TestHold.java            test di unità del POJO (28 PASS)
+  utils/test/TestHold.java            test di unità del POJO (29 PASS)
   webgui/ioport.html                  web-gui dell'IOPort (pushbutton + sensor + display)
   cargoservice26.pl                   config DEMO interattiva (cargoservice + sensormonitor + marker)
   cargoservice26tp1.pl                config TEST automatizzato (aggiunge il tester)
@@ -95,7 +95,7 @@ stampa `*** TP1 PASS ***` / `*** TP1 FAIL ***`.
 ```
 cd TemaFinale26/Sprint3/cargoservice26
 javac -d build/testclasses utils/domain/Hold.java utils/test/TestHold.java
-java  -cp build/testclasses test.TestHold        #  -> 28 PASS, 0 FAIL
+java  -cp build/testclasses test.TestHold        #  -> 29 PASS, 0 FAIL
 ```
 
 ### F) Solo build

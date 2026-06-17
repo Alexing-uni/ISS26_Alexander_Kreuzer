@@ -254,7 +254,9 @@ restituisce <b>piano vuoto</b> e il robot <b>non arriva nel posto giusto</b>. Le
 <code>slot1=(1,1) slot2=(1,4) slot3=(3,1) slot4=(3,4)</code> (carico) e <code>slot5=(2,5)</code>
 (area di marcatura) &mdash; tutte celle <b>libere/raggiungibili</b>. Verifica diretta col
 <code>buildPlan</code> del robot: piani non vuoti per tutte e cinque ((1,1)=lwrw, (1,4)=lwwwwrw,
-(3,1)=lwrwww, (3,4)=lwwwwrwlwrwwrw, (2,5)=lwwwwwrww).</div>
+(3,1)=lwrwww, (3,4)=lwwwwrwlwrwwrw, (2,5)=lwwwwwrww). Sulla mappa (<code>00000001@00110001@00001001@00110001@00000001@11111111</code>)
+la <b>colonna 6 e' interamente libera</b> (corsia di transito a destra dello slot5) e la <b>colonna 7 e' il muro</b>;
+gli ostacoli interni sono in (1,2)(1,3)(2,4)(3,2)(3,3).</div>
 
 <br>
 
@@ -310,7 +312,7 @@ Sottosistema eseguibile finale:
 
 <h2>Testing</h2>
 <p>
-<b>POJO</b>: <code>TestHold</code> = <b>28 PASS, 0 FAIL</b> (con <code>stateDescription</code>,
+<b>POJO</b>: <code>TestHold</code> = <b>29 PASS, 0 FAIL</b> (con <code>stateDescription</code>,
 <code>stateTerm</code>, <b>barcode memorizzato</b> e <b>coordinate corrette</b>). <b>Build</b>:
 <code>gradlew build</code> = BUILD SUCCESSFUL.
 <b>Demo ESEGUITA</b> (output reale, 13/06; robotsmart + VirtualRobot + mosquitto attivi): gli
