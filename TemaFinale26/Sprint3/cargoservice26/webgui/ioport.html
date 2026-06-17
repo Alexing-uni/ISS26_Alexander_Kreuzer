@@ -160,9 +160,21 @@
   // i bottoni rapidi spostano lo slider; ci pensa l'emettitore continuo a inviare
   document.querySelectorAll(".quick button").forEach(b =>
     b.addEventListener("click", () => { dist.value = b.dataset.d; dval.textContent = b.dataset.d; }));
-  setInterval(() => {
+  // emettitore CONTINUO via WEB WORKER: un setInterval normale viene STRANGOLATO
+  // (throttled) dal browser quando la scheda 8095 e' in secondo piano (l'utente
+  // guarda la scena 8090) -> il sensor smette di emettere e il carico va in TIMEOUT.
+  // Il Web Worker gira su un thread separato che NON viene throttlato: il sonar
+  // continua a "misurare" anche con la scheda non in primo piano.
+  function sendDistance(){
     if (client && client.connected) emit("sonaralarm", "distance(" + dist.value + ")", TOPIC_SONAR);
-  }, 1000);
+  }
+  try {
+    const w = new Worker(URL.createObjectURL(new Blob(
+      ["setInterval(function(){postMessage(0)},1000)"], {type:"application/javascript"})));
+    w.onmessage = sendDistance;
+  } catch (e) {
+    setInterval(sendDistance, 1000);   // fallback se i Web Worker non sono disponibili
+  }
 
   function log(t){ const d=document.createElement("div");
     d.textContent = new Date().toLocaleTimeString() + "  " + t; logEl.prepend(d); }
