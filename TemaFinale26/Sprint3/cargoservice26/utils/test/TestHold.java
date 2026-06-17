@@ -45,7 +45,7 @@ public class TestHold {
 
         // T4 - slot5 e' AREA DI MARCATURA: mai riservato come slot di carico
         check("T4 slot5 (marcatura) mai riservato",        !hold.isOccupied("slot5"));
-        check("T4 posizione slot5 = (3,4)",                hold.slotX("slot5") == 3 && hold.slotY("slot5") == 4);
+        check("T4 posizione slot5 = (2,5)",                hold.slotX("slot5") == 2 && hold.slotY("slot5") == 5);
 
         // T5 - liberazione di uno slot (scarico/disengage) e nuova riserva
         hold.freeSlot("slot3");
@@ -93,10 +93,11 @@ public class TestHold {
         check("T11 display mostra il barcode",
               h4.stateDescription().equals("hold: slot1=PIENO(bc7) slot2=libero slot3=libero slot4=libero"));
 
-        // T12 - SPRINT3: posizioni degli slot RAGGIUNGIBILI sulla mappa tf25map (correzione coord.)
+        // T12 - SPRINT3: posizioni degli slot dalla mappa del committente (tf25map)
         Hold h5 = new Hold();
-        check("T12 slot3 = (4,3) (cella libera, era (3,2) ostacolo)", h5.slotX("slot3") == 4 && h5.slotY("slot3") == 3);
-        check("T12 slot4 = (4,2) (cella libera, era (5,3) muro)",     h5.slotX("slot4") == 4 && h5.slotY("slot4") == 2);
+        check("T12 slot3 = (3,1) (mappa del committente)", h5.slotX("slot3") == 3 && h5.slotY("slot3") == 1);
+        check("T12 slot4 = (3,4) (mappa del committente)", h5.slotX("slot4") == 3 && h5.slotY("slot4") == 4);
+        check("T12 slot5 = (2,5) area di marcatura",        h5.slotX("slot5") == 2 && h5.slotY("slot5") == 5);
 
         System.out.println("----------------------------------------");
         System.out.println("TestHold (Sprint3): " + passed + " PASS, " + failed + " FAIL");

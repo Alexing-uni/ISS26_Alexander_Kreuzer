@@ -238,27 +238,23 @@ Deployment.</p>
         (pushbutton + sensor giocabile) <b>servita e aperta</b> dall'app (WebIoPort);
         <code>loadrequest</code> &rarr; EVENT; rimossi iosensor/pushbutton hard-coded; documento
         e slides aggiornati</td></tr>
-    <tr><td>13&ndash;17/06</td><td>test end-to-end del carico di TUTTA la stiva: scoperta una
-        <b>incoerenza coordinate&harr;mappa</b> del DDR (vedi sotto) &mdash; <code>slot3=(3,2)</code>
-        e <code>slot4=(5,3)</code> cadono su <b>celle-ostacolo</b> della <code>tf25map</code>
-        (pianificatore A* &rarr; piano vuoto). Corrette su celle <b>raggiungibili</b>; verificate
-        le 4 cariche (stiva piena). Fix di affidabilita' della scena (ricreare il container, non
-        solo <code>restart</code>)</td></tr>
+    <tr><td>13&ndash;17/06</td><td>test end-to-end del carico di TUTTA la stiva e <b>verifica delle
+        posizioni degli slot</b> sulla mappa del DDR (vedi sotto). Posizioni <b>confermate sulla mappa
+        del committente</b> e col pianificatore A*: <code>slot1=(1,1) slot2=(1,4) slot3=(3,1)
+        slot4=(3,4)</code> (carico), <code>slot5=(2,5)</code> (marcatura). Fix di affidabilita' della
+        scena (ricreare il container, non solo <code>restart</code>)</td></tr>
 </table>
 
-<div class="remark"><b>Incoerenza coordinate &harr; mappa del DDR (rilevata col testing, da confermare
-col committente).</b> Le posizioni degli slot provengono dai comandi del docente
-(<code>Robotsmart26Cmds</code>: <code>(1,1)(1,4)(3,2)(5,3)(4,3)(3,4)</code>). Verificandole sulla
-mappa built-in del robot (<code>robotsmart26/tf25map.txt</code>, X=riga Y=colonna) col
-<b>pianificatore A* del robot</b>: solo <code>(1,1)(1,4)(4,3)(3,4)</code> sono <b>raggiungibili</b>
-(cella libera); <code>(3,2)</code> e <code>(5,3)</code> cadono su un <b>ostacolo / sul muro</b> e
-l'A* restituisce <b>piano vuoto</b> (irraggiungibili). Percio' slot3 e slot4 (gia' annotati come
-<i>provvisori</i> in <code>Hold.java</code>) sono stati portati su celle libere &mdash;
-<code>slot3 &rarr; (4,3)</code> (coordinata del docente, <code>move43</code>) e
-<code>slot4 &rarr; (4,2)</code> (derivata dalla mappa, da confermare). Verifica diretta col robot:
-<code>buildPlan</code> a (4,3) = "lwrwwwwlww", a (4,2) = "lwrwwwwlw" (raggiungibili); a (3,2) e (5,3) = ''
-(irraggiungibili). Con la correzione le <b>4 cariche</b> vanno a buon fine
-(<code>slot1..slot4 = PIENO</code>).</div>
+<div class="remark"><b>Posizioni degli slot &harr; mappa del DDR &mdash; punto aperto D1 RISOLTO.</b>
+Le posizioni <i>provvisorie</i> del Project (<code>Robotsmart26Cmds</code>) ponevano
+<code>slot3=(3,2)</code> e <code>slot4=(5,3)</code>, che sulla mappa built-in del robot
+(<code>tf25map</code>, X=riga Y=colonna) cadono su un <b>ostacolo / sul muro</b>: il pianificatore A*
+restituisce <b>piano vuoto</b> e il robot <b>non arriva nel posto giusto</b>. Le posizioni sono state
+<b>confermate sulla mappa del committente</b> (l'IOPort=(4,0) e' la cella in basso a sinistra):
+<code>slot1=(1,1) slot2=(1,4) slot3=(3,1) slot4=(3,4)</code> (carico) e <code>slot5=(2,5)</code>
+(area di marcatura) &mdash; tutte celle <b>libere/raggiungibili</b>. Verifica diretta col
+<code>buildPlan</code> del robot: piani non vuoti per tutte e cinque ((1,1)=lwrw, (1,4)=lwwwwrw,
+(3,1)=lwrwww, (3,4)=lwwwwrwlwrwwrw, (2,5)=lwwwwwrww).</div>
 
 <br>
 

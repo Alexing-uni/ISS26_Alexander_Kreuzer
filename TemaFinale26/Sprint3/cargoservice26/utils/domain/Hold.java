@@ -3,22 +3,17 @@ package domain;
 /*
  * Hold - stato del dominio (POJO) della stiva del cargoservice (TemaFinale26).
  *
- * Le posizioni-obiettivo sono prese dai comandi del docente
- * (robotsmart26/utils/callers/Robotsmart26Cmds.java):
- *     IOPort = (4,0)   HOME = (0,0)
- *     posizioni note: (1,1) (1,4) (3,2) (5,3) (4,3) (3,4)
+ * Posizioni degli slot CONFERMATE sulla mappa del committente (tf25map del DDR,
+ * X=riga Y=colonna; IOPort magenta in (4,0) lo conferma):
+ *     "00000001@00110001@00001001@00110001@00000001@11111111"
+ *     HOME=(0,0)   IOPort=(4,0)
+ *     slot1=(1,1)  slot2=(1,4)  slot3=(3,1)  slot4=(3,4)    [slot di carico]
+ *     slot5=(2,5)                                            [area di marcatura]
+ *   Tutte celle LIBERE/raggiungibili (verificato col pianificatore A* del robot).
  *
- * VERIFICATO sulla mappa built-in del DDR (robotsmart26/tf25map.txt):
- *     "00000001@00110001@00001001@00110001@00000001@11111111"  (X=riga, Y=colonna)
- *   Delle 6 posizioni del docente, in questa mappa sono RAGGIUNGIBILI (cella libera)
- *   solo (1,1) (1,4) (4,3) (3,4); INVECE (3,2) e (5,3) cadono su un OSTACOLO / sul
- *   muro inferiore -> il pianificatore A* del robot restituisce piano vuoto ''
- *   (cella irraggiungibile). Percio' slot3 e slot4 (provvisori, come gia' annotato)
- *   sono stati portati su celle LIBERE:
- *     slot3 -> (4,3)  [e' la posizione (4,3) del docente, move43, non usata prima]
- *     slot4 -> (4,2)  [cella libera adiacente alla cassa (3,2); DERIVATA dalla mappa,
- *                      NON dai comandi del docente -> DA CONFERMARE col committente]
- *   slot1/slot2/slot5 restano sulle coordinate del docente (gia' raggiungibili).
+ * Punto aperto D1 (Project) RISOLTO: le posizioni provvisorie (3,2) e (5,3) cadevano
+ * su ostacoli/muro (A* -> piano vuoto, robot non vi arriva); corrette sulle posizioni
+ * reali del layout del committente qui sopra.
  */
 public class Hold {
 
@@ -31,11 +26,11 @@ public class Hold {
     }
 
     private final Slot[] slots = new Slot[] {
-        new Slot("slot1", 1, 1, false),  // docente, raggiungibile
-        new Slot("slot2", 1, 4, false),  // docente, raggiungibile
-        new Slot("slot3", 4, 3, false),  // docente move43 (era (3,2): ostacolo -> irraggiungibile)
-        new Slot("slot4", 4, 2, false),  // DERIVATA dalla mappa (era (5,3): muro -> irraggiungibile) -- DA CONFERMARE
-        new Slot("slot5", 3, 4, true)    // docente, area di marcatura (non e' uno slot di carico)
+        new Slot("slot1", 1, 1, false),  // mappa del committente
+        new Slot("slot2", 1, 4, false),  // mappa del committente
+        new Slot("slot3", 3, 1, false),  // mappa del committente (era (4,3): posizione sbagliata)
+        new Slot("slot4", 3, 4, false),  // mappa del committente (era (4,2): posizione sbagliata)
+        new Slot("slot5", 2, 5, true)    // mappa del committente - area di marcatura (era (3,4))
     };
     private boolean ioOccupied = false;
 

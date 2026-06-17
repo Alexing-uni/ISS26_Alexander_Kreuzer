@@ -125,8 +125,9 @@ cd TemaFinale26/Sprint3/cargoservice26 ;  ./gradlew build     #  -> BUILD SUCCES
 - l'IOPort diventa **web-gui interattiva servita e aperta dall'app** (richiesta del docente: *bottone +
   la pagina la apre l'applicazione*);
 - il punto aperto **D1** del Project (posizioni slot *da confermare sulla mappa*) è **risolto**:
-  verificate su `tf25map` col pianificatore A*, `slot3=(3,2)` e `slot4=(5,3)` erano su ostacoli →
-  corrette a `(4,3)` e `(4,2)` (raggiungibili).
+  posizioni **confermate sulla mappa del committente** e verificate col pianificatore A* —
+  `slot3=(3,1)` `slot4=(3,4)` (carico) e `slot5=(2,5)` (marcatura); le provvisorie `(3,2)/(5,3)`
+  cadevano su ostacoli (per quello il robot non andava nel posto giusto).
 
 ## Demo di difesa (colloquio, ~10-15 min) — passo passo
 1. **Prima della difesa**: avvia tutto (`demo.ps1` oppure i passi B). Verifica: robot **at home**,
@@ -154,8 +155,9 @@ cd TemaFinale26/Sprint3/cargoservice26 ;  ./gradlew build     #  -> BUILD SUCCES
 - Dopo molti riavvii il robot può degradarsi (`asynchstep failed`): **ricreare** il container
   (`docker compose ... up -d --force-recreate wenv`), non solo `restart`.
 
-## Posizioni degli slot (mappa del DDR)
-Verificate sulla `robotsmart26/tf25map.txt` col pianificatore A* del robot:
-`slot1=(1,1) slot2=(1,4) slot3=(4,3) slot4=(4,2) slot5=(3,4)` (celle **raggiungibili**).
-Le precedenti `slot3=(3,2)` e `slot4=(5,3)` cadevano su ostacoli (A* → piano vuoto): `slot4=(4,2)`
-è **derivata dalla mappa, da confermare col committente**.
+## Posizioni degli slot (mappa del committente)
+**Confermate sulla mappa del committente** (`robotsmart26/tf25map.txt`, X=riga Y=colonna) e
+verificate col pianificatore A* del robot:
+`slot1=(1,1) slot2=(1,4) slot3=(3,1) slot4=(3,4)` (slot di carico) e `slot5=(2,5)` (area di marcatura).
+Le provvisorie `slot3=(3,2)` e `slot4=(5,3)` cadevano su ostacoli (A* → piano vuoto, il robot non
+arrivava nel posto giusto).
