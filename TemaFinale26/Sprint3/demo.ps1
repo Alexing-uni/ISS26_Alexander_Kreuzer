@@ -13,6 +13,25 @@ $root = Split-Path -Parent $PSScriptRoot   # .../TemaFinale26
 $repo = Split-Path -Parent $root           # .../issLab2026
 $prof = "$env:TEMP\edge_scene_profile"     # profilo Edge DEDICATO alla scena
 
+# --- 0) chiudo eventuali istanze PRECEDENTI ----------------------------------
+# Se un cargoservice/robotsmart e' rimasto vivo, parte un secondo processo con
+# le STESSE porte (8020/8030/8095 -> "Address already in use") e gli STESSI
+# client-id MQTT (cargoservice/sensormonitor/marker): il broker espelle uno
+# quando l'altro si riconnette -> "connectionLost (32109) EOFException" a raffica
+# e la demo NON funziona. Qui ripulisco prima di partire (idempotente).
+Write-Host "=== 0) chiudo eventuali istanze precedenti (porte 8020/8030/8095, MQTT) ===" -ForegroundColor Cyan
+Get-CimInstance Win32_Process -Filter "Name='java.exe'" -ErrorAction SilentlyContinue |
+  Where-Object { $_.CommandLine -match "cargoservice26|robotsmart26|ctxcargo|ctxrobotsmart" } |
+  ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } catch {} }
+foreach ($port in 8020,8030,8095) {
+  Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+    ForEach-Object { try { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue } catch {} }
+}
+Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" -ErrorAction SilentlyContinue |
+  Where-Object { $_.CommandLine -like "*edge_ioport_profile*" } |
+  ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } catch {} }
+Start-Sleep 2
+
 Write-Host "=== 1) infrastruttura Docker (VirtualRobot + GUI + mosquitto) ===" -ForegroundColor Cyan
 docker compose -f "$repo\robotsmart26\yamls\unibobasic26.yaml" up -d
 Start-Sleep 4
