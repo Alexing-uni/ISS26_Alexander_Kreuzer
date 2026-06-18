@@ -91,6 +91,12 @@ application {
     mainClassName = 'it.unibo.ctxcargo.MainCtxcargoKt'
 }
 
+// la web-gui (8095) la APRE l'app di default (requisito Sprint 3).
+// Per aprirla A MANO:  .\gradlew.bat run -PioportOpen=false
+run {
+    systemProperty 'ioport.open', (project.hasProperty('ioportOpen') ? project.property('ioportOpen') : 'true')
+}
+
 jar {
     duplicatesStrategy(DuplicatesStrategy.EXCLUDE)
     from sourceSets.main.allSource

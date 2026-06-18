@@ -50,7 +50,13 @@ public class WebIoPort {
             server.start();
             String url = "http://localhost:" + PORT;
             System.out.println("[WEBIOPORT] IOPort web-gui servita su " + url);
-            openBrowser(url);
+            // di default l'APP apre la pagina (requisito Sprint 3); con -Dioport.open=false
+            // (gradlew run -PioportOpen=false) la si apre a mano.
+            if (!"false".equalsIgnoreCase(System.getProperty("ioport.open", "true"))) {
+                openBrowser(url);
+            } else {
+                System.out.println("[WEBIOPORT] auto-open OFF: apri tu nel browser -> " + url);
+            }
         } catch (Exception e) {
             System.out.println("[WEBIOPORT] impossibile avviare il server: " + e.getMessage());
         }

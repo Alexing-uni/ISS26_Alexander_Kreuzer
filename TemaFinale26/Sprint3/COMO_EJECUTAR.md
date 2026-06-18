@@ -51,18 +51,24 @@ cd C:\Users\Usuario\Desktop\clas_martes\issLab2026\robotsmart26
 
 ```powershell
 cd C:\Users\Usuario\Desktop\clas_martes\issLab2026\TemaFinale26\Sprint3\cargoservice26
-.\gradlew.bat run
+.\gradlew.bat run -PioportOpen=false
 ```
-> Espera a ver: **`[WEBIOPORT] IOPort web-gui servita su http://localhost:8095`** → déjala abierta.
-> La app abre sola la web-gui (8095) en su pestaña dedicada (es un requisito del Sprint).
+> `-PioportOpen=false` = la app **NO** abre la web-gui (la abres tú en el Paso 4).
+> Espera a ver: **`[WEBIOPORT] auto-open OFF: apri tu ... http://localhost:8095`** → déjala abierta.
+> (Para que la abra la app sola — modo "requisito del Sprint", para la defensa — usa
+> simplemente `.\gradlew.bat run` sin la opción.)
 
-## Paso 4 — TÚ abres la escena (8090), UNA sola pestaña
+## Paso 4 — TÚ abres las dos páginas (UNA pestaña cada una)
 
 ```powershell
+# web-gui del IOPort (8095): pushbutton + sensor + display
+Start-Process msedge "--user-data-dir=$env:TEMP\edge_ioport --new-window http://localhost:8095"
+
+# escena WebGL (8090): ejecuta los movimientos del robot — anti-throttle, grande y visible
 Start-Process msedge "--user-data-dir=$env:TEMP\edge_scene --new-window --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion http://localhost:8090"
 ```
-> Déjala **grande y visible**. **Ábrela ANTES de pulsar PREMI** (la escena ejecuta los
-> movimientos del robot). No abras 8090 en más de una pestaña.
+> **UNA sola pestaña de cada una** (dos de 8090 → "ocupado"; dos de 8095 → dos sensores en conflicto).
+> Abre la escena **antes de pulsar PREMI** (ejecuta los movimientos) y déjala grande y visible.
 
 ---
 
