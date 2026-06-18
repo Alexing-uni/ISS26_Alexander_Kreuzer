@@ -1,78 +1,86 @@
-# cargoservice26 — ejecución MANUAL (sin demo.ps1)
+# cargoservice26 — ejecución MANUAL desde 0 (sin demo.ps1)
 
-Requisito: **Docker Desktop abierto**. Abre **3 ventanas de PowerShell**.
+Requisito: **Docker Desktop abierto**.
+
+> **Por qué "localhost:8090 está ocupado":** la escena WebGL admite **UN solo cliente
+> conectado**. Si queda una ventana del navegador (de un run anterior, o de un perfil
+> dedicado que abrió la app/script) todavía enganchada a 8090, tu pestaña nueva la ve
+> ocupada. Solución: cerrar esas ventanas + recrear `wenv` fresco + abrir 8090 en UNA
+> sola pestaña. El Paso 0 lo hace.
 
 ---
 
-## Ventana 1 — Infraestructura + escena
+## Paso 0 — limpieza (cierra lo que quedó enganchado)  [Ventana 1]
 
 ```powershell
-# (1) matar instancias previas (libera 8020/8030/8095)
+# matar cargoservice/robotsmart previos (liberan 8020/8030/8095)
 Get-CimInstance Win32_Process -Filter "Name='java.exe'" -EA SilentlyContinue |
   Where-Object { $_.CommandLine -match "cargoservice26|robotsmart26|ctxcargo|ctxrobotsmart" } |
   ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }
 
-# (2) Docker: VirtualRobot (wenv) + GUI + mosquitto
+# cerrar las ventanas de navegador de perfiles dedicados (las que OCUPAN la escena)
+Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" -EA SilentlyContinue |
+  Where-Object { $_.CommandLine -match "edge_scene|edge_ioport" } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }
+```
+> Y cierra también cualquier pestaña normal que tengas abierta en `localhost:8090`.
+
+## Paso 1 — Docker + broker + escena FRESCA  [misma Ventana 1]
+
+```powershell
+# infraestructura: VirtualRobot (wenv) + GUI + mosquitto
 docker compose -f C:\Users\Usuario\Desktop\clas_martes\issLab2026\robotsmart26\yamls\unibobasic26.yaml up -d
 
-# (3) mosquitto: listener 1883 (mqtt) + 9001 (websocket para la web-gui) — config LIMPIA
+# mosquitto: listener 1883 (mqtt) + 9001 (websocket) — config LIMPIA (idempotente)
 docker exec mosquitto sh -c "printf 'listener 1883\nprotocol mqtt\n\nlistener 9001\nprotocol websockets\n\nallow_anonymous true\n' > /mosquitto/config/mosquitto.conf"
 docker restart mosquitto
 
-# (4) escena WebGL FRESCA (pristina: el robot vuelve fiable)
+# escena WebGL PRISTINA (resetea el servidor -> 8090 queda libre)
 docker compose -f C:\Users\Usuario\Desktop\clas_martes\issLab2026\robotsmart26\yamls\unibobasic26.yaml up -d --force-recreate wenv
-
-# (5) abrir la escena — UNA sola pestaña, anti-throttle. DEJALA GRANDE Y VISIBLE
-Start-Process msedge "--user-data-dir=$env:TEMP\edge_scene --new-window --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion http://localhost:8090"
 ```
 
-## Ventana 2 — robotsmart (servicio del profesor, puerto 8020)
+## Paso 2 — robotsmart (servicio del profesor, 8020)  [Ventana 2]
 
 ```powershell
 cd C:\Users\Usuario\Desktop\clas_martes\issLab2026\robotsmart26
 .\gradlew.bat run
-# ESPERA a ver:  robotmnemo | at home. GUI on ...
-# (deja esta ventana abierta; es un servidor)
 ```
+> Espera a ver: **`robotmnemo | at home. GUI on ...`**  → déjala abierta.
 
-## Ventana 3 — cargoservice (abre sola la web-gui en 8095)
+## Paso 3 — cargoservice (este Sprint)  [Ventana 3]
 
 ```powershell
 cd C:\Users\Usuario\Desktop\clas_martes\issLab2026\TemaFinale26\Sprint3\cargoservice26
 .\gradlew.bat run
-# ESPERA a ver:  [WEBIOPORT] IOPort web-gui servita su http://localhost:8095
-# (deja esta ventana abierta; es un servidor)
 ```
+> Espera a ver: **`[WEBIOPORT] IOPort web-gui servita su http://localhost:8095`** → déjala abierta.
+> La app abre sola la web-gui (8095) en su pestaña dedicada (es un requisito del Sprint).
+
+## Paso 4 — TÚ abres la escena (8090), UNA sola pestaña
+
+```powershell
+Start-Process msedge "--user-data-dir=$env:TEMP\edge_scene --new-window --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion http://localhost:8090"
+```
+> Déjala **grande y visible**. **Ábrela ANTES de pulsar PREMI** (la escena ejecuta los
+> movimientos del robot). No abras 8090 en más de una pestaña.
 
 ---
 
 ## Uso (web-gui 8095 + escena 8090)
 
-Flujo más fiable:
-1. En la **web-gui** pulsa **"Container presente (D=20)"** (deja el contenedor "presente").
-2. Pulsa **PREMI** → `reserved slotX`.
-3. **Haz clic en la ventana de la ESCENA (8090)** y déjala enfocada/grande mientras el robot se mueve.
-   El sensor sigue emitiendo (Web Worker), así que puedes mirar la escena sin que se corte.
-   Recorrido: HOME → **slot5** (marcatura `bcN`) → **slotX** → HOME → display `slotX=PIENO(bcN)`.
-4. Repite **PREMI** para slot2, slot3, slot4. Al llenar los 4 → `reject` (bodega llena, es lo correcto).
-
-Casos a enseñar en la defensa:
-- **Out of service**: "Guasto sonar (D=95)" unos segundos → display `Out of service`; PREMI → `retrylater`. Vuelve a "Container presente".
-- **Timeout/disengage**: PREMI y NO pongas contenedor (deja D=45) → a los 30s `disengaged`.
-
----
+1. En la web-gui: **"Container presente (D=20)"** → **PREMI** → `reserved slotX`.
+2. **Haz clic en la ESCENA (8090)** y déjala enfocada mientras el robot se mueve
+   (el sensor sigue emitiendo gracias al Web Worker): HOME → slot5 (`bcN`) → slotX → HOME
+   → `slotX=PIENO(bcN)`.
+3. Repite PREMI. Al llenar los 4 slots → `reject` (bodega llena, correcto).
+4. **Out of service**: "Guasto sonar (D=95)" unos segundos; **Timeout**: PREMI sin contenedor (D=45) → 30s → `disengaged`.
 
 ## Si ves `moverobotfailed` / `robotfailure`
+La escena WebGL se degradó. Recrea la escena y reábrela (Paso 1 último comando + Paso 4):
+```powershell
+docker compose -f C:\Users\Usuario\Desktop\clas_martes\issLab2026\robotsmart26\yamls\unibobasic26.yaml up -d --force-recreate wenv
+```
+Para la defensa basta con 2–3 cargas + `reject` + `Out of service`.
 
-Es la **escena WebGL degradada** (pierde frames). Soluciones:
-- Mantén la **escena (8090) grande, visible y enfocada** durante el movimiento del robot.
-- Si insiste, **recrea la escena** y recárgala:
-  ```powershell
-  docker compose -f C:\Users\Usuario\Desktop\clas_martes\issLab2026\robotsmart26\yamls\unibobasic26.yaml up -d --force-recreate wenv
-  ```
-  Luego cierra/reabre la pestaña de la escena (paso 5 de la Ventana 1).
-- Para una defensa fluida basta enseñar **2–3 cargas** (no hace falta llenar siempre los 4).
-
-## Cerrar todo
-
-`Ctrl+C` en las Ventanas 2 y 3 (responde `S`). Las containers Docker pueden quedarse arriba.
+## Cerrar
+`Ctrl+C` (responde `S`) en las Ventanas 2 y 3.
