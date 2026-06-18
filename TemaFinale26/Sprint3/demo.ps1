@@ -38,10 +38,13 @@ Start-Sleep 4
 
 # il display web usa MQTT su websocket (porta 9001): l'immagine mosquitto di
 # default NON lo abilita -> lo aggiungo alla config del container (idempotente)
-$wsOn = docker exec mosquitto sh -c "grep -c 'listener 9001' /mosquitto/config/mosquitto.conf" 2>$null
-if ("$wsOn".Trim() -eq "0") {
-    Write-Host "    abilito il listener websockets (9001) di mosquitto ..." -ForegroundColor Yellow
-    docker exec mosquitto sh -c "printf '\nlistener 1883\nprotocol mqtt\n\nlistener 9001\nprotocol websockets\n\nallow_anonymous true\n' >> /mosquitto/config/mosquitto.conf"
+# config mosquitto: 1883 (mqtt) + 9001 (websockets, per la web-gui). SOVRASCRIVO la
+# conf (non append) cosi' e' IDEMPOTENTE: con l'append ripetuto si accumulano listener
+# duplicati e un doppio 'listener 1883' manda mosquitto in 'Address in use' (broker giu').
+$confNow = docker exec mosquitto sh -c "cat /mosquitto/config/mosquitto.conf" 2>$null
+if ("$confNow" -notmatch "(?m)^listener 9001") {
+    Write-Host "    configuro mosquitto: listener 1883 + 9001 (websockets) ..." -ForegroundColor Yellow
+    docker exec mosquitto sh -c "printf 'listener 1883\nprotocol mqtt\n\nlistener 9001\nprotocol websockets\n\nallow_anonymous true\n' > /mosquitto/config/mosquitto.conf"
     docker restart mosquitto | Out-Null
     Start-Sleep 4
 }

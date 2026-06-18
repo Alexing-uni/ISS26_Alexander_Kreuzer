@@ -156,25 +156,38 @@
   // sistema carica quando c'e' una richiesta E un container (D<30 per ~3s).
   // Niente "tieni premuto al momento giusto": qualunque sequenza funziona.
   const dist = document.getElementById("dist"), dval = document.getElementById("dval");
-  dist.addEventListener("input", () => { dval.textContent = dist.value; });
-  // i bottoni rapidi spostano lo slider; ci pensa l'emettitore continuo a inviare
-  document.querySelectorAll(".quick button").forEach(b =>
-    b.addEventListener("click", () => { dist.value = b.dataset.d; dval.textContent = b.dataset.d; }));
-  // emettitore CONTINUO via WEB WORKER: un setInterval normale viene STRANGOLATO
-  // (throttled) dal browser quando la scheda 8095 e' in secondo piano (l'utente
-  // guarda la scena 8090) -> il sensor smette di emettere e il carico va in TIMEOUT.
-  // Il Web Worker gira su un thread separato che NON viene throttlato: il sonar
-  // continua a "misurare" anche con la scheda non in primo piano.
-  function sendDistance(){
-    if (client && client.connected) emit("sonaralarm", "distance(" + dist.value + ")", TOPIC_SONAR);
-  }
+
+  // ---- emettitore CONTINUO del sensor in un WEB WORKER con la PROPRIA conn. MQTT ----
+  // Un timer sul thread principale viene STROZZATO (throttled) quando la scheda 8095
+  // e' in secondo piano / la scena 8090 e' massimizzata: il sonar smette di emettere e
+  // il carico va in TIMEOUT/disengage. Il worker gira su un thread separato CON IL SUO
+  // websocket MQTT: emette di continuo a prescindere dal focus/visibilita' della scheda.
+  // Il thread principale gli comunica solo il valore corrente dello slider.
+  let sensorWorker = null;
   try {
-    const w = new Worker(URL.createObjectURL(new Blob(
-      ["setInterval(function(){postMessage(0)},1000)"], {type:"application/javascript"})));
-    w.onmessage = sendDistance;
+    const wsrc =
+      "importScripts('" + location.origin + "/mqtt.min.js');" +
+      "var D=45,seq=100000,ok=false,c=mqtt.connect('" + BROKER + "');" +
+      "c.on('connect',function(){ok=true;});" +
+      "onmessage=function(e){D=e.data;};" +
+      "setInterval(function(){if(ok){var m='msg(sonaralarm,event,webioport,none,distance('+D+'),'+(++seq)+')';" +
+      "c.publish('" + TOPIC_SONAR + "',m);postMessage(m);}},1000);";
+    sensorWorker = new Worker(URL.createObjectURL(new Blob([wsrc], {type:"application/javascript"})));
+    sensorWorker.onmessage = (e) => log("-> " + e.data);   // log best-effort (puo' rallentare in background, l'emissione NO)
   } catch (e) {
-    setInterval(sendDistance, 1000);   // fallback se i Web Worker non sono disponibili
+    setInterval(() => { if (client && client.connected)     // fallback: timer sul thread principale
+      emit("sonaralarm", "distance(" + dist.value + ")", TOPIC_SONAR); }, 1000);
   }
+
+  // slider + bottoni rapidi: aggiornano il valore e lo comunicano al worker del sensor
+  function setD(v){
+    dist.value = v; dval.textContent = v;
+    if (sensorWorker) sensorWorker.postMessage(parseInt(v, 10));
+  }
+  dist.addEventListener("input", () => setD(dist.value));
+  document.querySelectorAll(".quick button").forEach(b =>
+    b.addEventListener("click", () => setD(b.dataset.d)));
+  setD(dist.value);   // valore iniziale al worker
 
   function log(t){ const d=document.createElement("div");
     d.textContent = new Date().toLocaleTimeString() + "  " + t; logEl.prepend(d); }
