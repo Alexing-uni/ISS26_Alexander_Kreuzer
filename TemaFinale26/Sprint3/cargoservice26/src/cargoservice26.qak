@@ -73,7 +73,7 @@ QActor cargoservice context ctxcargo
       var Oos      = false
       var Retry    = 0     //ritenti del trasporto (robustezza: un passo del DDR puo' fallire)
       var Barcode  = ""    //barcode assegnato dal marker, memorizzato nello slot
-      val StepTime = (System.getProperty("step.time") ?: "700").toInt()   //robot piu' lento ma TOLLERANTE ai cali di frame della scena (asynchstep timeout ~= StepTime). Regolabile: gradlew run -PstepTime=900
+      val StepTime = (System.getProperty("step.time") ?: "345").toInt()   //tempo/passo. L'asynchstep ha timeout ~FISSO: passo > timeout = fallisce. 345 base; per margine si ABBASSA (gradlew run -PstepTime=250); alzarlo lo PEGGIORA.
    #]
    State s0 initial {
       println("$name | starts") color blue

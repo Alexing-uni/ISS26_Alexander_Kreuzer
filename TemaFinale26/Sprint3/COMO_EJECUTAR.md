@@ -81,19 +81,23 @@ Start-Process msedge "--user-data-dir=$env:TEMP\edge_scene --new-window --disabl
 3. Repite PREMI. Al llenar los 4 slots → `reject` (bodega llena, correcto).
 4. **Out of service**: "Guasto sonar (D=95)" unos segundos; **Timeout**: PREMI sin contenedor (D=45) → 30s → `disengaged`.
 
-## Si ves `moverobotfailed` / `robotfailure` (el robot choca y se atasca)
-Causa: el robot va más rápido que la escena WebGL; cuando la escena pierde un frame, el
-paso tarda más que el timeout (`asynchstep failed`) y el robot se desincroniza. **Ya está
-mitigado**: el robot va a `StepTime=700` ms/paso (más lento pero fiable). Si AUN así se
-atasca en tu máquina, **súbelo más** al arrancar cargoservice (Paso 3):
+## Si ves `moverobotfailed` / `robotfailure` (el robot choca/atasca)
+
+**Si falla DESDE EL PRIMER movimiento** (como en tu última prueba), casi siempre es porque:
+- **No abriste la escena (8090)** → el robot no tiene dónde ejecutar los pasos. ABRE el Paso 4.
+- **No recreaste `wenv`** (usaste `up -d` a secas) → escena vieja/degradada. Haz el ÚLTIMO comando del Paso 1:
+  ```powershell
+  docker compose -f C:\Users\Usuario\Desktop\clas_martes\issLab2026\robotsmart26\yamls\unibobasic26.yaml up -d --force-recreate wenv
+  ```
+  y luego reabre la escena (Paso 4).
+
+**Si falla tras 2–3 cargas**: la escena WebGL se ralentiza con el tiempo; el `asynchstep` tiene
+un timeout **~fijo**, y cuando un paso tarda más que ese timeout, falla. Para dar margen,
+**BAJA** el StepTime al arrancar cargoservice (más rápido = el paso termina antes del timeout):
 ```powershell
-.\gradlew.bat run -PioportOpen=false -PstepTime=900     # o 1100 si hace falta
+.\gradlew.bat run -PioportOpen=false -PstepTime=250     # (NO lo subas: subirlo lo empeora)
 ```
-Y si la escena ya quedó degradada, recréala y reábrela (último comando del Paso 1 + Paso 4):
-```powershell
-docker compose -f C:\Users\Usuario\Desktop\clas_martes\issLab2026\robotsmart26\yamls\unibobasic26.yaml up -d --force-recreate wenv
-```
-Mantén la escena **grande y enfocada** mientras el robot se mueve. Para la defensa basta con 2–3 cargas + `reject` + `Out of service`.
+Mantén la escena **grande y enfocada** durante el movimiento. Para la defensa basta con 2–3 cargas + `reject` + `Out of service`.
 
 ## Cerrar
 `Ctrl+C` (responde `S`) en las Ventanas 2 y 3.

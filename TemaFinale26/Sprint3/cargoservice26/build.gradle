@@ -95,9 +95,10 @@ application {
 // Per aprirla A MANO:  .\gradlew.bat run -PioportOpen=false
 run {
     systemProperty 'ioport.open', (project.hasProperty('ioportOpen') ? project.property('ioportOpen') : 'true')
-    // StepTime del robot (ms/passo): piu' alto = piu' lento ma piu' affidabile sulla scena WebGL.
-    // Default 700. Se il robot si incastra ancora:  .\gradlew.bat run -PstepTime=900
-    systemProperty 'step.time',   (project.hasProperty('stepTime')   ? project.property('stepTime')   : '700')
+    // StepTime del robot (ms/passo). Default 345 (valore base che funziona). L'asynchstep
+    // ha timeout ~FISSO: se il passo supera il timeout (scena lenta) fallisce -> ALZARLO peggiora.
+    // Per piu' margine si ABBASSA:  .\gradlew.bat run -PstepTime=250
+    systemProperty 'step.time',   (project.hasProperty('stepTime')   ? project.property('stepTime')   : '345')
 }
 
 jar {
