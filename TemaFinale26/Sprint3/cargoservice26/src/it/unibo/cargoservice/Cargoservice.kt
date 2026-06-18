@@ -42,7 +42,7 @@ class Cargoservice ( name: String, scope: CoroutineScope, isconfined: Boolean=fa
 		 var Retry    = 0     //ritenti del trasporto (robustezza)
 		 var Oos      = false
 		 var Barcode  = ""    //SPRINT3: barcode assegnato dal marker, memorizzato nello slot
-		 val StepTime = 345
+		 val StepTime = (System.getProperty("step.time") ?: "700").toInt()   //SPRINT3: piu' alto = robot piu' lento ma piu' TOLLERANTE ai cali di frame della scena (l'asynchstep ha timeout ~= StepTime; con 345 bastava un frame perso per fallire). Regolabile: gradlew run -PstepTime=900
 		return { //this:ActionBasciFsm
 				state("s0") { //this:State
 					action { //it:State

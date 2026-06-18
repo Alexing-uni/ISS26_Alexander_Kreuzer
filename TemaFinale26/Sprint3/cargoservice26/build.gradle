@@ -95,6 +95,9 @@ application {
 // Per aprirla A MANO:  .\gradlew.bat run -PioportOpen=false
 run {
     systemProperty 'ioport.open', (project.hasProperty('ioportOpen') ? project.property('ioportOpen') : 'true')
+    // StepTime del robot (ms/passo): piu' alto = piu' lento ma piu' affidabile sulla scena WebGL.
+    // Default 700. Se il robot si incastra ancora:  .\gradlew.bat run -PstepTime=900
+    systemProperty 'step.time',   (project.hasProperty('stepTime')   ? project.property('stepTime')   : '700')
 }
 
 jar {
